@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/screens/materials_list_screen.dart';
+import 'package:glaze_manager/screens/glaze_list_screen.dart';
 import 'package:glaze_manager/services/auth_service.dart';
 import 'package:provider/provider.dart';
 
@@ -44,10 +45,9 @@ class HomeScreen extends StatelessWidget {
             icon: Icons.color_lens_outlined,
             title: '釉薬レシピ管理',
             onTap: () {
-              // TODO: 釉薬レシピ一覧画面へ遷移
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('この機能は現在開発中です。')),
-              );
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (context) => const GlazeListScreen(),
+              ));
             },
           ),
           // 今後、釉薬レシピ管理などのカードをここに追加していく
