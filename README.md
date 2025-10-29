@@ -1,16 +1,96 @@
-# glaze_manager
+# glaze-manager
 
-A new Flutter project.
+## 釉薬レシピ管理アプリ 仕様書 (Flutter + Firebase)
 
-## Getting Started
+### 1. アプリ概要
+個人利用を想定した、陶芸用の釉薬（うわぐすり）レシピ管理アプリケーション。
+釉薬の調合（配合）情報と、それを用いたテストピース（焼成結果）を関連付けて管理し、特に**オフライン環境でも利用できる**ことを目的とする。
 
-This project is a starting point for a Flutter application.
+### 2. 動作環境・技術スタック
+* **ターゲットプラットフォーム:**
+    * Windows
+    * macOS
+    * Android
+* **オフライン対応:**
+    * **必須。** オフライン時にもデータの閲覧・編集が可能で、オンライン復帰時に自動同期されること。
+* **技術スタック:**
+    * フロントエンド (クライアント): **Flutter (Dart)**
+    * バックエンド (BaaS): **Firebase**
+* **コスト要件:**
+    * サーバー費用を発生させず、Firebase の無料枠（Sparkプラン）での運用を前提とする。
 
-A few resources to get you started if this is your first Flutter project:
+### 3. Firebase サービス構成案
+Firebase の各サービスを以下の役割で利用する。
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+* **Authentication (認証):**
+    * ユーザー管理。Google アカウント等でログインし、全データをユーザーIDに紐付ける。
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+* **Cloud Firestore (データベース):**
+    * **役割:** メインデータベース。**オフライン同期機能**を全面的に活用する。3つの主要コレクション（テーブル）で構成する。
+    * **保存データ (コレクション):**
+        * **1. 原料 (Materials):**
+            * ユーザーが管理する原料マスター。
+            * 格納データ: `材料名`, `化学成分比` (例: SiO₂, Al₂O₃などのマップ)
+        * **2. 釉薬 (Glazes):**
+            * 釉薬の基本レシピ。
+            * 格納データ: `釉薬名`, `調合` (Materialsへの参照IDと配合量のマップ配列), `タグ` (配列)
+        * **3. テストピース (TestPieces):**
+            * 釉薬の焼成結果。
+            * 格納データ: `釉薬ID` (Glazesへの参照), `焼成温度曲線` (CSVパス or 文字列データ), `素地土名`, `画像パス` (Storageへのパス), `色味データ` (数値化済)
+
+* **Cloud Storage (ストレージ):**
+    * **役割:** `TestPieces` コレクションに紐付く、**テストピース画像**（JPEG/PNG等）のファイル保存場所。
+
+* **Cloud Functions (サーバーレス関数):**
+    * **役割:** (推奨) 画像アップロードをトリガーとしたサーバーサイド処理。
+    * **処理内容:** Storage に画像がアップロードされたら、それをトリガーに画像処理を実行。色味データを数値化（例: L\*a\*b\*値）し、Firestore の該当する **`TestPieces` ドキュメント**にその数値を書き込む（色味検索のため）。
+
+### 4. 主要機能要件
+
+#### 4.1. ユーザー認証機能
+* Firebase Authentication によるログイン・ログアウト機能。
+
+#### 4.2. 原料データベース管理 (Materials)
+* 釉薬に使用する原料（例: 福島長石）を登録・編集・削除 (CRUD) できる。
+* 各原料には、ゼーゲル式の計算に必要となる化学成分比を入力できる。
+
+#### 4.3. 釉薬データ管理 (Glazes)
+* **登録・編集:**
+    * 釉薬名
+    * 調合（原料DBから原料を選択し、配合量を入力）
+    * タグ（例: "マット", "食器用不可"など。複数指定可）
+* **閲覧:**
+    * 登録済み釉薬の一覧表示、詳細表示。
+
+#### 4.4. テストピース管理 (TestPieces)
+* **登録・編集:**
+    * 対象となる釉薬（Glazes）の選択
+    * 焼成温度曲線（CSVデータ等）
+    * 使用した素地土名
+    * テストピース画像（Storageへアップロード）
+* **閲覧:**
+    * テストピースの一覧表示、詳細表示（関連する釉薬レシピも表示）。
+
+#### 4.5. 検索機能
+* **タグ検索:**
+    * `Glazes` コレクションを対象。指定したタグ（複数可）を含む釉薬を検索・絞り込みする。
+* **色味検索:**
+    * `TestPieces` コレクションを対象。ユーザーが指定した色（カラーピッカー等）に基づき、登録済みの `色味データ` から近い色のテストピースを検索する。
+
+### 5. PoC (概念実証) のスコープ
+まず、以下の核となる機能が **Flutter + Firebase** の構成で、クロスプラットフォーム（Windows, Android, macOS）で動作することを確認する。
+
+1.  Firebase Authentication による認証
+2.  **`Materials`** コレクションの CRUD
+3.  **`Glazes`** コレクションの CRUD
+4.  **`TestPieces`** コレクションの CRUD（特に画像 (Storage) と `Glazes` (Firestore) を連携させる部分）
+5.  **Cloud Firestore のオフライン同期の動作確認** (オフラインでの編集 → オンライン復帰時の自動同期)
+
+### 6. 将来実装（PoC以降）
+PoC の検証後、以下の分析機能を実装する。
+
+* **類似釉薬の確認:**
+    * `Glazes` の `調合` データを分析し、「ある材料1種類の配合量だけが異なる釉薬」を自動でリストアップする機能。
+* **ゼーゲル式関連機能:**
+    * `Materials` の化学成分比に基づき、`Glazes` のゼーゲル式を自動計算する。
+    * ゼーゲル式に基づき、特定の原料を別の原料で代替する際の配合を提案する。
