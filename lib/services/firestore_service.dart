@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:glaze_manager/models/material.dart';
 import 'package:glaze_manager/models/glaze.dart';
+import 'package:glaze_manager/models/test_piece.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -95,5 +96,43 @@ class FirestoreService {
     if (_userId == null) throw Exception("User not logged in");
     // TODO: 関連する画像もStorageから削除する処理を追加するのが望ましい
     await _db.collection('users').doc(_userId).collection('glazes').doc(glazeId).delete();
+  }
+
+  // --- TestPiece Methods ---
+
+  // テストピースを追加
+  Future<void> addTestPiece(TestPiece testPiece) async {
+    if (_userId == null) throw Exception("User not logged in");
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('test_pieces')
+        .add(testPiece.toFirestore());
+  }
+
+  // テストピース一覧を取得 (リアルタイム)
+  Stream<List<TestPiece>> getTestPieces() {
+    if (_userId == null) return Stream.value([]);
+    return _db
+        .collection('users')
+        .doc(_userId)
+        .collection('test_pieces')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => TestPiece.fromFirestore(doc)).toList());
+  }
+
+  // テストピースを更新
+  Future<void> updateTestPiece(TestPiece testPiece) async {
+    if (_userId == null) throw Exception("User not logged in");
+    if (testPiece.id == null) throw Exception("TestPiece ID is required for update");
+    await _db.collection('users').doc(_userId).collection('test_pieces').doc(testPiece.id).update(testPiece.toFirestore());
+  }
+
+  // テストピースを削除
+  Future<void> deleteTestPiece(String testPieceId) async {
+    if (_userId == null) throw Exception("User not logged in");
+    // TODO: 関連する画像もStorageから削除する処理を追加するのが望ましい
+    await _db.collection('users').doc(_userId).collection('test_pieces').doc(testPieceId).delete();
   }
 }
