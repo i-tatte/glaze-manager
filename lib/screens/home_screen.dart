@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/screens/materials_list_screen.dart';
 import 'package:glaze_manager/screens/glaze_list_screen.dart';
-import 'package:glaze_manager/services/auth_service.dart';
-import 'package:provider/provider.dart';
+import 'package:glaze_manager/screens/test_piece_list_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -50,7 +49,17 @@ class HomeScreen extends StatelessWidget {
               ));
             },
           ),
-          // 今後、釉薬レシピ管理などのカードをここに追加していく
+          const SizedBox(height: 16),
+          _buildMenuCard(
+            context,
+            icon: Icons.photo_library_outlined,
+            title: 'テストピース管理',
+            onTap: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (context) => const TestPieceListScreen(),
+              ));
+            },
+          ),
         ],
       ),
     );
