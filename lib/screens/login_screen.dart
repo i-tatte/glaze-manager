@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/services/auth_service.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:provider/provider.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -8,6 +9,9 @@ class LoginScreen extends StatefulWidget {
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
+
+// サインイン方法を識別するためのenum
+enum AuthMethod { anonymous, google }
 
 class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
@@ -34,43 +38,94 @@ class _LoginScreenState extends State<LoginScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
-            const Text(
-              'ユーザー認証機能は今後のアップデートにより追加予定です。',
+             const Text(
+              'サインイン方法を選択してください。',
               style: TextStyle(fontSize: 16),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 40),
             _isLoading
                 ? const CircularProgressIndicator()
-                : SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.arrow_forward),
-                      label: const Text(
-                        'アプリを始める',
-                        style: TextStyle(fontSize: 18),
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.person_outline),
+                          label: const Text(
+                            '匿名で始める',
+                            style: TextStyle(fontSize: 18),
+                          ),
+                          onPressed: () => _signIn(AuthMethod.anonymous),
+                        ),
                       ),
-                      onPressed: _signIn, // ロジックをメソッドに分離
-                    ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          // Googleアイコンは別途画像アセットを用意するか、標準アイコンで代用します
+                          icon: const Icon(Icons.login),
+                          label: const Text(
+                            'Googleでサインイン',
+                            style: TextStyle(fontSize: 18),
+                          ),
+                          onPressed: () => _signIn(AuthMethod.google),
+                        ),
+                      ),
+                    ],
                   ),
           ],
         ),
       ),
     );
   }
-
-  /// サインイン処理
-  Future<void> _signIn() async {
+  
+  Future<void> _signIn(AuthMethod method) async {
+    // 匿名ログインの場合、警告ダイアログを表示
+    if (method == AuthMethod.anonymous) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('匿名ログインの注意点'),
+          content: const Text('匿名ログインでは、アプリを削除したり機種変更した場合にデータを引き継ぐことができません。\n\nGoogleサインインで始めると、別デバイスでも同じデータを利用できます。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('キャンセル'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('匿名で続ける'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return; // 匿名ログインをキャンセル
+    }
     setState(() {
       _isLoading = true;
     });
 
-    final authService = Provider.of<AuthService>(context, listen: false);
-    await authService.signInAnonymously();
-
-    // このウィジェットがまだマウントされている場合でも、
-    // 認証状態の変更で画面遷移するため、isLoadingをfalseに戻す必要はありません。
-    // もしサインインに失敗して画面に留まる場合は、falseに戻す処理が必要です。
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      switch (method) {
+        case AuthMethod.anonymous:
+          await authService.signInAnonymously();
+          break;
+        case AuthMethod.google:
+          await authService.signInWithGoogle();
+          break;
+      }
+    } catch (e) {
+      // Googleサインインのダイアログを閉じた場合など、ユーザー起因のキャンセルはエラー表示しない
+      if (e is! GoogleSignInCanceled) {
+        debugPrint("Sign-in failed: $e");
+      }
+    }
+    // 成功時はAuthWrapperが画面遷移をハンドルするが、失敗時やキャンセル時に備えてローディングを解除
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
 }
