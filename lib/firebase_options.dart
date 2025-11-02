@@ -56,6 +56,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '942515568123',
     projectId: 'glaze-manager',
     storageBucket: 'glaze-manager.firebasestorage.app',
+    androidClientId: '942515568123-g7d6nih90qkc70t17i8qaqka6dcmr6ah.apps.googleusercontent.com'
   );
 
   static const FirebaseOptions ios = FirebaseOptions(

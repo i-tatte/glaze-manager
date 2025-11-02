@@ -2,28 +2,46 @@ import 'package:flutter/material.dart';
 import 'package:glaze_manager/screens/materials_list_screen.dart';
 import 'package:glaze_manager/screens/glaze_list_screen.dart';
 import 'package:glaze_manager/screens/test_piece_list_screen.dart';
+import 'package:glaze_manager/services/auth_service.dart';
+import 'package:provider/provider.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // final authService = Provider.of<AuthService>(context, listen: false);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('釉薬レシピ管理'),
-        // actions: [
-        //   IconButton(
-        //     icon: const Icon(Icons.logout),
-        //     tooltip: 'サインアウト',
-        //     onPressed: () async {
-        //       // 確認ダイアログなどを表示しても良い
-        //       final authService = Provider.of<AuthService>(context, listen: false);
-        //       await authService.signOut();
-        //     },
-        //   ),
-        // ],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'サインアウト',
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('サインアウト'),
+                  content: const Text('本当にサインアウトしますか？'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('キャンセル'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text('サインアウト'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true) {
+                final authService = Provider.of<AuthService>(context, listen: false);
+                await authService.signOut();
+              }
+            },
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),

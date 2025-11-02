@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
+import 'package:desktop_webview_auth/desktop_webview_auth.dart';
+import 'package:desktop_webview_auth/google.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -22,15 +24,59 @@ class AuthService {
     }
   }
   
-  // /// Googleでサインイン (将来的に実装)
-  // Future<User?> signInWithGoogle() async {
-  //   // to be implemented
-  // }
+  // /// Googleでサインイン
+  Future<UserCredential?> signInWithGoogle() async {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        // Trigger the authentication flow
+        final signin = GoogleSignIn.instance;
+        await signin.initialize(
+          serverClientId: '942515568123-g7d6nih90qkc70t17i8qaqka6dcmr6ah.apps.googleusercontent.com',
+        );
+        final GoogleSignInAccount? googleUser = await signin.authenticate();
+
+        // Obtain the auth details from the request
+        final GoogleSignInAuthentication? googleAuth = googleUser?.authentication;
+
+        // Create a new credential
+        final credential = GoogleAuthProvider.credential(idToken: googleAuth?.idToken);
+
+        // Once signed in, return the UserCredential
+        return await FirebaseAuth.instance.signInWithCredential(credential);
+      case TargetPlatform.windows:
+        final googleSignInArgs = GoogleSignInArgs(
+          clientId:
+            '942515568123-g7d6nih90qkc70t17i8qaqka6dcmr6ah.apps.googleusercontent.com',
+          redirectUri:
+            'https://glaze-manager.firebaseapp.com/__/auth/handler',
+          scope: 'email',
+        );
+    
+        try {
+          final result = await DesktopWebviewAuth.signIn(googleSignInArgs);
+          if (result?.accessToken == null) {
+            throw GoogleSignInCanceled();
+          }
+          final credential = GoogleAuthProvider.credential(accessToken: result?.accessToken);
+          final userCredential = await _auth.signInWithCredential(credential);
+          return userCredential;
+        } catch (err) {
+          // something went wrong
+          //print(err);
+          return null;
+        }
+      case TargetPlatform.macOS:
+      default:
+      return null;
+    }
+    
+  }
 
   /// サインアウト
   Future<void> signOut() async {
-    // 匿名認証の場合、通常サインアウトは不要ですが、
-    // デバッグやアカウント切り替えのために実装しておきます。
     await _auth.signOut();
   }
 }
+
+/// Googleサインインがユーザーによってキャンセルされたことを示すためのカスタム例外
+class GoogleSignInCanceled implements Exception {}
