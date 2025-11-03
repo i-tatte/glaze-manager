@@ -6,6 +6,7 @@ import 'package:glaze_manager/screens/auth_wrapper.dart';
 import 'package:glaze_manager/services/auth_service.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/storage_service.dart';
+import 'package:glaze_manager/services/settings_service.dart';
 import 'firebase_options.dart'; // flutterfire configure で生成されたファイル
 import 'package:provider/provider.dart';
 
@@ -31,6 +32,9 @@ class AppProviders extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider<SettingsService>(
+          create: (_) => SettingsService(),
+        ),
         Provider<AuthService>(create: (_) => AuthService()),
         Provider<FirestoreService>(create: (_) => FirestoreService()),
         Provider<StorageService>(create: (_) => StorageService()),

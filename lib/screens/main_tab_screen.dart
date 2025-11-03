@@ -1,0 +1,144 @@
+import 'package:flutter/material.dart';
+import 'package:glaze_manager/screens/glaze_list_screen.dart';
+import 'package:glaze_manager/screens/materials_list_screen.dart';
+import 'package:glaze_manager/screens/settings_screen.dart';
+import 'package:glaze_manager/screens/test_piece_list_screen.dart';
+import 'package:glaze_manager/services/auth_service.dart';
+import 'package:provider/provider.dart';
+
+class MainTabScreen extends StatefulWidget {
+  const MainTabScreen({super.key});
+
+  @override
+  State<MainTabScreen> createState() => _MainTabScreenState();
+}
+
+class _MainTabScreenState extends State<MainTabScreen> {
+  int _selectedIndex = 0;
+  late final List<Widget> _widgetOptions;
+
+  // 原料一覧画面の編集状態を管理するNotifier
+  final _isMaterialsEditingNotifier = ValueNotifier<bool>(false);
+
+  // 各タブに対応する画面ウィジェットのリスト
+  // 今後タブを増減させる場合は、このリストと _bottomNavigationBarItems を修正します。
+  // static const List<Widget> _widgetOptions = <Widget>[
+  //   TestPieceListScreen(),
+  //   GlazeListScreen(),
+  //   MaterialsListScreen(),
+  //   SettingsScreen(),
+  // ];
+
+  @override
+  void initState() {
+    super.initState();
+    _widgetOptions = <Widget>[
+      const TestPieceListScreen(),
+      const GlazeListScreen(),
+      MaterialsListScreen(isEditingNotifier: _isMaterialsEditingNotifier),
+      const SettingsScreen(),
+    ];
+  }
+
+  // 各タブのタイトル
+  static const List<String> _appBarTitles = <String>[
+    'テストピース一覧',
+    '釉薬一覧',
+    '原料一覧',
+    '設定',
+  ];
+
+  // BottomNavigationBarItem のリスト
+  static const List<BottomNavigationBarItem> _bottomNavigationBarItems = [
+    BottomNavigationBarItem(
+      icon: Icon(Icons.photo_library_outlined),
+      activeIcon: Icon(Icons.photo_library),
+      label: 'テストピース',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.color_lens_outlined),
+      activeIcon: Icon(Icons.color_lens),
+      label: '釉薬',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.science_outlined),
+      activeIcon: Icon(Icons.science),
+      label: '原料',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.settings_outlined),
+      activeIcon: Icon(Icons.settings),
+      label: '設定',
+    ),
+  ];
+
+  void _onItemTapped(int index) {
+    // 他のタブに移動したら、原料一覧の編集モードを自動的に解除する
+    if (_selectedIndex == 2 && index != 2) {
+      if (_isMaterialsEditingNotifier.value) {
+        _isMaterialsEditingNotifier.value = false;
+      }
+    }
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_appBarTitles[_selectedIndex]),
+        actions: [
+          // 原料一覧画面(index: 2)でのみ編集ボタンを表示
+          if (_selectedIndex == 2)
+            // isEditingNotifierの状態が変更されるたびにAppBarのボタンも再描画
+            ValueListenableBuilder<bool>(
+              valueListenable: _isMaterialsEditingNotifier,
+              builder: (context, _, __) => Row(
+                children: MaterialsListScreen.buildActions(
+                  context,
+                  _isMaterialsEditingNotifier,
+                ),
+              ),
+            ),
+          // 設定画面でのみサインアウトボタンを表示
+          if (_selectedIndex == 3)
+            IconButton(
+              icon: const Icon(Icons.logout),
+              tooltip: 'サインアウト',
+              onPressed: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('サインアウト'),
+                    content: const Text('本当にサインアウトしますか？'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('キャンセル'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text('サインアウト'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed == true) {
+                  await context.read<AuthService>().signOut();
+                }
+              },
+            ),
+        ],
+      ),
+      body: IndexedStack(index: _selectedIndex, children: _widgetOptions),
+      bottomNavigationBar: BottomNavigationBar(
+        items: _bottomNavigationBarItems,
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+        type: BottomNavigationBarType.fixed, // タブが4つ以上でもレイアウトを維持
+      ),
+    );
+  }
+}

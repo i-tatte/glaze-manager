@@ -5,15 +5,32 @@ import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:provider/provider.dart';
 
 class MaterialsListScreen extends StatefulWidget {
-  const MaterialsListScreen({super.key});
+  // MainTabScreenから編集状態を監視するためのValueNotifierを受け取る
+  final ValueNotifier<bool> isEditingNotifier;
+
+  const MaterialsListScreen({super.key, required this.isEditingNotifier});
+
+  // AppBarに表示するアクションボタンを生成する静的メソッド
+  // MainTabScreenから呼び出される
+  static List<Widget> buildActions(
+    BuildContext context,
+    ValueNotifier<bool> isEditingNotifier,
+  ) {
+    // isEditingNotifierの値を元にボタンのテキストを決定
+    final isEditing = isEditingNotifier.value;
+    return [
+      TextButton(
+        onPressed: () => isEditingNotifier.value = !isEditing,
+        child: Text(isEditing ? '完了' : '編集'),
+      ),
+    ];
+  }
 
   @override
   State<MaterialsListScreen> createState() => _MaterialsListScreenState();
 }
 
 class _MaterialsListScreenState extends State<MaterialsListScreen> {
-  bool _isEditing = false;
-
   @override
   Widget build(BuildContext context) {
     final firestoreService = Provider.of<FirestoreService>(
@@ -21,103 +38,103 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
       listen: false,
     );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('原料一覧'),
-        actions: [
-          TextButton(
-            child: Text(
-              _isEditing ? '完了' : '編集',
-              style: TextStyle(color: Colors.black),
+    // ValueListenableBuilderでNotifierの変更を監視し、UIを再描画する
+    return ValueListenableBuilder<bool>(
+      valueListenable: widget.isEditingNotifier,
+      builder: (context, isEditing, child) {
+        return Stack(
+          children: [
+            StreamBuilder<List<app.Material>>(
+              stream: firestoreService.getMaterials(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('エラーが発生しました: ${snapshot.error}'));
+                }
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      '原料が登録されていません。\n右下のボタンから追加してください。',
+                      textAlign: TextAlign.center,
+                    ),
+                  );
+                }
+
+                final materials = snapshot.data!;
+
+                if (isEditing) {
+                  return ReorderableListView.builder(
+                    itemCount: materials.length,
+                    itemBuilder: (context, index) {
+                      final material = materials[index];
+                      return _buildReorderableTile(
+                        context,
+                        material,
+                        index,
+                        firestoreService,
+                      );
+                    },
+                    onReorder: (oldIndex, newIndex) {
+                      // onReorder内でsetStateを呼ぶ必要はない
+                      if (newIndex > oldIndex) {
+                        newIndex -= 1;
+                      }
+                      final item = materials.removeAt(oldIndex);
+                      materials.insert(newIndex, item);
+                      // Firestoreの順序を一括更新
+                      firestoreService.updateMaterialOrder(materials);
+                    },
+                  );
+                } else {
+                  return ListView.builder(
+                    itemCount: materials.length,
+                    itemBuilder: (context, index) {
+                      final material = materials[index];
+                      return ListTile(
+                        title: Text(material.name),
+                        subtitle: Text('成分数: ${material.components.length}'),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  MaterialEditScreen(material: material),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  );
+                }
+              },
             ),
-            onPressed: () => setState(() => _isEditing = !_isEditing),
-          ),
-        ],
-      ),
-      body: StreamBuilder<List<app.Material>>(
-        stream: firestoreService.getMaterials(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('エラーが発生しました: ${snapshot.error}'));
-          }
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(
-              child: Text(
-                '原料が登録されていません。\n右下のボタンから追加してください。',
-                textAlign: TextAlign.center,
+            Positioned(
+              bottom: 16.0,
+              right: 16.0,
+              child: FloatingActionButton(
+                heroTag: 'materialsListFab', // ユニークなタグを追加
+                // 編集モード中はFABを非表示にする
+                onPressed: isEditing
+                    ? null
+                    : () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            // 引数を渡さない場合は新規作成モード
+                            builder: (context) => const MaterialEditScreen(),
+                          ),
+                        );
+                      },
+                backgroundColor: isEditing
+                    ? Colors.grey
+                    : Theme.of(context).colorScheme.primary,
+                foregroundColor: isEditing ? Colors.black54 : Colors.white,
+                child: const Icon(Icons.add),
               ),
-            );
-          }
-
-          final materials = snapshot.data!;
-
-          if (_isEditing) {
-            return ReorderableListView.builder(
-              itemCount: materials.length,
-              itemBuilder: (context, index) {
-                final material = materials[index];
-                return _buildReorderableTile(
-                  context,
-                  material,
-                  index,
-                  firestoreService,
-                );
-              },
-              onReorder: (oldIndex, newIndex) {
-                setState(() {
-                  if (newIndex > oldIndex) {
-                    newIndex -= 1;
-                  }
-                  final item = materials.removeAt(oldIndex);
-                  materials.insert(newIndex, item);
-                  // Firestoreの順序を一括更新
-                  firestoreService.updateMaterialOrder(materials);
-                });
-              },
-            );
-          } else {
-            return ListView.builder(
-              itemCount: materials.length,
-              itemBuilder: (context, index) {
-                final material = materials[index];
-                return ListTile(
-                  title: Text(material.name),
-                  subtitle: Text('成分数: ${material.components.length}'),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            MaterialEditScreen(material: material),
-                      ),
-                    );
-                  },
-                );
-              },
-            );
-          }
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
-        // 編集モード中はFABを非表示にする
-        onPressed: _isEditing
-            ? null
-            : () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    // 引数を渡さない場合は新規作成モード
-                    builder: (context) => const MaterialEditScreen(),
-                  ),
-                );
-              },
-        backgroundColor: _isEditing
-            ? Colors.grey
-            : Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.white,
-      ),
+            ),
+          ],
+        );
+      },
     );
   }
 
