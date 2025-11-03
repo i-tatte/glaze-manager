@@ -14,9 +14,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Firebaseを初期化
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // ★★★ Firestoreのオフライン永続化を有効化 ★★★
   FirebaseFirestore.instance.settings = const Settings(
@@ -33,22 +31,15 @@ class AppProviders extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        Provider<AuthService>(
-          create: (_) => AuthService(),
-        ),
-        Provider<FirestoreService>(
-          create: (_) => FirestoreService(),
-        ),
-        Provider<StorageService>(
-          create: (_) => StorageService(),
-        ),
+        Provider<AuthService>(create: (_) => AuthService()),
+        Provider<FirestoreService>(create: (_) => FirestoreService()),
+        Provider<StorageService>(create: (_) => StorageService()),
       ],
       child: MaterialApp(
         title: 'Glaze Recipe App',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-        ),
-        home: const AuthWrapper(), // 認証状態に応じて表示を切り替えるWidget (screens/auth_wrapper.dart)
+        theme: ThemeData(primarySwatch: Colors.blue),
+        home:
+            const AuthWrapper(), // 認証状態に応じて表示を切り替えるWidget (screens/auth_wrapper.dart)
       ),
     );
   }

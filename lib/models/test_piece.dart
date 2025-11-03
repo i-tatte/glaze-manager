@@ -20,7 +20,8 @@ class TestPiece {
   });
 
   factory TestPiece.fromFirestore(
-      DocumentSnapshot<Map<String, dynamic>> snapshot) {
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) {
     final data = snapshot.data()!;
     return TestPiece(
       id: snapshot.id,

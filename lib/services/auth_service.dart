@@ -16,48 +16,54 @@ class AuthService {
   Future<User?> signInAnonymously() async {
     try {
       final userCredential = await _auth.signInAnonymously();
-      debugPrint("Signed in anonymously with user: ${userCredential.user?.uid}");
+      debugPrint(
+        "Signed in anonymously with user: ${userCredential.user?.uid}",
+      );
       return userCredential.user;
     } catch (e) {
       debugPrint("Error signing in anonymously: $e");
       return null;
     }
   }
-  
-  // /// Googleでサインイン
+
+  /// Googleでサインイン
   Future<UserCredential?> signInWithGoogle() async {
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         // Trigger the authentication flow
         final signin = GoogleSignIn.instance;
         await signin.initialize(
-          serverClientId: '942515568123-g7d6nih90qkc70t17i8qaqka6dcmr6ah.apps.googleusercontent.com',
+          serverClientId:
+              '942515568123-g7d6nih90qkc70t17i8qaqka6dcmr6ah.apps.googleusercontent.com',
         );
-        final GoogleSignInAccount? googleUser = await signin.authenticate();
+        final GoogleSignInAccount googleUser = await signin.authenticate();
 
         // Obtain the auth details from the request
-        final GoogleSignInAuthentication? googleAuth = googleUser?.authentication;
+        final GoogleSignInAuthentication googleAuth = googleUser.authentication;
 
         // Create a new credential
-        final credential = GoogleAuthProvider.credential(idToken: googleAuth?.idToken);
+        final credential = GoogleAuthProvider.credential(
+          idToken: googleAuth.idToken,
+        );
 
         // Once signed in, return the UserCredential
         return await FirebaseAuth.instance.signInWithCredential(credential);
       case TargetPlatform.windows:
         final googleSignInArgs = GoogleSignInArgs(
           clientId:
-            '942515568123-g7d6nih90qkc70t17i8qaqka6dcmr6ah.apps.googleusercontent.com',
-          redirectUri:
-            'https://glaze-manager.firebaseapp.com/__/auth/handler',
+              '942515568123-g7d6nih90qkc70t17i8qaqka6dcmr6ah.apps.googleusercontent.com',
+          redirectUri: 'https://glaze-manager.firebaseapp.com/__/auth/handler',
           scope: 'email',
         );
-    
+
         try {
           final result = await DesktopWebviewAuth.signIn(googleSignInArgs);
           if (result?.accessToken == null) {
             throw GoogleSignInCanceled();
           }
-          final credential = GoogleAuthProvider.credential(accessToken: result?.accessToken);
+          final credential = GoogleAuthProvider.credential(
+            accessToken: result?.accessToken,
+          );
           final userCredential = await _auth.signInWithCredential(credential);
           return userCredential;
         } catch (err) {
@@ -67,9 +73,8 @@ class AuthService {
         }
       case TargetPlatform.macOS:
       default:
-      return null;
+        return null;
     }
-    
   }
 
   /// サインアウト

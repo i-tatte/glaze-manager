@@ -30,14 +30,17 @@ class FirestoreService {
         .collection('materials')
         .orderBy('order') // orderフィールドで並び替え
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Material.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Material.fromFirestore(doc)).toList(),
+        );
   }
 
   // 原料を更新
   Future<void> updateMaterial(Material material) async {
     if (_userId == null) throw Exception("User not logged in");
-    if (material.id == null) throw Exception("Material ID is required for update");
+    if (material.id == null)
+      throw Exception("Material ID is required for update");
     await _db
         .collection('users')
         .doc(_userId)
@@ -49,7 +52,12 @@ class FirestoreService {
   // 原料を削除
   Future<void> deleteMaterial(String materialId) async {
     if (_userId == null) throw Exception("User not logged in");
-    await _db.collection('users').doc(_userId).collection('materials').doc(materialId).delete();
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('materials')
+        .doc(materialId)
+        .delete();
   }
 
   // 複数の原料の並び順を更新
@@ -59,7 +67,11 @@ class FirestoreService {
     final batch = _db.batch();
     for (int i = 0; i < materials.length; i++) {
       final material = materials[i];
-      final docRef = _db.collection('users').doc(_userId).collection('materials').doc(material.id);
+      final docRef = _db
+          .collection('users')
+          .doc(_userId)
+          .collection('materials')
+          .doc(material.id);
       batch.update(docRef, {'order': i});
     }
     await batch.commit();
@@ -70,7 +82,11 @@ class FirestoreService {
   // 釉薬を追加
   Future<void> addGlaze(Glaze glaze) async {
     if (_userId == null) throw Exception("User not logged in");
-    await _db.collection('users').doc(_userId).collection('glazes').add(glaze.toFirestore());
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('glazes')
+        .add(glaze.toFirestore());
   }
 
   // 釉薬一覧を取得 (リアルタイム)
@@ -81,21 +97,34 @@ class FirestoreService {
         .doc(_userId)
         .collection('glazes')
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Glaze.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Glaze.fromFirestore(doc)).toList(),
+        );
   }
 
   // 釉薬を更新
   Future<void> updateGlaze(Glaze glaze) async {
     if (_userId == null) throw Exception("User not logged in");
     if (glaze.id == null) throw Exception("Glaze ID is required for update");
-    await _db.collection('users').doc(_userId).collection('glazes').doc(glaze.id).update(glaze.toFirestore());
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('glazes')
+        .doc(glaze.id)
+        .update(glaze.toFirestore());
   }
 
   // 釉薬を削除
   Future<void> deleteGlaze(String glazeId) async {
     if (_userId == null) throw Exception("User not logged in");
     // TODO: 関連する画像もStorageから削除する処理を追加するのが望ましい
-    await _db.collection('users').doc(_userId).collection('glazes').doc(glazeId).delete();
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('glazes')
+        .doc(glazeId)
+        .delete();
   }
 
   // --- TestPiece Methods ---
@@ -119,20 +148,34 @@ class FirestoreService {
         .collection('test_pieces')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => TestPiece.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => TestPiece.fromFirestore(doc)).toList(),
+        );
   }
 
   // テストピースを更新
   Future<void> updateTestPiece(TestPiece testPiece) async {
     if (_userId == null) throw Exception("User not logged in");
-    if (testPiece.id == null) throw Exception("TestPiece ID is required for update");
-    await _db.collection('users').doc(_userId).collection('test_pieces').doc(testPiece.id).update(testPiece.toFirestore());
+    if (testPiece.id == null)
+      throw Exception("TestPiece ID is required for update");
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('test_pieces')
+        .doc(testPiece.id)
+        .update(testPiece.toFirestore());
   }
 
   // テストピースを削除
   Future<void> deleteTestPiece(String testPieceId) async {
     if (_userId == null) throw Exception("User not logged in");
     // TODO: 関連する画像もStorageから削除する処理を追加するのが望ましい
-    await _db.collection('users').doc(_userId).collection('test_pieces').doc(testPieceId).delete();
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('test_pieces')
+        .doc(testPieceId)
+        .delete();
   }
 }

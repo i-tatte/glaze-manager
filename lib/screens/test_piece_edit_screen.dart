@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/glaze.dart';
@@ -34,8 +35,12 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   @override
   void initState() {
     super.initState();
-    _clayNameController = TextEditingController(text: widget.testPiece?.clayName ?? '');
-    _firingCurveController = TextEditingController(text: widget.testPiece?.firingCurve ?? '');
+    _clayNameController = TextEditingController(
+      text: widget.testPiece?.clayName ?? '',
+    );
+    _firingCurveController = TextEditingController(
+      text: widget.testPiece?.firingCurve ?? '',
+    );
     _selectedGlazeId = widget.testPiece?.glazeId;
     _networkImageUrl = widget.testPiece?.imageUrl;
 
@@ -46,7 +51,10 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   }
 
   Future<void> _loadGlazes() async {
-    final firestoreService = Provider.of<FirestoreService>(context, listen: false);
+    final firestoreService = Provider.of<FirestoreService>(
+      context,
+      listen: false,
+    );
     _availableGlazes = await firestoreService.getGlazes().first;
     // 初回ロード時はダーティ状態にしない
     setState(() {});
@@ -83,22 +91,35 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       return;
     }
     if (_selectedGlazeId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('釉薬を選択してください。')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('釉薬を選択してください。')));
       return;
     }
 
     setState(() => _isLoading = true);
 
+    final navigator = Navigator.of(context);
     try {
-      final firestoreService = Provider.of<FirestoreService>(context, listen: false);
-      final storageService = Provider.of<StorageService>(context, listen: false);
+      final firestoreService = Provider.of<FirestoreService>(
+        context,
+        listen: false,
+      );
+      final storageService = Provider.of<StorageService>(
+        context,
+        listen: false,
+      );
       String? imageUrl = _networkImageUrl;
 
       // 新しい画像が選択されていればアップロード
       if (_imageFile != null) {
-        imageUrl = await storageService.uploadTestPieceImage(_imageFile!);
+        try {
+          imageUrl = await storageService
+              .uploadTestPieceImage(_imageFile!)
+              .timeout(const Duration(seconds: 15));
+        } on TimeoutException {
+          throw '画像のアップロードがタイムアウトしました。ネットワーク接続を確認してください。';
+        }
       }
 
       final testPiece = TestPiece(
@@ -111,19 +132,23 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       );
 
       if (widget.testPiece == null) {
-        await firestoreService.addTestPiece(testPiece);
+        firestoreService.addTestPiece(testPiece);
       } else {
-        await firestoreService.updateTestPiece(testPiece);
+        firestoreService.updateTestPiece(testPiece);
       }
 
       if (mounted) {
         _isDirty = false; // 保存成功でダーティ状態をリセット
-        Navigator.of(context).pop();
       }
+      navigator.pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
       }
+      // エラー発生時は一覧画面に戻る
+      navigator.pop();
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -143,10 +168,14 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
             title: const Text('変更を破棄しますか？'),
             content: const Text('入力中の内容は保存されません。'),
             actions: [
-              TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('キャンセル')),
               TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('破棄', style: TextStyle(color: Colors.red))),
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('キャンセル'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('破棄', style: TextStyle(color: Colors.red)),
+              ),
             ],
           ),
         );
@@ -160,10 +189,18 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
           actions: [
             if (_isLoading)
               const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.black)))
+                padding: EdgeInsets.all(16.0),
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(color: Colors.black),
+                ),
+              )
             else
-              IconButton(icon: const Icon(Icons.save), onPressed: _saveTestPiece),
+              IconButton(
+                icon: const Icon(Icons.save),
+                onPressed: _saveTestPiece,
+              ),
           ],
         ),
         body: Form(
@@ -177,7 +214,12 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
                 hint: const Text('関連する釉薬を選択'),
                 isExpanded: true,
                 items: _availableGlazes
-                    .map((glaze) => DropdownMenuItem(value: glaze.id, child: Text(glaze.name)))
+                    .map(
+                      (glaze) => DropdownMenuItem(
+                        value: glaze.id,
+                        child: Text(glaze.name),
+                      ),
+                    )
                     .toList(),
                 onChanged: (value) {
                   _markAsDirty(); // 釉薬選択が変更されたらダーティ
@@ -192,13 +234,17 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
               TextFormField(
                 controller: _clayNameController,
                 decoration: const InputDecoration(labelText: '素地土名'),
-                validator: (value) => (value == null || value.isEmpty) ? '素地土名を入力してください' : null,
+                validator: (value) =>
+                    (value == null || value.isEmpty) ? '素地土名を入力してください' : null,
               ),
               const SizedBox(height: 16),
               // 焼成温度曲線
               TextFormField(
                 controller: _firingCurveController,
-                decoration: const InputDecoration(labelText: '焼成温度曲線 (任意)', hintText: 'CSVデータやメモなど'),
+                decoration: const InputDecoration(
+                  labelText: '焼成温度曲線 (任意)',
+                  hintText: 'CSVデータやメモなど',
+                ),
                 maxLines: 3,
               ),
               const SizedBox(height: 24),
@@ -222,11 +268,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   Widget _buildImagePreview() {
     // 新しい画像が選択されている場合
     if (_imageFile != null) {
-      return Image.file(
-        File(_imageFile!.path),
-        height: 200,
-        fit: BoxFit.cover,
-      );
+      return Image.file(File(_imageFile!.path), height: 200, fit: BoxFit.cover);
     }
     // 既存の画像URLがある場合
     if (_networkImageUrl != null) {
@@ -236,10 +278,16 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         fit: BoxFit.cover,
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
-          return const Center(heightFactor: 3, child: CircularProgressIndicator());
+          return const Center(
+            heightFactor: 3,
+            child: CircularProgressIndicator(),
+          );
         },
         errorBuilder: (context, error, stackTrace) {
-          return const Center(heightFactor: 3, child: Icon(Icons.error, color: Colors.red));
+          return const Center(
+            heightFactor: 3,
+            child: Icon(Icons.error, color: Colors.red),
+          );
         },
       );
     }

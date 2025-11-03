@@ -36,7 +36,10 @@ class HomeScreen extends StatelessWidget {
                 ),
               );
               if (confirmed == true) {
-                final authService = Provider.of<AuthService>(context, listen: false);
+                final authService = Provider.of<AuthService>(
+                  context,
+                  listen: false,
+                );
                 await authService.signOut();
               }
             },
@@ -51,9 +54,11 @@ class HomeScreen extends StatelessWidget {
             icon: Icons.science_outlined,
             title: '原料データベース管理',
             onTap: () {
-              Navigator.of(context).push(MaterialPageRoute(
-                builder: (context) => const MaterialsListScreen(),
-              ));
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const MaterialsListScreen(),
+                ),
+              );
             },
           ),
           const SizedBox(height: 16),
@@ -62,9 +67,11 @@ class HomeScreen extends StatelessWidget {
             icon: Icons.color_lens_outlined,
             title: '釉薬レシピ管理',
             onTap: () {
-              Navigator.of(context).push(MaterialPageRoute(
-                builder: (context) => const GlazeListScreen(),
-              ));
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const GlazeListScreen(),
+                ),
+              );
             },
           ),
           const SizedBox(height: 16),
@@ -73,9 +80,11 @@ class HomeScreen extends StatelessWidget {
             icon: Icons.photo_library_outlined,
             title: 'テストピース管理',
             onTap: () {
-              Navigator.of(context).push(MaterialPageRoute(
-                builder: (context) => const TestPieceListScreen(),
-              ));
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const TestPieceListScreen(),
+                ),
+              );
             },
           ),
         ],
@@ -83,8 +92,12 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuCard(BuildContext context,
-      {required IconData icon, required String title, required VoidCallback onTap}) {
+  Widget _buildMenuCard(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
     return Card(
       child: ListTile(
         leading: Icon(icon, size: 40),

@@ -31,7 +31,9 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.glaze?.name ?? '');
-    _tagsController = TextEditingController(text: widget.glaze?.tags.join(', ') ?? '');
+    _tagsController = TextEditingController(
+      text: widget.glaze?.tags.join(', ') ?? '',
+    );
     _recipeRows = [];
 
     _nameController.addListener(_markAsDirty);
@@ -41,7 +43,10 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
   }
 
   Future<void> _loadMaterialsAndSetupRecipe() async {
-    final firestoreService = Provider.of<FirestoreService>(context, listen: false);
+    final firestoreService = Provider.of<FirestoreService>(
+      context,
+      listen: false,
+    );
     _availableMaterials = await firestoreService.getMaterials().first;
 
     if (widget.glaze != null) {
@@ -51,10 +56,12 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
         final amount = entry.value;
         final controller = TextEditingController(text: amount.toString());
         controller.addListener(_markAsDirty);
-        _recipeRows.add(_RecipeRow(
-          selectedMaterialId: materialId,
-          amountController: controller,
-        ));
+        _recipeRows.add(
+          _RecipeRow(
+            selectedMaterialId: materialId,
+            amountController: controller,
+          ),
+        );
       }
     }
     setState(() {}); // 原料リストのロード完了をUIに反映
@@ -85,17 +92,25 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
       setState(() => _isLoading = true);
 
       try {
-        final firestoreService = Provider.of<FirestoreService>(context, listen: false);
+        final firestoreService = Provider.of<FirestoreService>(
+          context,
+          listen: false,
+        );
 
         // レシピMapを作成
         final recipeMap = {
           for (var row in _recipeRows)
             if (row.selectedMaterialId != null)
-              row.selectedMaterialId!: double.tryParse(row.amountController.text) ?? 0.0
+              row.selectedMaterialId!:
+                  double.tryParse(row.amountController.text) ?? 0.0,
         };
 
         // タグをカンマ区切りでリスト化
-        final tags = _tagsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        final tags = _tagsController.text
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
 
         final glaze = Glaze(
           id: widget.glaze?.id,
@@ -105,9 +120,9 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
         );
 
         if (widget.glaze == null) {
-          await firestoreService.addGlaze(glaze);
+          firestoreService.addGlaze(glaze);
         } else {
-          await firestoreService.updateGlaze(glaze);
+          firestoreService.updateGlaze(glaze);
         }
 
         if (mounted) {
@@ -116,7 +131,9 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
         }
       } finally {
         if (mounted) {
@@ -138,10 +155,14 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
             title: const Text('変更を破棄しますか？'),
             content: const Text('入力中の内容は保存されません。'),
             actions: [
-              TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('キャンセル')),
               TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('破棄', style: TextStyle(color: Colors.red))),
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('キャンセル'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('破棄', style: TextStyle(color: Colors.red)),
+              ),
             ],
           ),
         );
@@ -155,8 +176,13 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
           actions: [
             if (_isLoading)
               const Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.black)))
+                padding: EdgeInsets.all(16.0),
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(color: Colors.black),
+                ),
+              )
             else
               IconButton(icon: const Icon(Icons.save), onPressed: _saveGlaze),
           ],
@@ -169,7 +195,8 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: '釉薬名'),
-                validator: (value) => (value == null || value.isEmpty) ? '釉薬名を入力してください' : null,
+                validator: (value) =>
+                    (value == null || value.isEmpty) ? '釉薬名を入力してください' : null,
               ),
               const SizedBox(height: 24),
               Text('配合レシピ', style: Theme.of(context).textTheme.titleMedium),
@@ -182,14 +209,19 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
                   setState(() {
                     final newAmountController = TextEditingController();
                     newAmountController.addListener(_markAsDirty);
-                    _recipeRows.add(_RecipeRow(amountController: newAmountController));
+                    _recipeRows.add(
+                      _RecipeRow(amountController: newAmountController),
+                    );
                   });
                 },
               ),
               const SizedBox(height: 24),
               TextFormField(
                 controller: _tagsController,
-                decoration: const InputDecoration(labelText: 'タグ (カンマ区切り)', hintText: 'マット, 透明, 食器用'),
+                decoration: const InputDecoration(
+                  labelText: 'タグ (カンマ区切り)',
+                  hintText: 'マット, 透明, 食器用',
+                ),
               ),
             ],
           ),
@@ -210,7 +242,12 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
               value: row.selectedMaterialId,
               hint: const Text('原料を選択'),
               items: _availableMaterials
-                  .map((material) => DropdownMenuItem(value: material.id, child: Text(material.name)))
+                  .map(
+                    (material) => DropdownMenuItem(
+                      value: material.id,
+                      child: Text(material.name),
+                    ),
+                  )
                   .toList(),
               onChanged: (value) {
                 _markAsDirty();
@@ -224,14 +261,18 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
             child: TextFormField(
               controller: row.amountController,
               decoration: const InputDecoration(labelText: '配合量'),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
           ),
           IconButton(
             icon: const Icon(Icons.remove_circle_outline),
             onPressed: () {
               _markAsDirty();
-              setState(() => _recipeRows.removeAt(index).amountController.dispose());
+              setState(
+                () => _recipeRows.removeAt(index).amountController.dispose(),
+              );
             },
           ),
         ],
@@ -246,5 +287,5 @@ class _RecipeRow {
   final TextEditingController amountController;
 
   _RecipeRow({this.selectedMaterialId, TextEditingController? amountController})
-      : amountController = amountController ?? TextEditingController();
+    : amountController = amountController ?? TextEditingController();
 }
