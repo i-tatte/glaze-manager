@@ -9,12 +9,13 @@ class GlazeListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final firestoreService = Provider.of<FirestoreService>(context, listen: false);
+    final firestoreService = Provider.of<FirestoreService>(
+      context,
+      listen: false,
+    );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('釉薬レシピ一覧'),
-      ),
+      appBar: AppBar(title: const Text('釉薬レシピ一覧')),
       body: StreamBuilder<List<Glaze>>(
         stream: firestoreService.getGlazes(),
         builder: (context, snapshot) {
@@ -44,9 +45,11 @@ class GlazeListScreen extends StatelessWidget {
                 subtitle: Text(glaze.tags.join(', ')),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
-                  Navigator.of(context).push(MaterialPageRoute(
-                    builder: (context) => GlazeEditScreen(glaze: glaze),
-                  ));
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => GlazeEditScreen(glaze: glaze),
+                    ),
+                  );
                 },
               );
             },
@@ -56,9 +59,9 @@ class GlazeListScreen extends StatelessWidget {
       floatingActionButton: FloatingActionButton(
         child: const Icon(Icons.add),
         onPressed: () {
-          Navigator.of(context).push(MaterialPageRoute(
-            builder: (context) => const GlazeEditScreen(),
-          ));
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (context) => const GlazeEditScreen()),
+          );
         },
       ),
     );

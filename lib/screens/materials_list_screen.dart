@@ -16,14 +16,20 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final firestoreService = Provider.of<FirestoreService>(context, listen: false);
+    final firestoreService = Provider.of<FirestoreService>(
+      context,
+      listen: false,
+    );
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('原料一覧'),
         actions: [
           TextButton(
-            child: Text(_isEditing ? '完了' : '編集', style: TextStyle(color: Colors.black)),
+            child: Text(
+              _isEditing ? '完了' : '編集',
+              style: TextStyle(color: Colors.black),
+            ),
             onPressed: () => setState(() => _isEditing = !_isEditing),
           ),
         ],
@@ -53,7 +59,12 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
               itemCount: materials.length,
               itemBuilder: (context, index) {
                 final material = materials[index];
-                return _buildReorderableTile(context, material, index, firestoreService);
+                return _buildReorderableTile(
+                  context,
+                  material,
+                  index,
+                  firestoreService,
+                );
               },
               onReorder: (oldIndex, newIndex) {
                 setState(() {
@@ -73,13 +84,17 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
               itemBuilder: (context, index) {
                 final material = materials[index];
                 return ListTile(
-                    title: Text(material.name),
-                    subtitle: Text('成分数: ${material.components.length}'),
-                    onTap: () {
-                      Navigator.of(context).push(MaterialPageRoute(
-                        builder: (context) => MaterialEditScreen(material: material),
-                      ));
-                    });
+                  title: Text(material.name),
+                  subtitle: Text('成分数: ${material.components.length}'),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            MaterialEditScreen(material: material),
+                      ),
+                    );
+                  },
+                );
               },
             );
           }
@@ -91,19 +106,27 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
         onPressed: _isEditing
             ? null
             : () {
-                Navigator.of(context).push(MaterialPageRoute(
-                  // 引数を渡さない場合は新規作成モード
-                  builder: (context) => const MaterialEditScreen(),
-                ));
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    // 引数を渡さない場合は新規作成モード
+                    builder: (context) => const MaterialEditScreen(),
+                  ),
+                );
               },
-        backgroundColor: _isEditing ? Colors.grey : Theme.of(context).colorScheme.primary,
+        backgroundColor: _isEditing
+            ? Colors.grey
+            : Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
     );
   }
 
-  Widget _buildReorderableTile(BuildContext context, app.Material material, int index,
-      FirestoreService firestoreService) {
+  Widget _buildReorderableTile(
+    BuildContext context,
+    app.Material material,
+    int index,
+    FirestoreService firestoreService,
+  ) {
     return ListTile(
       key: ValueKey(material.id),
       leading: IconButton(
@@ -116,8 +139,14 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
               title: const Text('削除の確認'),
               content: Text('「${material.name}」を本当に削除しますか？'),
               actions: [
-                TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('キャンセル')),
-                TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('削除')),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('キャンセル'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('削除'),
+                ),
               ],
             ),
           );
@@ -132,9 +161,11 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
         child: const Icon(Icons.drag_handle),
       ),
       onTap: () {
-        Navigator.of(context).push(MaterialPageRoute(
-          builder: (context) => MaterialEditScreen(material: material),
-        ));
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => MaterialEditScreen(material: material),
+          ),
+        );
       },
     );
   }

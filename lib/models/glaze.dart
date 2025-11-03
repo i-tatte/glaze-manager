@@ -20,18 +20,15 @@ class Glaze {
     return Glaze(
       id: snapshot.id,
       name: data['name'] ?? '',
-      recipe: data.containsKey('recipe') ? Map<String, double>.from(data['recipe']) : {},
+      recipe: data.containsKey('recipe')
+          ? Map<String, double>.from(data['recipe'])
+          : {},
       imageUrl: data['imageUrl'],
       tags: data.containsKey('tags') ? List<String>.from(data['tags']) : [],
     );
   }
 
   Map<String, dynamic> toFirestore() {
-    return {
-      'name': name,
-      'recipe': recipe,
-      'imageUrl': imageUrl,
-      'tags': tags,
-    };
+    return {'name': name, 'recipe': recipe, 'imageUrl': imageUrl, 'tags': tags};
   }
 }

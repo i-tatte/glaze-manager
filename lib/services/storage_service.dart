@@ -14,7 +14,8 @@ class StorageService {
     if (_userId == null) throw Exception("User not logged in");
 
     try {
-      final filePath = 'users/$_userId/test_pieces/${DateTime.now().millisecondsSinceEpoch}_${imageFile.name}';
+      final filePath =
+          'users/$_userId/test_pieces/${DateTime.now().millisecondsSinceEpoch}_${imageFile.name}';
       final ref = _storage.ref(filePath);
 
       final uploadTask = await ref.putFile(File(imageFile.path));

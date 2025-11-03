@@ -56,7 +56,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '942515568123',
     projectId: 'glaze-manager',
     storageBucket: 'glaze-manager.firebasestorage.app',
-    androidClientId: '942515568123-g7d6nih90qkc70t17i8qaqka6dcmr6ah.apps.googleusercontent.com'
+    androidClientId:
+        '942515568123-g7d6nih90qkc70t17i8qaqka6dcmr6ah.apps.googleusercontent.com',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
@@ -65,7 +66,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '942515568123',
     projectId: 'glaze-manager',
     storageBucket: 'glaze-manager.firebasestorage.app',
-    iosClientId: '942515568123-b3cstk3rf9tlvg4bvtu7bn10r51aq6eo.apps.googleusercontent.com',
+    iosClientId:
+        '942515568123-b3cstk3rf9tlvg4bvtu7bn10r51aq6eo.apps.googleusercontent.com',
     iosBundleId: 'com.example.glazeManager',
   );
 
@@ -75,7 +77,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '942515568123',
     projectId: 'glaze-manager',
     storageBucket: 'glaze-manager.firebasestorage.app',
-    iosClientId: '942515568123-b3cstk3rf9tlvg4bvtu7bn10r51aq6eo.apps.googleusercontent.com',
+    iosClientId:
+        '942515568123-b3cstk3rf9tlvg4bvtu7bn10r51aq6eo.apps.googleusercontent.com',
     iosBundleId: 'com.example.glazeManager',
   );
 
@@ -88,5 +91,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'glaze-manager.firebasestorage.app',
     measurementId: 'G-DKGCBEKQHD',
   );
-
 }

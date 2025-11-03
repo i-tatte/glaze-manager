@@ -24,14 +24,15 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.material?.name ?? '');
-    _componentControllers = widget.material?.components.entries.map((e) {
+    _componentControllers =
+        widget.material?.components.entries.map((e) {
           return _ComponentController(
             name: TextEditingController(text: e.key),
             value: TextEditingController(text: e.value.toString()),
           );
         }).toList() ??
         [];
-    
+
     _nameController.addListener(_markAsDirty);
     for (var controller in _componentControllers) {
       controller.name.addListener(_markAsDirty);
@@ -60,44 +61,46 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       try {
-        final firestoreService = Provider.of<FirestoreService>(context, listen: false);
+        final firestoreService = Provider.of<FirestoreService>(
+          context,
+          listen: false,
+        );
         final componentsMap = {
           for (var c in _componentControllers)
-            if (c.name.text.isNotEmpty) c.name.text: double.tryParse(c.value.text) ?? 0.0
+            if (c.name.text.isNotEmpty)
+              c.name.text: double.tryParse(c.value.text) ?? 0.0,
         };
+
+        final navigator = Navigator.of(context);
 
         if (widget.material == null) {
           // 新規作成
-          // 現在のリストの長さを取得して、次のorder値として使用
-          final materials =
-              await firestoreService.getMaterials().first.timeout(const Duration(seconds: 10), onTimeout: () {
-            throw 'データの取得に失敗しました。ネットワーク接続を確認してください。';
-          });
           final newMaterial = app.Material(
             name: _nameController.text,
             components: componentsMap,
-            order: materials.length,
+            // orderは現在時刻のミリ秒を使うことで、オフラインでもユニークな順序を担保する
+            order: DateTime.now().millisecondsSinceEpoch,
           );
-          await firestoreService.addMaterial(newMaterial);
+          firestoreService.addMaterial(newMaterial);
         } else {
           // 更新
           final updatedMaterial = app.Material(
             id: widget.material!.id,
             name: _nameController.text,
             components: componentsMap,
-            order: widget.material!.order, // 既存のorderを維持
+            order: widget.material!.order,
           );
-          await firestoreService.updateMaterial(updatedMaterial);
+          firestoreService.updateMaterial(updatedMaterial);
         }
 
         if (mounted) {
           _isDirty = false; // isDirtyはUI更新不要
         }
-        if (mounted) Navigator.of(context).pop(); // 成功したら画面を閉じる
+        navigator.pop(); // 成功したら画面を閉じる
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存に失敗しました: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
       } finally {
         // 成功・失敗にかかわらず、最後に必ずローディング状態を解除する
         if (mounted) {
@@ -125,10 +128,12 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
           value = double.tryParse(valueStr) ?? 0.0;
         }
 
-        _componentControllers.add(_ComponentController(
-          name: TextEditingController(text: name),
-          value: TextEditingController(text: value.toString()),
-        ));
+        _componentControllers.add(
+          _ComponentController(
+            name: TextEditingController(text: name),
+            value: TextEditingController(text: value.toString()),
+          ),
+        );
         // 新しく追加されたコントローラーにもリスナーをセット
         _componentControllers.last.name.addListener(_markAsDirty);
         _componentControllers.last.value.addListener(_markAsDirty);
@@ -155,7 +160,8 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
               maxLines: 10,
               autofocus: true,
               decoration: const InputDecoration(
-                hintText: 'ここに組成データを貼り付けてください。\n例:\nSiO2\t66.71%\nAl2O3\t18.56%',
+                hintText:
+                    'ここに組成データを貼り付けてください。\n例:\nSiO2\t66.71%\nAl2O3\t18.56%',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -164,22 +170,28 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
               icon: const Icon(Icons.content_paste),
               label: const Text('クリップボードから貼り付け'),
               onPressed: () async {
-                final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+                final clipboardData = await Clipboard.getData(
+                  Clipboard.kTextPlain,
+                );
                 if (clipboardData != null) {
                   pasteController.text = clipboardData.text ?? '';
                 }
               },
-            )
+            ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('キャンセル')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('キャンセル'),
+          ),
           ElevatedButton(
-              onPressed: () {
-                _parseAndAddComponents(pasteController.text);
-                Navigator.of(context).pop();
-              },
-              child: const Text('フォームに追加')),
+            onPressed: () {
+              _parseAndAddComponents(pasteController.text);
+              Navigator.of(context).pop();
+            },
+            child: const Text('フォームに追加'),
+          ),
         ],
       ),
     );
@@ -197,10 +209,14 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
             title: const Text('変更を破棄しますか？'),
             content: const Text('入力中の内容は保存されません。'),
             actions: [
-              TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('キャンセル')),
               TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('破棄', style: TextStyle(color: Colors.red))),
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('キャンセル'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('破棄', style: TextStyle(color: Colors.red)),
+              ),
             ],
           ),
         );
@@ -215,7 +231,11 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
             if (_isLoading)
               const Padding(
                 padding: EdgeInsets.all(16.0),
-                child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.black)),
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(color: Colors.black),
+                ),
               )
             else
               IconButton(
@@ -232,7 +252,8 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: '原料名'),
-                validator: (value) => (value == null || value.isEmpty) ? '原料名を入力してください' : null,
+                validator: (value) =>
+                    (value == null || value.isEmpty) ? '原料名を入力してください' : null,
               ),
               const SizedBox(height: 24),
               Row(
@@ -240,7 +261,10 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
                 children: [
                   Text('化学成分', style: Theme.of(context).textTheme.titleMedium),
                   IconButton(
-                      icon: const Icon(Icons.paste), tooltip: 'クリップボードから貼り付け', onPressed: _showPasteDialog),
+                    icon: const Icon(Icons.paste),
+                    tooltip: 'クリップボードから貼り付け',
+                    onPressed: _showPasteDialog,
+                  ),
                 ],
               ),
               ..._buildComponentFields(),
@@ -282,7 +306,9 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
             child: TextFormField(
               controller: _componentControllers[index].value,
               decoration: const InputDecoration(labelText: '量 (%)'),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
           ),
           IconButton(
@@ -303,10 +329,12 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
 class _ComponentController {
   final TextEditingController name;
   final TextEditingController value;
-  _ComponentController({TextEditingController? name, TextEditingController? value})
-      : name = name ?? TextEditingController(),
-        value = value ?? TextEditingController();
-  
+  _ComponentController({
+    TextEditingController? name,
+    TextEditingController? value,
+  }) : name = name ?? TextEditingController(),
+       value = value ?? TextEditingController();
+
   void dispose() {
     name.dispose();
     value.dispose();

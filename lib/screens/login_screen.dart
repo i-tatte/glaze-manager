@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/services/auth_service.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:provider/provider.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -38,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
-             const Text(
+            const Text(
               'サインイン方法を選択してください。',
               style: TextStyle(fontSize: 16),
               textAlign: TextAlign.center,
@@ -80,7 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-  
+
   Future<void> _signIn(AuthMethod method) async {
     // 匿名ログインの場合、警告ダイアログを表示
     if (method == AuthMethod.anonymous) {
@@ -88,7 +87,9 @@ class _LoginScreenState extends State<LoginScreen> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('匿名ログインの注意点'),
-          content: const Text('匿名ログインでは、アプリを削除したり機種変更した場合にデータを引き継ぐことができません。\n\nGoogleサインインで始めると、別デバイスでも同じデータを利用できます。'),
+          content: const Text(
+            '匿名ログインでは、アプリを削除したり機種変更した場合にデータを引き継ぐことができません。\n\nGoogleサインインで始めると、別デバイスでも同じデータを利用できます。',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
