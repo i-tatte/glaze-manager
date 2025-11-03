@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:glaze_manager/screens/home_screen.dart';
 import 'package:glaze_manager/screens/login_screen.dart';
+import 'package:glaze_manager/screens/main_tab_screen.dart';
 import 'package:glaze_manager/services/auth_service.dart';
 import 'package:provider/provider.dart';
 
@@ -22,7 +22,7 @@ class AuthWrapper extends StatelessWidget {
         }
         if (snapshot.hasData) {
           // ログイン済み
-          return const HomeScreen();
+          return const MainTabScreen();
         }
         // 未ログイン
         return const LoginScreen();
