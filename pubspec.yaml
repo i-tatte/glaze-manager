@@ -44,6 +44,8 @@ dependencies:
   desktop_webview_auth: ^0.0.16
   connectivity_plus: ^7.0.0
   shared_preferences: ^2.5.3
+  build_runner: ^2.10.1
+  mockito: ^5.5.1
 
 dev_dependencies:
   flutter_test:
