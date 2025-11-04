@@ -39,8 +39,9 @@ class FirestoreService {
   // 原料を更新
   Future<void> updateMaterial(Material material) async {
     if (_userId == null) throw Exception("User not logged in");
-    if (material.id == null)
+    if (material.id == null) {
       throw Exception("Material ID is required for update");
+    }
     await _db
         .collection('users')
         .doc(_userId)
@@ -157,8 +158,9 @@ class FirestoreService {
   // テストピースを更新
   Future<void> updateTestPiece(TestPiece testPiece) async {
     if (_userId == null) throw Exception("User not logged in");
-    if (testPiece.id == null)
+    if (testPiece.id == null) {
       throw Exception("TestPiece ID is required for update");
+    }
     await _db
         .collection('users')
         .doc(_userId)

@@ -46,6 +46,8 @@ dependencies:
   shared_preferences: ^2.5.3
   build_runner: ^2.10.1
   mockito: ^5.5.1
+  path_provider: ^2.1.5
+  crop_your_image: ^2.0.0
 
 dev_dependencies:
   flutter_test:
