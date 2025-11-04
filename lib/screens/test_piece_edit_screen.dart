@@ -26,7 +26,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   final _clayNameController = TextEditingController();
 
   String? _selectedGlazeId;
-  String? _selectedFiringProfile;
+  String? _selectedFiringProfileId;
   List<FiringProfile> _availableFiringProfiles = [];
   List<Glaze> _availableGlazes = [];
 
@@ -44,14 +44,14 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     super.initState();
     _clayNameController.text = widget.testPiece?.clayName ?? '';
     _selectedGlazeId = widget.testPiece?.glazeId;
-    _selectedFiringProfile = widget.testPiece?.firingCurve;
+    _selectedFiringProfileId = widget.testPiece?.firingProfileId;
     _networkImageUrl = widget.testPiece?.imageUrl;
 
     _clayNameController.addListener(_markAsDirty);
 
     _loadDropdownData().then((_) {
       // 初期データでグラフを更新
-      _updateChartDataForSelectedProfile(_selectedFiringProfile);
+      _updateChartDataForSelectedProfile(_selectedFiringProfileId);
     });
   }
 
@@ -72,14 +72,14 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     }
   }
 
-  void _updateChartDataForSelectedProfile(String? profileName) {
-    if (profileName == null) {
+  void _updateChartDataForSelectedProfile(String? profileId) {
+    if (profileId == null) {
       setState(() => _spots = []);
       return;
     }
     try {
       final selectedProfile = _availableFiringProfiles.firstWhere(
-        (p) => p.name == profileName,
+        (p) => p.id == profileId,
       );
       _updateChartData(selectedProfile.curveData);
     } catch (e) {
@@ -178,7 +178,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         id: widget.testPiece?.id,
         glazeId: _selectedGlazeId!,
         clayName: _clayNameController.text,
-        firingCurve: _selectedFiringProfile,
+        firingProfileId: _selectedFiringProfileId,
         imageUrl: imageUrl,
         createdAt: widget.testPiece?.createdAt ?? Timestamp.now(),
       );
@@ -294,27 +294,27 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
               // 焼成プロファイル
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(labelText: '焼成プロファイル'),
-                initialValue: _selectedFiringProfile,
+                value: _selectedFiringProfileId,
                 hint: const Text('焼成プロファイルを選択 (任意)'),
                 isExpanded: true,
                 items: _availableFiringProfiles
                     .map(
                       (profile) => DropdownMenuItem(
-                        value: profile.name,
+                        value: profile.id,
                         child: Text(profile.name),
                       ),
                     )
                     .toList(),
                 onChanged: (value) {
                   _markAsDirty();
-                  setState(() => _selectedFiringProfile = value);
+                  setState(() => _selectedFiringProfileId = value);
                   _updateChartDataForSelectedProfile(value);
                 },
                 // バリデーションは不要
                 validator: null,
               ),
               // グラフ表示エリア
-              if (_selectedFiringProfile != null && _spots.isNotEmpty) ...[
+              if (_selectedFiringProfileId != null && _spots.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 TextButton.icon(
                   icon: Icon(

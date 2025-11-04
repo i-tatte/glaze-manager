@@ -4,7 +4,7 @@ class TestPiece {
   final String? id;
   final String glazeId; // 関連するGlazeのID
   final String clayName; // 素地土名
-  final String? firingCurve; // 焼成温度曲線 (CSVパス or 文字列データ)
+  final String? firingProfileId; // 関連するFiringProfileのID
   final String? imageUrl; // Storageへのパス
   final Map<String, double>? colorData; // 例: {'L': 95.5, 'a': -1.2, 'b': 3.4}
   final Timestamp createdAt; // 作成日時
@@ -13,7 +13,7 @@ class TestPiece {
     this.id,
     required this.glazeId,
     required this.clayName,
-    this.firingCurve,
+    this.firingProfileId,
     this.imageUrl,
     this.colorData,
     required this.createdAt,
@@ -27,7 +27,7 @@ class TestPiece {
       id: snapshot.id,
       glazeId: data['glazeId'] ?? '',
       clayName: data['clayName'] ?? '',
-      firingCurve: data['firingCurve'],
+      firingProfileId: data['firingProfileId'],
       imageUrl: data['imageUrl'],
       colorData: data['colorData'] != null
           ? Map<String, double>.from(data['colorData'] as Map)
@@ -40,7 +40,7 @@ class TestPiece {
     return {
       'glazeId': glazeId,
       'clayName': clayName,
-      'firingCurve': firingCurve,
+      'firingProfileId': firingProfileId,
       'imageUrl': imageUrl,
       'colorData': colorData,
       'createdAt': createdAt,
