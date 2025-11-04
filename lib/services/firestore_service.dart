@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:glaze_manager/models/material.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
+import 'package:glaze_manager/models/firing_profile.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -178,6 +179,59 @@ class FirestoreService {
         .doc(_userId)
         .collection('test_pieces')
         .doc(testPieceId)
+        .delete();
+  }
+
+  // --- FiringProfile Methods ---
+
+  /// 焼成プロファイルを追加
+  Future<void> addFiringProfile(FiringProfile profile) async {
+    if (_userId == null) throw Exception("User not logged in");
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('firing_profiles')
+        .add(profile.toFirestore());
+  }
+
+  /// 焼成プロファイル一覧を取得 (リアルタイム)
+  Stream<List<FiringProfile>> getFiringProfiles() {
+    if (_userId == null) return Stream.value([]);
+    return _db
+        .collection('users')
+        .doc(_userId)
+        .collection('firing_profiles')
+        .orderBy('name') // 名前で並び替え
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => FiringProfile.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  /// 焼成プロファイルを更新
+  Future<void> updateFiringProfile(FiringProfile profile) async {
+    if (_userId == null) throw Exception("User not logged in");
+    if (profile.id == null) {
+      throw Exception("FiringProfile ID is required for update");
+    }
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('firing_profiles')
+        .doc(profile.id)
+        .update(profile.toFirestore());
+  }
+
+  /// 焼成プロファイルを削除
+  Future<void> deleteFiringProfile(String profileId) async {
+    if (_userId == null) throw Exception("User not logged in");
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('firing_profiles')
+        .doc(profileId)
         .delete();
   }
 }
