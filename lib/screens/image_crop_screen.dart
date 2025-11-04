@@ -87,17 +87,6 @@ class _ImageCropScreenState extends State<ImageCropScreen> {
                   }
                 },
                 aspectRatio: 1.0, // 正方形に固定
-                // initialRectBuilder: InitialRectBuilder.withBuilder((
-                //   viewportRect,
-                //   imageRect,
-                // ) {
-                //   return Rect.fromLTRB(
-                //     viewportRect.left + 20,
-                //     viewportRect.top + 20,
-                //     viewportRect.right - 20,
-                //     viewportRect.bottom - 20,
-                //   );
-                // }),
                 cornerDotBuilder: (size, edgeAlignment) =>
                     const DotControl(color: Colors.white),
                 maskColor: Colors.black.withOpacity(0.5),
@@ -105,36 +94,6 @@ class _ImageCropScreenState extends State<ImageCropScreen> {
                 progressIndicator: const CircularProgressIndicator(),
               ),
       ),
-      // bottomNavigationBar: _imageData == null
-      //     ? null
-      //     : SafeArea(
-      //         child: SizedBox(height: 56, child: _buildControlButtons(context)),
-      //       ),
     );
   }
-
-  // Widget _buildControlButtons(BuildContext context) {
-  //   return Row(
-  //     mainAxisAlignment: MainAxisAlignment.spaceAround,
-  //     children: [
-  //       IconButton(
-  //         icon: const Icon(Icons.aspect_ratio),
-  //         onPressed: () {
-  //           _cropController.withCircleUi = !_cropController.withCircleUi;
-  //         },
-  //         tooltip: '円形/四角形 切り替え',
-  //       ),
-  //       IconButton(
-  //         icon: const Icon(Icons.rotate_90_degrees_cw),
-  //         onPressed: () => _cropController.rotate(clockwise: true),
-  //         tooltip: '右に90度回転',
-  //       ),
-  //       IconButton(
-  //         icon: const Icon(Icons.rotate_90_degrees_ccw),
-  //         onPressed: () => _cropController.rotate(clockwise: false),
-  //         tooltip: '左に90度回転',
-  //       ),
-  //     ],
-  //   );
-  // }
 }
