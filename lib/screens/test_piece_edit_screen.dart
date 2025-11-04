@@ -2,7 +2,9 @@ import 'dart:io';
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:glaze_manager/models/glaze.dart';
+import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/storage_service.dart';
@@ -21,10 +23,11 @@ class TestPieceEditScreen extends StatefulWidget {
 
 class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _clayNameController;
-  late TextEditingController _firingCurveController;
+  final _clayNameController = TextEditingController();
 
   String? _selectedGlazeId;
+  String? _selectedFiringProfile;
+  List<FiringProfile> _availableFiringProfiles = [];
   List<Glaze> _availableGlazes = [];
 
   XFile? _imageFile; // 選択された画像ファイル
@@ -32,31 +35,33 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
 
   bool _isLoading = false;
   bool _isDirty = false;
+  // グラフ表示用の状態
+  bool _isChartVisible = false;
+  List<FlSpot> _spots = [];
 
   @override
   void initState() {
     super.initState();
-    _clayNameController = TextEditingController(
-      text: widget.testPiece?.clayName ?? '',
-    );
-    _firingCurveController = TextEditingController(
-      text: widget.testPiece?.firingCurve ?? '',
-    );
+    _clayNameController.text = widget.testPiece?.clayName ?? '';
     _selectedGlazeId = widget.testPiece?.glazeId;
+    _selectedFiringProfile = widget.testPiece?.firingCurve;
     _networkImageUrl = widget.testPiece?.imageUrl;
 
     _clayNameController.addListener(_markAsDirty);
-    _firingCurveController.addListener(_markAsDirty);
 
-    _loadGlazes();
+    _loadDropdownData().then((_) {
+      // 初期データでグラフを更新
+      _updateChartDataForSelectedProfile(_selectedFiringProfile);
+    });
   }
 
-  Future<void> _loadGlazes() async {
+  Future<void> _loadDropdownData() async {
     final firestoreService = Provider.of<FirestoreService>(
       context,
       listen: false,
     );
     _availableGlazes = await firestoreService.getGlazes().first;
+    _availableFiringProfiles = await firestoreService.getFiringProfiles().first;
     // 初回ロード時はダーティ状態にしない
     setState(() {});
   }
@@ -67,13 +72,52 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     }
   }
 
+  void _updateChartDataForSelectedProfile(String? profileName) {
+    if (profileName == null) {
+      setState(() => _spots = []);
+      return;
+    }
+    try {
+      final selectedProfile = _availableFiringProfiles.firstWhere(
+        (p) => p.name == profileName,
+      );
+      _updateChartData(selectedProfile.curveData);
+    } catch (e) {
+      // プロファイルが見つからない場合など
+      setState(() => _spots = []);
+    }
+  }
+
+  void _updateChartData(String? text) {
+    final List<FlSpot> newSpots = [const FlSpot(0, 20)]; // 開始点 (室温20℃と仮定)
+    if (text == null || text.trim().isEmpty) {
+      setState(() => _spots = []);
+      return;
+    }
+
+    double lastTime = 0;
+    final lines = text.trim().split('\n');
+    for (final line in lines) {
+      final parts = line.trim().split(',');
+      if (parts.length == 2) {
+        final time = double.tryParse(parts[0].trim());
+        final temp = double.tryParse(parts[1].trim());
+
+        if (time != null && temp != null && time > lastTime) {
+          newSpots.add(FlSpot(time / 60.0, temp)); // 分を時間に変換
+          lastTime = time;
+        }
+      }
+    }
+
+    setState(() => _spots = newSpots.length > 1 ? newSpots : []);
+  }
+
   @override
   void dispose() {
     _clayNameController.dispose();
-    _clayNameController.removeListener(_markAsDirty);
-    _firingCurveController.dispose();
-    _firingCurveController.removeListener(_markAsDirty);
     super.dispose();
+    _clayNameController.removeListener(_markAsDirty);
   }
 
   Future<void> _pickImage() async {
@@ -82,9 +126,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     if (image != null) {
       // 画像選択後、トリミング画面に遷移
       final XFile? croppedImage = await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => ImageCropScreen(image: image),
-        ),
+        MaterialPageRoute(builder: (context) => ImageCropScreen(image: image)),
       );
 
       if (croppedImage != null) {
@@ -136,7 +178,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         id: widget.testPiece?.id,
         glazeId: _selectedGlazeId!,
         clayName: _clayNameController.text,
-        firingCurve: _firingCurveController.text,
+        firingCurve: _selectedFiringProfile,
         imageUrl: imageUrl,
         createdAt: widget.testPiece?.createdAt ?? Timestamp.now(),
       );
@@ -220,6 +262,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
             children: [
               // 釉薬選択
               DropdownButtonFormField<String>(
+                decoration: const InputDecoration(labelText: '釉薬名'),
                 initialValue: _selectedGlazeId,
                 hint: const Text('関連する釉薬を選択'),
                 isExpanded: true,
@@ -245,18 +288,45 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
                 controller: _clayNameController,
                 decoration: const InputDecoration(labelText: '素地土名'),
                 validator: (value) =>
-                    (value == null || value.isEmpty) ? '素地土名を入力してください' : null,
+                    (value == null || value.isEmpty) ? '素地土名を入力' : null,
               ),
               const SizedBox(height: 16),
-              // 焼成温度曲線
-              TextFormField(
-                controller: _firingCurveController,
-                decoration: const InputDecoration(
-                  labelText: '焼成温度曲線 (任意)',
-                  hintText: 'CSVデータやメモなど',
-                ),
-                maxLines: 3,
+              // 焼成プロファイル
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(labelText: '焼成プロファイル'),
+                initialValue: _selectedFiringProfile,
+                hint: const Text('焼成プロファイルを選択 (任意)'),
+                isExpanded: true,
+                items: _availableFiringProfiles
+                    .map(
+                      (profile) => DropdownMenuItem(
+                        value: profile.name,
+                        child: Text(profile.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  _markAsDirty();
+                  setState(() => _selectedFiringProfile = value);
+                  _updateChartDataForSelectedProfile(value);
+                },
+                // バリデーションは不要
+                validator: null,
               ),
+              // グラフ表示エリア
+              if (_selectedFiringProfile != null && _spots.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  icon: Icon(
+                    _isChartVisible ? Icons.visibility_off : Icons.visibility,
+                  ),
+                  label: Text(_isChartVisible ? '焼成温度曲線を隠す' : '焼成温度曲線を表示'),
+                  onPressed: () {
+                    setState(() => _isChartVisible = !_isChartVisible);
+                  },
+                ),
+                Visibility(visible: _isChartVisible, child: _buildChart()),
+              ],
               const SizedBox(height: 24),
               // 画像選択
               Text('テストピース画像', style: Theme.of(context).textTheme.titleMedium),
@@ -311,6 +381,67 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       ),
       child: const Center(
         child: Icon(Icons.camera_alt, color: Colors.grey, size: 50),
+      ),
+    );
+  }
+
+  Widget _buildChart() {
+    return AspectRatio(
+      aspectRatio: 2.0,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 18.0, top: 24.0, bottom: 12.0),
+        child: LineChart(
+          LineChartData(
+            gridData: FlGridData(
+              show: true,
+              drawVerticalLine: true,
+              getDrawingHorizontalLine: (value) =>
+                  const FlLine(color: Colors.black12, strokeWidth: 1),
+              getDrawingVerticalLine: (value) =>
+                  const FlLine(color: Colors.black12, strokeWidth: 1),
+            ),
+            titlesData: const FlTitlesData(
+              rightTitles: AxisTitles(
+                sideTitles: SideTitles(showTitles: false),
+              ),
+              topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(showTitles: true, reservedSize: 30),
+                axisNameWidget: Text("時間 (h)"),
+              ),
+              leftTitles: AxisTitles(
+                sideTitles: SideTitles(showTitles: true, reservedSize: 40),
+                axisNameWidget: Text("温度 (°C)"),
+                axisNameSize: 24,
+              ),
+            ),
+            borderData: FlBorderData(
+              show: true,
+              border: Border.all(color: const Color(0xff37434d), width: 1),
+            ),
+            lineTouchData: LineTouchData(
+              touchTooltipData: LineTouchTooltipData(
+                getTooltipItems: (touchedSpots) {
+                  return touchedSpots.map((spot) {
+                    return LineTooltipItem(
+                      '${spot.y.toStringAsFixed(0)} °C\n${(spot.x * 60).toStringAsFixed(0)} 分',
+                      const TextStyle(color: Colors.white),
+                    );
+                  }).toList();
+                },
+              ),
+            ),
+            lineBarsData: [
+              LineChartBarData(
+                spots: _spots,
+                isCurved: false,
+                color: Theme.of(context).primaryColor,
+                barWidth: 3,
+                dotData: const FlDotData(show: true),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

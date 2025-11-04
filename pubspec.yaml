@@ -48,6 +48,7 @@ dependencies:
   mockito: ^5.5.1
   path_provider: ^2.1.5
   crop_your_image: ^2.0.0
+  fl_chart: ^1.1.1
 
 dev_dependencies:
   flutter_test:
