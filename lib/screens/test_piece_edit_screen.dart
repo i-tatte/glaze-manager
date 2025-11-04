@@ -6,6 +6,7 @@ import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/storage_service.dart';
+import 'package:glaze_manager/screens/image_crop_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -69,20 +70,29 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   @override
   void dispose() {
     _clayNameController.dispose();
-    _firingCurveController.dispose();
-    super.dispose();
     _clayNameController.removeListener(_markAsDirty);
+    _firingCurveController.dispose();
     _firingCurveController.removeListener(_markAsDirty);
+    super.dispose();
   }
 
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
-      setState(() {
-        _imageFile = image;
-        _markAsDirty(); // 画像が選択されたらダーティ
-      });
+      // 画像選択後、トリミング画面に遷移
+      final XFile? croppedImage = await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => ImageCropScreen(image: image),
+        ),
+      );
+
+      if (croppedImage != null) {
+        setState(() {
+          _imageFile = croppedImage;
+          _markAsDirty(); // トリミングされた画像が設定されたらダーティ
+        });
+      }
     }
   }
 
@@ -210,7 +220,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
             children: [
               // 釉薬選択
               DropdownButtonFormField<String>(
-                value: _selectedGlazeId,
+                initialValue: _selectedGlazeId,
                 hint: const Text('関連する釉薬を選択'),
                 isExpanded: true,
                 items: _availableGlazes

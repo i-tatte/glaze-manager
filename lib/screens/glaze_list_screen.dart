@@ -60,7 +60,6 @@ class GlazeListScreen extends StatelessWidget {
           bottom: 16.0,
           right: 16.0,
           child: FloatingActionButton(
-            child: const Icon(Icons.add),
             heroTag: 'glazeListFab', // ユニークなタグを追加
             onPressed: () {
               Navigator.of(context).push(
@@ -69,6 +68,7 @@ class GlazeListScreen extends StatelessWidget {
                 ),
               );
             },
+            child: const Icon(Icons.add),
           ),
         ),
       ],
