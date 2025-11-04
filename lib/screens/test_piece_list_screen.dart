@@ -5,6 +5,7 @@ import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/settings_service.dart';
+import 'package:glaze_manager/widgets/test_piece_card.dart';
 import 'package:provider/provider.dart';
 
 class TestPieceListScreen extends StatelessWidget {
@@ -92,10 +93,9 @@ class TestPieceListScreen extends StatelessWidget {
                         // マップから釉薬名を取得（見つからなければ '不明な釉薬' とする）
                         final glazeName =
                             glazeMap[testPiece.glazeId]?.name ?? '不明な釉薬';
-                        return _buildTestPieceCard(
-                          context,
-                          testPiece,
-                          glazeName,
+                        return TestPieceCard(
+                          glazeName: glazeName,
+                          testPiece: testPiece,
                         );
                       },
                     );
@@ -117,78 +117,6 @@ class TestPieceListScreen extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  /// テストピースカードを構築する
-  Widget _buildTestPieceCard(
-    BuildContext context,
-    TestPiece testPiece,
-    String glazeName,
-  ) {
-    return Card(
-      clipBehavior: Clip.antiAlias, // カードの角を丸くするために必要
-      elevation: 2.0,
-      child: InkWell(
-        onTap: () => _navigateToEditScreen(context, testPiece: testPiece),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 画像部分
-            AspectRatio(
-              aspectRatio: 1.0, // 1:1の正方形
-              child: testPiece.imageUrl != null
-                  ? Image.network(
-                      testPiece.imageUrl!,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return const Center(child: CircularProgressIndicator());
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Icon(
-                          Icons.broken_image,
-                          size: 40,
-                          color: Colors.grey,
-                        );
-                      },
-                    )
-                  : Container(
-                      color: Colors.grey[200],
-                      child: const Icon(
-                        Icons.photo,
-                        size: 40,
-                        color: Colors.grey,
-                      ),
-                    ),
-            ),
-            // テキスト部分
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    glazeName,
-                    style: Theme.of(context).textTheme.titleSmall,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    testPiece.clayName,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

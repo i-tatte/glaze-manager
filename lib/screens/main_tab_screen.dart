@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:glaze_manager/screens/glaze_list_screen.dart';
 import 'package:glaze_manager/screens/materials_list_screen.dart';
 import 'package:glaze_manager/screens/settings_screen.dart';
+import 'package:glaze_manager/screens/search_screen.dart';
 import 'package:glaze_manager/screens/test_piece_list_screen.dart';
 import 'package:glaze_manager/services/auth_service.dart';
 import 'package:provider/provider.dart';
@@ -34,6 +35,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
     super.initState();
     _widgetOptions = <Widget>[
       const TestPieceListScreen(),
+      const SearchScreen(),
       const GlazeListScreen(),
       MaterialsListScreen(isEditingNotifier: _isMaterialsEditingNotifier),
       const SettingsScreen(),
@@ -43,6 +45,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
   // 各タブのタイトル
   static const List<String> _appBarTitles = <String>[
     'テストピース一覧',
+    '検索',
     '釉薬一覧',
     '原料一覧',
     '設定',
@@ -54,6 +57,11 @@ class _MainTabScreenState extends State<MainTabScreen> {
       icon: Icon(Icons.photo_library_outlined),
       activeIcon: Icon(Icons.photo_library),
       label: 'テストピース',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.search_outlined),
+      activeIcon: Icon(Icons.search),
+      label: '検索',
     ),
     BottomNavigationBarItem(
       icon: Icon(Icons.color_lens_outlined),
@@ -74,7 +82,8 @@ class _MainTabScreenState extends State<MainTabScreen> {
 
   void _onItemTapped(int index) {
     // 他のタブに移動したら、原料一覧の編集モードを自動的に解除する
-    if (_selectedIndex == 2 && index != 2) {
+    if (_selectedIndex == 3 && index != 3) {
+      // 原料タブのインデックスが3に変わったため修正
       if (_isMaterialsEditingNotifier.value) {
         _isMaterialsEditingNotifier.value = false;
       }
@@ -89,9 +98,11 @@ class _MainTabScreenState extends State<MainTabScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_appBarTitles[_selectedIndex]),
+        // 検索画面(index: 1)ではAppBarのactionsを非表示にする
+        // 検索バーをボディに配置するため
         actions: [
-          // 原料一覧画面(index: 2)でのみ編集ボタンを表示
-          if (_selectedIndex == 2)
+          // 原料一覧画面(index: 3)でのみ編集ボタンを表示
+          if (_selectedIndex == 3)
             // isEditingNotifierの状態が変更されるたびにAppBarのボタンも再描画
             ValueListenableBuilder<bool>(
               valueListenable: _isMaterialsEditingNotifier,
@@ -102,8 +113,8 @@ class _MainTabScreenState extends State<MainTabScreen> {
                 ),
               ),
             ),
-          // 設定画面でのみサインアウトボタンを表示
-          if (_selectedIndex == 3)
+          // 設定画面(index: 4)でのみサインアウトボタンを表示
+          if (_selectedIndex == 4)
             IconButton(
               icon: const Icon(Icons.logout),
               tooltip: 'サインアウト',
