@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
@@ -102,13 +103,8 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
           IconButton(
             icon: const Icon(Icons.edit),
             tooltip: '編集',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) =>
-                      TestPieceEditScreen(testPiece: widget.testPiece),
-                ),
-              );
+            onPressed: () async {
+              _navigateToEditScreen(context, testPiece: widget.testPiece);
             },
           ),
           IconButton(
@@ -256,6 +252,43 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
           const SizedBox(height: 4),
           Text(value, style: Theme.of(context).textTheme.bodyLarge),
         ],
+      ),
+    );
+  }
+
+  /// 編集画面へ遷移する（オフラインチェック含む）
+  Future<void> _navigateToEditScreen(
+    BuildContext context, {
+    TestPiece? testPiece,
+  }) async {
+    // ネットワーク接続を確認
+    final connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult.contains(ConnectivityResult.none)) {
+      // オフラインの場合、警告ダイアログを表示
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('オフラインです'),
+          content: const Text('現在オフラインのため、画像のアップロードはできません。テキスト情報のみ保存可能です。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('キャンセル'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('続ける'),
+            ),
+          ],
+        ),
+      );
+      // 「続ける」が押されなかった場合は何もしない
+      if (confirmed != true) return;
+    }
+    // オンライン、または警告後に「続ける」が押された場合、編集画面に遷移
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => TestPieceEditScreen(testPiece: testPiece),
       ),
     );
   }
