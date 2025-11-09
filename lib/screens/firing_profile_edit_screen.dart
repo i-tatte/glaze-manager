@@ -22,6 +22,9 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
   bool _isDirty = false;
   List<FlSpot> _spots = [];
 
+  final double ymin = 0;
+  final double ymax = 1400;
+
   @override
   void initState() {
     super.initState();
@@ -122,6 +125,9 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
+      // PopScopeのonPopInvokedはdidPopがfalseの時のみ呼ばれるため、
+      // isDirtyがfalseの場合でも手動でpopを呼ぶ必要がある。
+      // そのロジックを_onPopInvokedにまとめる。
       canPop: !_isDirty,
       onPopInvoked: (didPop) async {
         if (didPop) return;
@@ -146,66 +152,121 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
           Navigator.of(context).pop();
         }
       },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.profile == null ? 'プリセットの新規作成' : 'プリセットの編集'),
-          actions: [
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: CircularProgressIndicator(),
-              )
-            else
-              IconButton(icon: const Icon(Icons.save), onPressed: _saveProfile),
-          ],
-        ),
-        body: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(16.0),
-            children: [
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'プリセット名'),
-                validator: (value) =>
-                    (value == null || value.isEmpty) ? '名前を入力してください' : null,
-              ),
-              const SizedBox(height: 24),
-              _buildChart(), // グラフ表示ウィジェット
-              const SizedBox(height: 24),
-              TextFormField(
-                controller: _curveDataController,
-                decoration: const InputDecoration(
-                  labelText: '焼成データ (焼成開始からの経過時間(分),温度)',
-                  hintText: '例(素焼き900℃炙りなし):\n240,400\n420,900\n480,900',
-                  alignLabelWithHint: true,
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 10,
-                keyboardType: TextInputType.multiline,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return null; // 入力は任意
-                  }
-                  final lines = value.trim().split('\n');
-                  for (var i = 0; i < lines.length; i++) {
-                    final line = lines[i].trim();
-                    if (line.isEmpty) continue; // 空行は無視
-                    final parts = line.split(',');
-                    if (parts.length != 2 ||
-                        double.tryParse(parts[0].trim()) == null ||
-                        double.tryParse(parts[1].trim()) == null) {
-                      return '${i + 1}行目の形式が正しくありません (例: 30,100)';
-                    }
-                  }
-                  return null;
-                },
-              ),
-            ],
-          ),
-        ),
+      child: _buildScaffold(),
+    );
+  }
+
+  Widget _buildScaffold() {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.profile == null ? 'プロファイルの新規作成' : 'プロファイルの編集'),
+        actions: [
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: CircularProgressIndicator(),
+            )
+          else
+            IconButton(icon: const Icon(Icons.save), onPressed: _saveProfile),
+        ],
+      ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // アスペクト比が1.2より大きい場合を横長画面とみなす
+          if (constraints.maxWidth / constraints.maxHeight > 1.2) {
+            return _buildWideLayout();
+          } else {
+            return _buildNarrowLayout();
+          }
+        },
       ),
     );
+  }
+
+  /// 縦長レイアウト (スマートフォンなど)
+  Widget _buildNarrowLayout() {
+    return Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          ..._buildFormFields(),
+          const SizedBox(height: 24),
+          _buildChart(),
+        ],
+      ),
+    );
+  }
+
+  /// 横長レイアウト (PCなど)
+  Widget _buildWideLayout() {
+    return Row(
+      children: [
+        // 左半分: フォーム
+        Expanded(
+          flex: 1,
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: _buildFormFields(),
+            ),
+          ),
+        ),
+        const VerticalDivider(width: 1),
+        // 右半分: グラフ
+        Expanded(
+          flex: 1,
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: _buildChart(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// フォーム部分のウィジェットリストを生成
+  List<Widget> _buildFormFields() {
+    return [
+      TextFormField(
+        controller: _nameController,
+        decoration: const InputDecoration(labelText: 'プロファイル名'),
+        validator: (value) =>
+            (value == null || value.isEmpty) ? '名前を入力してください' : null,
+      ),
+      const SizedBox(height: 24),
+      TextFormField(
+        controller: _curveDataController,
+        decoration: const InputDecoration(
+          labelText: '焼成データ (焼成開始からの経過時間(分),温度(℃)をカンマ区切りで入力)',
+          hintText: '例(素焼き900℃炙りなし):\n240,400\n420,900\n480,900',
+          alignLabelWithHint: true,
+          border: OutlineInputBorder(),
+        ),
+        maxLines: 10,
+        keyboardType: TextInputType.multiline,
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return null; // 入力は任意
+          }
+          final lines = value.trim().split('\n');
+          for (var i = 0; i < lines.length; i++) {
+            final line = lines[i].trim();
+            if (line.isEmpty) continue; // 空行は無視
+            final parts = line.split(',');
+            if (parts.length != 2 ||
+                double.tryParse(parts[0].trim()) == null ||
+                double.tryParse(parts[1].trim()) == null) {
+              return '${i + 1}行目の形式が正しくありません (例: 30,100)';
+            }
+          }
+          return null;
+        },
+      ),
+    ];
   }
 
   Widget _buildChart() {
@@ -228,11 +289,39 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
     }
 
     return AspectRatio(
-      aspectRatio: 2.0,
+      aspectRatio: 1.2,
       child: Padding(
         padding: const EdgeInsets.only(right: 18.0, top: 10.0),
         child: LineChart(
           LineChartData(
+            rangeAnnotations: RangeAnnotations(
+              horizontalRangeAnnotations: [
+                // 100-200℃の領域(炙り領域)
+                HorizontalRangeAnnotation(
+                  y1: 100,
+                  y2: 200,
+                  color: Colors.lightGreen.withValues(alpha: 0.2),
+                ),
+                // 800-1200℃の領域(素焼き領域)
+                HorizontalRangeAnnotation(
+                  y1: 800,
+                  y2: 1200,
+                  color: Colors.yellow.withValues(alpha: 0.2),
+                ),
+                // 1200-1300℃の領域(本焼き領域)
+                HorizontalRangeAnnotation(
+                  y1: 1200,
+                  y2: 1300, // グラフの最大Y値より大きい値を設定
+                  color: Colors.orange.withValues(alpha: 0.2),
+                ),
+                // 1300℃以上の領域(高温領域)
+                HorizontalRangeAnnotation(
+                  y1: 1300,
+                  y2: ymax, // グラフの最大Y値と同じ値を設定
+                  color: Colors.red.withValues(alpha: 0.2),
+                ),
+              ],
+            ),
             gridData: FlGridData(
               show: true,
               drawVerticalLine: true,
@@ -256,6 +345,18 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
                 axisNameSize: 24,
               ),
             ),
+            lineTouchData: LineTouchData(
+              touchTooltipData: LineTouchTooltipData(
+                getTooltipItems: (touchedSpots) {
+                  return touchedSpots.map((spot) {
+                    return LineTooltipItem(
+                      '${(spot.x).toStringAsFixed(0)} 時間\n${spot.y.toStringAsFixed(0)} °C',
+                      const TextStyle(color: Colors.white),
+                    );
+                  }).toList();
+                },
+              ),
+            ),
             borderData: FlBorderData(
               show: true,
               border: Border.all(color: const Color(0xff37434d), width: 1),
@@ -270,6 +371,8 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
                 dotData: const FlDotData(show: true),
               ),
             ],
+            minY: ymin,
+            maxY: ymax,
           ),
         ),
       ),
