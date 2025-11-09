@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
+import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/storage_service.dart';
@@ -27,7 +28,9 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
 
   String? _selectedGlazeId;
   String? _selectedFiringProfileId;
+  String? _selectedFiringAtmosphereId;
   List<FiringProfile> _availableFiringProfiles = [];
+  List<FiringAtmosphere> _availableFiringAtmospheres = [];
   List<Glaze> _availableGlazes = [];
 
   XFile? _imageFile; // 選択された画像ファイル
@@ -44,6 +47,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     super.initState();
     _clayNameController.text = widget.testPiece?.clayName ?? '';
     _selectedGlazeId = widget.testPiece?.glazeId;
+    _selectedFiringAtmosphereId = widget.testPiece?.firingAtmosphereId;
     _selectedFiringProfileId = widget.testPiece?.firingProfileId;
     _networkImageUrl = widget.testPiece?.imageUrl;
 
@@ -62,6 +66,9 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     );
     _availableGlazes = await firestoreService.getGlazes().first;
     _availableFiringProfiles = await firestoreService.getFiringProfiles().first;
+    _availableFiringAtmospheres = await firestoreService
+        .getFiringAtmospheres()
+        .first;
     // 初回ロード時はダーティ状態にしない
     setState(() {});
   }
@@ -178,6 +185,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         id: widget.testPiece?.id,
         glazeId: _selectedGlazeId!,
         clayName: _clayNameController.text,
+        firingAtmosphereId: _selectedFiringAtmosphereId,
         firingProfileId: _selectedFiringProfileId,
         imageUrl: imageUrl,
         createdAt: widget.testPiece?.createdAt ?? Timestamp.now(),
@@ -351,6 +359,27 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         decoration: const InputDecoration(labelText: '素地土名'),
         validator: (value) =>
             (value == null || value.isEmpty) ? '素地土名を入力' : null,
+      ),
+      const SizedBox(height: 16),
+      // 焼成雰囲気
+      DropdownButtonFormField<String>(
+        decoration: const InputDecoration(labelText: '焼成雰囲気'),
+        value: _selectedFiringAtmosphereId,
+        hint: const Text('焼成雰囲気を選択 (任意)'),
+        isExpanded: true,
+        items: _availableFiringAtmospheres
+            .map(
+              (atmosphere) => DropdownMenuItem(
+                value: atmosphere.id,
+                child: Text(atmosphere.name),
+              ),
+            )
+            .toList(),
+        onChanged: (value) {
+          _markAsDirty();
+          setState(() => _selectedFiringAtmosphereId = value);
+        },
+        validator: null,
       ),
       const SizedBox(height: 16),
       // 焼成プロファイル

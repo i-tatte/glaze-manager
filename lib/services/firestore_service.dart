@@ -4,6 +4,7 @@ import 'package:glaze_manager/models/material.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
+import 'package:glaze_manager/models/firing_atmosphere.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -232,6 +233,59 @@ class FirestoreService {
         .doc(_userId)
         .collection('firing_profiles')
         .doc(profileId)
+        .delete();
+  }
+
+  // --- FiringAtmosphere Methods ---
+
+  /// 焼成雰囲気を追加
+  Future<void> addFiringAtmosphere(FiringAtmosphere atmosphere) async {
+    if (_userId == null) throw Exception("User not logged in");
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('firing_atmospheres')
+        .add(atmosphere.toFirestore());
+  }
+
+  /// 焼成雰囲気一覧を取得 (リアルタイム)
+  Stream<List<FiringAtmosphere>> getFiringAtmospheres() {
+    if (_userId == null) return Stream.value([]);
+    return _db
+        .collection('users')
+        .doc(_userId)
+        .collection('firing_atmospheres')
+        .orderBy('name') // 名前で並び替え
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => FiringAtmosphere.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  /// 焼成雰囲気を更新
+  Future<void> updateFiringAtmosphere(FiringAtmosphere atmosphere) async {
+    if (_userId == null) throw Exception("User not logged in");
+    if (atmosphere.id == null) {
+      throw Exception("FiringAtmosphere ID is required for update");
+    }
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('firing_atmospheres')
+        .doc(atmosphere.id)
+        .update(atmosphere.toFirestore());
+  }
+
+  /// 焼成雰囲気を削除
+  Future<void> deleteFiringAtmosphere(String atmosphereId) async {
+    if (_userId == null) throw Exception("User not logged in");
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('firing_atmospheres')
+        .doc(atmosphereId)
         .delete();
   }
 }
