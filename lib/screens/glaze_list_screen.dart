@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/screens/glaze_edit_screen.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
+import 'package:glaze_manager/screens/glaze_detail_screen.dart';
 import 'package:provider/provider.dart';
 
 class GlazeListScreen extends StatelessWidget {
@@ -47,7 +48,7 @@ class GlazeListScreen extends StatelessWidget {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => GlazeEditScreen(glaze: glaze),
+                        builder: (context) => GlazeDetailScreen(glaze: glaze),
                       ),
                     );
                   },

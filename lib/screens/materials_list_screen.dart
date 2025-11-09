@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/material.dart' as app;
 import 'package:glaze_manager/screens/material_edit_screen.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
+import 'package:glaze_manager/screens/material_detail_screen.dart';
 import 'package:provider/provider.dart';
 
 class MaterialsListScreen extends StatefulWidget {
@@ -99,7 +100,7 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (context) =>
-                                  MaterialEditScreen(material: material),
+                                  MaterialDetailScreen(material: material),
                             ),
                           );
                         },
@@ -180,7 +181,7 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) => MaterialEditScreen(material: material),
+            builder: (context) => MaterialDetailScreen(material: material),
           ),
         );
       },
