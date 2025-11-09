@@ -97,7 +97,7 @@ class FiringChart extends StatelessWidget {
                 getTooltipItems: (touchedSpots) {
                   return touchedSpots.map((spot) {
                     return LineTooltipItem(
-                      '${(spot.x * 60).toStringAsFixed(0)} 分\n${spot.y.toStringAsFixed(0)} °C',
+                      '${(spot.x).toStringAsFixed(1)} 時間\n${spot.y.toStringAsFixed(0)} °C',
                       const TextStyle(color: Colors.white),
                     );
                   }).toList();

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
+import 'package:glaze_manager/widgets/firing_chart.dart';
 import 'package:provider/provider.dart';
 
 class FiringProfileEditScreen extends StatefulWidget {
@@ -20,10 +20,6 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
   late TextEditingController _curveDataController;
   bool _isLoading = false;
   bool _isDirty = false;
-  List<FlSpot> _spots = [];
-
-  final double ymin = 0;
-  final double ymax = 1400;
 
   @override
   void initState() {
@@ -34,9 +30,6 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
     );
     _nameController.addListener(_markAsDirty);
     _curveDataController.addListener(_onCurveDataChanged);
-
-    // 初期データでグラフを更新
-    _updateChartData(_curveDataController.text);
   }
 
   void _markAsDirty() {
@@ -45,44 +38,7 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
 
   void _onCurveDataChanged() {
     _markAsDirty();
-    _updateChartData(_curveDataController.text);
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _curveDataController.dispose();
-    super.dispose();
-  }
-
-  void _updateChartData(String text) {
-    final List<FlSpot> newSpots = [const FlSpot(0, 20)]; // 開始点 (室温20℃と仮定)
-    double lastTime = 0;
-
-    if (text.trim().isEmpty) {
-      setState(() => _spots = []); // データがなければグラフをクリア
-      return;
-    }
-
-    final lines = text.trim().split('\n');
-    for (final line in lines) {
-      final parts = line.trim().split(',');
-      if (parts.length == 2) {
-        final time = double.tryParse(parts[0].trim());
-        final temp = double.tryParse(parts[1].trim());
-
-        // 時間と温度が正しくパースでき、かつ前の値より大きい場合のみ追加
-        if (time != null && temp != null && time > lastTime) {
-          newSpots.add(FlSpot(time / 60.0, temp));
-          lastTime = time;
-        }
-      }
-    }
-
-    // 2点以上ないとグラフは描画できない
-    if (newSpots.length > 1) {
-      setState(() => _spots = newSpots);
-    }
+    setState(() {}); // テキストが変更されたらUIを再描画してグラフを更新
   }
 
   Future<void> _saveProfile() async {
@@ -120,6 +76,13 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _curveDataController.dispose();
+    super.dispose();
   }
 
   @override
@@ -270,7 +233,9 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
   }
 
   Widget _buildChart() {
-    if (_spots.length < 2) {
+    final curveData = _curveDataController.text;
+
+    if (curveData.trim().isEmpty) {
       return Container(
         height: 250,
         decoration: BoxDecoration(
@@ -288,94 +253,7 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
       );
     }
 
-    return AspectRatio(
-      aspectRatio: 1.2,
-      child: Padding(
-        padding: const EdgeInsets.only(right: 18.0, top: 10.0),
-        child: LineChart(
-          LineChartData(
-            rangeAnnotations: RangeAnnotations(
-              horizontalRangeAnnotations: [
-                // 100-200℃の領域(炙り領域)
-                HorizontalRangeAnnotation(
-                  y1: 100,
-                  y2: 200,
-                  color: Colors.lightGreen.withValues(alpha: 0.2),
-                ),
-                // 800-1200℃の領域(素焼き領域)
-                HorizontalRangeAnnotation(
-                  y1: 800,
-                  y2: 1200,
-                  color: Colors.yellow.withValues(alpha: 0.2),
-                ),
-                // 1200-1300℃の領域(本焼き領域)
-                HorizontalRangeAnnotation(
-                  y1: 1200,
-                  y2: 1300, // グラフの最大Y値より大きい値を設定
-                  color: Colors.orange.withValues(alpha: 0.2),
-                ),
-                // 1300℃以上の領域(高温領域)
-                HorizontalRangeAnnotation(
-                  y1: 1300,
-                  y2: ymax, // グラフの最大Y値と同じ値を設定
-                  color: Colors.red.withValues(alpha: 0.2),
-                ),
-              ],
-            ),
-            gridData: FlGridData(
-              show: true,
-              drawVerticalLine: true,
-              getDrawingHorizontalLine: (value) =>
-                  const FlLine(color: Colors.black12, strokeWidth: 1),
-              getDrawingVerticalLine: (value) =>
-                  const FlLine(color: Colors.black12, strokeWidth: 1),
-            ),
-            titlesData: const FlTitlesData(
-              rightTitles: AxisTitles(
-                sideTitles: SideTitles(showTitles: false),
-              ),
-              topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              bottomTitles: AxisTitles(
-                sideTitles: SideTitles(showTitles: true, reservedSize: 30),
-                axisNameWidget: Text("時間 (h)"),
-              ),
-              leftTitles: AxisTitles(
-                sideTitles: SideTitles(showTitles: true, reservedSize: 40),
-                axisNameWidget: Text("温度 (°C)"),
-                axisNameSize: 24,
-              ),
-            ),
-            lineTouchData: LineTouchData(
-              touchTooltipData: LineTouchTooltipData(
-                getTooltipItems: (touchedSpots) {
-                  return touchedSpots.map((spot) {
-                    return LineTooltipItem(
-                      '${(spot.x).toStringAsFixed(0)} 時間\n${spot.y.toStringAsFixed(0)} °C',
-                      const TextStyle(color: Colors.white),
-                    );
-                  }).toList();
-                },
-              ),
-            ),
-            borderData: FlBorderData(
-              show: true,
-              border: Border.all(color: const Color(0xff37434d), width: 1),
-            ),
-            lineBarsData: [
-              LineChartBarData(
-                spots: _spots,
-                isCurved: false,
-                color: Theme.of(context).primaryColor,
-                barWidth: 3,
-                isStrokeCapRound: true,
-                dotData: const FlDotData(show: true),
-              ),
-            ],
-            minY: ymin,
-            maxY: ymax,
-          ),
-        ),
-      ),
-    );
+    // FiringChartウィジェットを再利用
+    return FiringChart(curveData: curveData);
   }
 }
