@@ -1,4 +1,3 @@
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
@@ -110,50 +109,15 @@ class TestPieceListScreen extends StatelessWidget {
           right: 16.0,
           child: FloatingActionButton(
             heroTag: 'testPieceListFab', // ユニークなタグを追加
-            onPressed: () async {
-              _navigateToEditScreen(context);
-            },
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const TestPieceEditScreen(),
+              ),
+            ),
             child: const Icon(Icons.add),
           ),
         ),
       ],
-    );
-  }
-
-  /// 編集画面へ遷移する（オフラインチェック含む）
-  Future<void> _navigateToEditScreen(
-    BuildContext context, {
-    TestPiece? testPiece,
-  }) async {
-    // ネットワーク接続を確認
-    final connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult.contains(ConnectivityResult.none)) {
-      // オフラインの場合、警告ダイアログを表示
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('オフラインです'),
-          content: const Text('現在オフラインのため、画像のアップロードはできません。テキスト情報のみ保存可能です。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('キャンセル'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('続ける'),
-            ),
-          ],
-        ),
-      );
-      // 「続ける」が押されなかった場合は何もしない
-      if (confirmed != true) return;
-    }
-    // オンライン、または警告後に「続ける」が押された場合、編集画面に遷移
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => TestPieceEditScreen(testPiece: testPiece),
-      ),
     );
   }
 }

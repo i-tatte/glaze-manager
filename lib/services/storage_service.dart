@@ -26,4 +26,16 @@ class StorageService {
       return null;
     }
   }
+
+  /// 画像を削除する
+  Future<void> deleteTestPieceImage(String imageUrl) async {
+    if (_userId == null) throw Exception("User not logged in");
+
+    try {
+      final ref = _storage.refFromURL(imageUrl);
+      await ref.delete();
+    } catch (e) {
+      print('Image deletion failed: $e');
+    }
+  }
 }
