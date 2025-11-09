@@ -212,150 +212,210 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: !_isDirty,
-      onPopInvoked: (didPop) async {
-        if (didPop) return; // canPop: true の場合
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('変更を破棄しますか？'),
-            content: const Text('入力中の内容は保存されません。'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('キャンセル'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('破棄', style: TextStyle(color: Colors.red)),
-              ),
-            ],
-          ),
-        );
-        if (confirmed == true && mounted) {
-          Navigator.of(context).pop();
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.testPiece == null ? 'テストピースの新規作成' : 'テストピースの編集'),
+      onPopInvoked: _onPopInvoked,
+      child: _buildScaffold(),
+    );
+  }
+
+  /// 画面を離れる際に未保存の変更があるか確認する
+  Future<void> _onPopInvoked(bool didPop) async {
+    if (didPop) return;
+
+    if (_isDirty) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('変更を破棄しますか？'),
+          content: const Text('入力中の内容は保存されません。'),
           actions: [
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(color: Colors.black),
-                ),
-              )
-            else
-              IconButton(
-                icon: const Icon(Icons.save),
-                onPressed: _saveTestPiece,
-              ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('キャンセル'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('破棄', style: TextStyle(color: Colors.red)),
+            ),
           ],
         ),
-        body: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(16.0),
-            children: [
-              // 釉薬選択
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(labelText: '釉薬名'),
-                initialValue: _selectedGlazeId,
-                hint: const Text('関連する釉薬を選択'),
-                isExpanded: true,
-                items: _availableGlazes
-                    .map(
-                      (glaze) => DropdownMenuItem(
-                        value: glaze.id,
-                        child: Text(glaze.name),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  _markAsDirty(); // 釉薬選択が変更されたらダーティ
-                  setState(() {
-                    _selectedGlazeId = value;
-                  });
-                },
-                validator: (value) => value == null ? '釉薬を選択してください' : null,
+      );
+      if (confirmed == true && mounted) {
+        Navigator.of(context).pop();
+      }
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
+  Widget _buildScaffold() {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.testPiece == null ? 'テストピースの新規作成' : 'テストピースの編集'),
+        actions: [
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(color: Colors.black),
               ),
-              const SizedBox(height: 16),
-              // 素地土名
-              TextFormField(
-                controller: _clayNameController,
-                decoration: const InputDecoration(labelText: '素地土名'),
-                validator: (value) =>
-                    (value == null || value.isEmpty) ? '素地土名を入力' : null,
-              ),
-              const SizedBox(height: 16),
-              // 焼成プロファイル
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(labelText: '焼成プロファイル'),
-                value: _selectedFiringProfileId,
-                hint: const Text('焼成プロファイルを選択 (任意)'),
-                isExpanded: true,
-                items: _availableFiringProfiles
-                    .map(
-                      (profile) => DropdownMenuItem(
-                        value: profile.id,
-                        child: Text(profile.name),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  _markAsDirty();
-                  setState(() => _selectedFiringProfileId = value);
-                  _updateChartDataForSelectedProfile(value);
-                },
-                // バリデーションは不要
-                validator: null,
-              ),
-              // グラフ表示エリア
-              if (_selectedFiringProfileId != null && _spots.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  icon: Icon(
-                    _isChartVisible ? Icons.visibility_off : Icons.visibility,
-                  ),
-                  label: Text(_isChartVisible ? '焼成温度曲線を隠す' : '焼成温度曲線を表示'),
-                  onPressed: () {
-                    setState(() => _isChartVisible = !_isChartVisible);
-                  },
-                ),
-                Visibility(visible: _isChartVisible, child: _buildChart()),
-              ],
-              const SizedBox(height: 24),
-              // 画像選択
-              Text('テストピース画像', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              _buildImagePreview(),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.photo_library),
-                label: const Text('ギャラリーから画像を選択'),
-                onPressed: _pickImage,
-              ),
-            ],
-          ),
-        ),
+            )
+          else
+            IconButton(icon: const Icon(Icons.save), onPressed: _saveTestPiece),
+        ],
+      ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // アスペクト比が1.2より大きい場合を横長画面とみなす
+          if (constraints.maxWidth / constraints.maxHeight > 1.2) {
+            return _buildWideLayout();
+          } else {
+            return _buildNarrowLayout();
+          }
+        },
       ),
     );
+  }
+
+  /// 縦長レイアウト (スマートフォンなど)
+  Widget _buildNarrowLayout() {
+    return Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          ..._buildFormFields(),
+          const SizedBox(height: 24),
+          ..._buildImageSection(),
+        ],
+      ),
+    );
+  }
+
+  /// 横長レイアウト (PCなど)
+  Widget _buildWideLayout() {
+    return Row(
+      children: [
+        // 左半分: フォーム
+        Expanded(
+          flex: 1,
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: _buildFormFields(),
+            ),
+          ),
+        ),
+        const VerticalDivider(width: 1),
+        // 右半分: 画像とグラフ
+        Expanded(
+          flex: 1,
+          child: ListView(
+            padding: const EdgeInsets.all(16.0),
+            children: _buildImageSection(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// フォーム部分のウィジェットリストを生成
+  List<Widget> _buildFormFields() {
+    return [
+      // 釉薬選択
+      DropdownButtonFormField<String>(
+        decoration: const InputDecoration(labelText: '釉薬名'),
+        initialValue: _selectedGlazeId,
+        hint: const Text('関連する釉薬を選択'),
+        isExpanded: true,
+        items: _availableGlazes
+            .map(
+              (glaze) =>
+                  DropdownMenuItem(value: glaze.id, child: Text(glaze.name)),
+            )
+            .toList(),
+        onChanged: (value) {
+          _markAsDirty();
+          setState(() {
+            _selectedGlazeId = value;
+          });
+        },
+        validator: (value) => value == null ? '釉薬を選択してください' : null,
+      ),
+      const SizedBox(height: 16),
+      // 素地土名
+      TextFormField(
+        controller: _clayNameController,
+        decoration: const InputDecoration(labelText: '素地土名'),
+        validator: (value) =>
+            (value == null || value.isEmpty) ? '素地土名を入力' : null,
+      ),
+      const SizedBox(height: 16),
+      // 焼成プロファイル
+      DropdownButtonFormField<String>(
+        decoration: const InputDecoration(labelText: '焼成プロファイル'),
+        initialValue: _selectedFiringProfileId,
+        hint: const Text('焼成プロファイルを選択 (任意)'),
+        isExpanded: true,
+        items: _availableFiringProfiles
+            .map(
+              (profile) => DropdownMenuItem(
+                value: profile.id,
+                child: Text(profile.name),
+              ),
+            )
+            .toList(),
+        onChanged: (value) {
+          _markAsDirty();
+          setState(() => _selectedFiringProfileId = value);
+          _updateChartDataForSelectedProfile(value);
+        },
+        validator: null,
+      ),
+      // グラフ表示エリア
+      if (_selectedFiringProfileId != null && _spots.isNotEmpty) ...[
+        const Divider(),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          icon: Icon(_isChartVisible ? Icons.visibility_off : Icons.visibility),
+          label: Text(_isChartVisible ? '焼成温度曲線を隠す' : '焼成温度曲線を表示'),
+          onPressed: () {
+            setState(() => _isChartVisible = !_isChartVisible);
+          },
+        ),
+        Visibility(visible: _isChartVisible, child: _buildChart()),
+      ],
+    ];
+  }
+
+  /// 画像部分のウィジェットリストを生成
+  List<Widget> _buildImageSection() {
+    return [
+      Text('テストピース画像', style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: 8),
+      _buildImagePreview(),
+      const SizedBox(height: 8),
+      OutlinedButton.icon(
+        icon: const Icon(Icons.photo_library),
+        label: const Text('ギャラリーから画像を選択'),
+        onPressed: _pickImage,
+      ),
+      const SizedBox(height: 16),
+    ];
   }
 
   Widget _buildImagePreview() {
     // 新しい画像が選択されている場合
     if (_imageFile != null) {
-      return Image.file(File(_imageFile!.path), height: 200, fit: BoxFit.cover);
+      return Image.file(File(_imageFile!.path), fit: BoxFit.contain);
     }
     // 既存の画像URLがある場合
     if (_networkImageUrl != null) {
       return Image.network(
         _networkImageUrl!,
-        height: 200,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
           return const Center(
@@ -373,7 +433,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     }
     // どちらもない場合
     return Container(
-      height: 150,
+      height: 200,
       decoration: BoxDecoration(
         color: Colors.grey[200],
         border: Border.all(color: Colors.grey[400]!),
@@ -386,12 +446,42 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   }
 
   Widget _buildChart() {
+    final double ymax = 1400;
+    final double ymin = 0;
     return AspectRatio(
-      aspectRatio: 2.0,
+      aspectRatio: 1.5,
       child: Padding(
         padding: const EdgeInsets.only(right: 18.0, top: 24.0, bottom: 12.0),
         child: LineChart(
           LineChartData(
+            rangeAnnotations: RangeAnnotations(
+              horizontalRangeAnnotations: [
+                // 100-200℃の領域(炙り領域)
+                HorizontalRangeAnnotation(
+                  y1: 100,
+                  y2: 200,
+                  color: Colors.lightGreen.withValues(alpha: 0.2),
+                ),
+                // 800-1200℃の領域(素焼き領域)
+                HorizontalRangeAnnotation(
+                  y1: 800,
+                  y2: 1200,
+                  color: Colors.yellow.withValues(alpha: 0.2),
+                ),
+                // 1200-1300℃の領域(本焼き領域)
+                HorizontalRangeAnnotation(
+                  y1: 1200,
+                  y2: 1300, // グラフの最大Y値より大きい値を設定
+                  color: Colors.orange.withValues(alpha: 0.2),
+                ),
+                // 1300℃以上の領域(高温領域)
+                HorizontalRangeAnnotation(
+                  y1: 1300,
+                  y2: ymax, // グラフの最大Y値と同じ値を設定
+                  color: Colors.red.withValues(alpha: 0.2),
+                ),
+              ],
+            ),
             gridData: FlGridData(
               show: true,
               drawVerticalLine: true,
@@ -424,7 +514,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
                 getTooltipItems: (touchedSpots) {
                   return touchedSpots.map((spot) {
                     return LineTooltipItem(
-                      '${spot.y.toStringAsFixed(0)} °C\n${(spot.x * 60).toStringAsFixed(0)} 分',
+                      '${(spot.x).toStringAsFixed(0)} 時間\n${spot.y.toStringAsFixed(0)} °C',
                       const TextStyle(color: Colors.white),
                     );
                   }).toList();
@@ -440,6 +530,8 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
                 dotData: const FlDotData(show: true),
               ),
             ],
+            minY: ymin,
+            maxY: ymax,
           ),
         ),
       ),
