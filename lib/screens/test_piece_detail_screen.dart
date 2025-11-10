@@ -4,6 +4,7 @@ import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
+import 'package:glaze_manager/screens/glaze_detail_screen.dart';
 import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/storage_service.dart';
@@ -220,7 +221,17 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildInfoTile('釉薬名', glaze.name),
+          _buildInfoTile(
+            '釉薬名',
+            glaze.name,
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => GlazeDetailScreen(glaze: glaze),
+                ),
+              );
+            },
+          ),
           _buildInfoTile('素地土名', widget.testPiece.clayName),
           _buildInfoTile('焼成雰囲気', firingAtmosphere?.name ?? '未設定'),
           const Divider(height: 32),
@@ -242,15 +253,28 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
     );
   }
 
-  Widget _buildInfoTile(String label, String value) {
+  Widget _buildInfoTile(String label, String value, {VoidCallback? onTap}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 4),
-          Text(value, style: Theme.of(context).textTheme.bodyLarge),
+          InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: Text(
+                value,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: onTap != null
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                  decoration: onTap != null ? TextDecoration.underline : null,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
