@@ -121,7 +121,6 @@ class FirestoreService {
   // 釉薬を削除
   Future<void> deleteGlaze(String glazeId) async {
     if (_userId == null) throw Exception("User not logged in");
-    // TODO: 関連する画像もStorageから削除する処理を追加するのが望ましい
     await _db
         .collection('users')
         .doc(_userId)
@@ -174,7 +173,6 @@ class FirestoreService {
   // テストピースを削除
   Future<void> deleteTestPiece(String testPieceId) async {
     if (_userId == null) throw Exception("User not logged in");
-    // TODO: 関連する画像もStorageから削除する処理を追加するのが望ましい
     await _db
         .collection('users')
         .doc(_userId)

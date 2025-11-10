@@ -47,7 +47,22 @@ class MaterialDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(material.name),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(material.name, overflow: TextOverflow.ellipsis),
+            ),
+            const SizedBox(width: 8),
+            Chip(
+              label: Text(material.category.displayName),
+              labelStyle: const TextStyle(color: Colors.white),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 3.0),
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
@@ -80,8 +95,18 @@ class MaterialDetailScreen extends StatelessWidget {
                 DataColumn(label: Text('成分名')),
                 DataColumn(label: Text('量 (%)'), numeric: true),
               ],
-              rows: material.components.entries.map((entry) {
+              rows: material.components.entries.toList().asMap().entries.map((
+                indexedEntry,
+              ) {
+                final index = indexedEntry.key;
+                final entry = indexedEntry.value;
                 return DataRow(
+                  color: WidgetStateProperty.resolveWith<Color?>((states) {
+                    if (index.isEven) {
+                      return Colors.grey.withValues(alpha: 0.1);
+                    }
+                    return null; // 奇数行はデフォルト
+                  }),
                   cells: [
                     DataCell(Text(entry.key)),
                     DataCell(Text(entry.value.toString())),
