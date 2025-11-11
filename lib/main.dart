@@ -1,4 +1,3 @@
-// main.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -9,6 +8,7 @@ import 'package:glaze_manager/services/storage_service.dart';
 import 'package:glaze_manager/services/settings_service.dart';
 import 'firebase_options.dart'; // flutterfire configure で生成されたファイル
 import 'package:provider/provider.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() async {
   // Flutterのウィジェットバインディングを初期化
@@ -40,10 +40,16 @@ class AppProviders extends StatelessWidget {
         Provider<StorageService>(create: (_) => StorageService()),
       ],
       child: MaterialApp(
-        title: 'Glaze Recipe App',
+        title: 'Glaze Manager',
         theme: ThemeData(primarySwatch: Colors.blue),
         home:
-            const AuthWrapper(), // 認証状態に応じて表示を切り替えるWidget (screens/auth_wrapper.dart)
+            const AuthWrapper(), // 認証状態に応じて表示を切り替える (screens/auth_wrapper.dart)
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('ja', 'JP')],
       ),
     );
   }
