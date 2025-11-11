@@ -42,8 +42,7 @@ class AppProviders extends StatelessWidget {
       child: MaterialApp(
         title: 'Glaze Manager',
         theme: ThemeData(primarySwatch: Colors.blue),
-        home:
-            const AuthWrapper(), // 認証状態に応じて表示を切り替える (screens/auth_wrapper.dart)
+        home: const AuthWrapper(), // 認証状態に応じて表示を切り替える
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
