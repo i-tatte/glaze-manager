@@ -1,11 +1,16 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/screens/glaze_list_screen.dart';
 import 'package:glaze_manager/screens/materials_list_screen.dart';
 import 'package:glaze_manager/screens/settings_screen.dart';
 import 'package:glaze_manager/screens/search_screen.dart';
 import 'package:glaze_manager/screens/test_piece_list_screen.dart';
 import 'package:glaze_manager/services/auth_service.dart';
+import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:provider/provider.dart';
+import 'package:excel/excel.dart';
 
 class MainTabScreen extends StatefulWidget {
   const MainTabScreen({super.key});
@@ -20,6 +25,9 @@ class _MainTabScreenState extends State<MainTabScreen> {
 
   // 原料一覧画面の編集状態を管理するNotifier
   final _isMaterialsEditingNotifier = ValueNotifier<bool>(false);
+
+  // 釉薬インポート処理の状態
+  bool _isImporting = false;
 
   // 各タブに対応する画面ウィジェットのリスト
   // 今後タブを増減させる場合は、このリストと _bottomNavigationBarItems を修正します。
@@ -93,6 +101,131 @@ class _MainTabScreenState extends State<MainTabScreen> {
     });
   }
 
+  Future<void> _importGlazes() async {
+    setState(() => _isImporting = true);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    // 1. ファイルを選択
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['xlsx'], // xlsxのみサポート
+    );
+
+    if (result == null || result.files.single.path == null) {
+      setState(() => _isImporting = false);
+      return;
+    }
+
+    try {
+      final firestoreService = context.read<FirestoreService>();
+      final bytes = await File(result.files.single.path!).readAsBytes();
+      final excel = Excel.decodeBytes(bytes);
+
+      if (excel.tables.keys.isEmpty) {
+        throw Exception('ファイルにシートが含まれていません。');
+      }
+
+      final sheet = excel.tables[excel.tables.keys.first]!;
+      if (sheet.maxRows < 2) {
+        throw Exception('ファイルにデータが含まれていません。');
+      }
+
+      // 2. ヘッダーから原料リストを抽出し、未登録なら自動作成
+      final headerRow = sheet.row(0);
+      final materialNames = headerRow
+          .skip(1) // 1列目は無視
+          .map((cell) => cell?.value?.toString().trim() ?? '')
+          .where((name) => name.isNotEmpty)
+          .toList();
+
+      final newlyAddedMaterials = await firestoreService.findOrCreateMaterials(
+        materialNames,
+      );
+
+      // 3. 全原料データを取得し、名前とIDのマップを作成
+      final allMaterials = await firestoreService.getMaterials().first;
+      final materialIdMap = {for (var mat in allMaterials) mat.name: mat.id!};
+
+      // 4. 釉薬データを作成
+      final List<Glaze> importedGlazes = [];
+      for (int i = 1; i < sheet.maxRows; i++) {
+        final row = sheet.row(i);
+        if (row.isEmpty || row.first == null) continue;
+
+        final glazeName = row.first!.value.toString().trim();
+        if (glazeName.isEmpty) continue;
+
+        final recipe = <String, double>{};
+        for (int j = 1; j < row.length && j - 1 < materialNames.length; j++) {
+          final materialName = materialNames[j - 1];
+          final materialId = materialIdMap[materialName];
+          if (materialId == null) continue;
+
+          final cell = row[j];
+          final amount = (cell?.value != null)
+              ? double.tryParse(cell!.value.toString())
+              : null;
+
+          if (amount != null && amount > 0) {
+            recipe[materialId] = amount;
+          }
+        }
+
+        if (recipe.isNotEmpty) {
+          importedGlazes.add(
+            Glaze(
+              name: glazeName,
+              recipe: recipe,
+              tags: ['インポート'], // インポートされたことがわかるようにタグ付け
+            ),
+          );
+        }
+      }
+
+      if (importedGlazes.isEmpty) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('インポートするデータが見つかりませんでした。')),
+        );
+        setState(() => _isImporting = false);
+        return;
+      }
+
+      // 5. 釉薬を一括登録
+      await firestoreService.addGlazesBatch(importedGlazes);
+
+      // 6. 結果を通知
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('${importedGlazes.length}件の釉薬をインポートしました。')),
+      );
+
+      if (newlyAddedMaterials.isNotEmpty && mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('原料の自動登録'),
+            content: Text(
+              '以下の未登録原料を自動登録しました:\n\n${newlyAddedMaterials.join(', ')}\n\n必要であれば原料一覧画面から化学成分を登録してください。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('インポートに失敗しました: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isImporting = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -101,6 +234,24 @@ class _MainTabScreenState extends State<MainTabScreen> {
         // 検索画面(index: 1)ではAppBarのactionsを非表示にする
         // 検索バーをボディに配置するため
         actions: [
+          // 釉薬一覧画面(index: 2)でのみインポートボタンを表示
+          if (_selectedIndex == 2)
+            if (_isImporting)
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else
+              IconButton(
+                icon: const Icon(Icons.upload_file),
+                onPressed: _importGlazes,
+                tooltip: 'ファイルからインポート',
+              ),
+
           // 原料一覧画面(index: 3)でのみ編集ボタンを表示
           if (_selectedIndex == 3)
             // isEditingNotifierの状態が変更されるたびにAppBarのボタンも再描画
@@ -113,6 +264,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
                 ),
               ),
             ),
+
           // 設定画面(index: 4)でのみサインアウトボタンを表示
           if (_selectedIndex == 4)
             IconButton(

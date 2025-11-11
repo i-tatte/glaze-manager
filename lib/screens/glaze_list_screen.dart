@@ -10,10 +10,7 @@ class GlazeListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final firestoreService = Provider.of<FirestoreService>(
-      context,
-      listen: false,
-    );
+    final firestoreService = context.read<FirestoreService>();
 
     return Stack(
       children: [
@@ -34,9 +31,7 @@ class GlazeListScreen extends StatelessWidget {
                 ),
               );
             }
-
             final glazes = snapshot.data!;
-
             return ListView.builder(
               itemCount: glazes.length,
               itemBuilder: (context, index) {
@@ -61,7 +56,7 @@ class GlazeListScreen extends StatelessWidget {
           bottom: 16.0,
           right: 16.0,
           child: FloatingActionButton(
-            heroTag: 'glazeListFab', // ユニークなタグを追加
+            heroTag: 'glazeListFab',
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
