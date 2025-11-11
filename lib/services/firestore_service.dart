@@ -92,6 +92,59 @@ class FirestoreService {
         .add(glaze.toFirestore());
   }
 
+  // 複数の釉薬を一括で追加 (バッチ処理)
+  Future<void> addGlazesBatch(List<Glaze> glazes) async {
+    if (_userId == null) throw Exception("User not logged in");
+
+    final batch = _db.batch();
+    final collectionRef = _db
+        .collection('users')
+        .doc(_userId)
+        .collection('glazes');
+
+    for (final glaze in glazes) {
+      final docRef = collectionRef.doc(); // 新しいドキュメントIDを自動生成
+      batch.set(docRef, glaze.toFirestore());
+    }
+    await batch.commit();
+  }
+
+  /// 複数の原料を名前で検索し、存在しない場合は新規作成する
+  Future<List<String>> findOrCreateMaterials(List<String> materialNames) async {
+    if (_userId == null) throw Exception("User not logged in");
+    if (materialNames.isEmpty) return [];
+
+    final newMaterialNames = <String>[];
+    final existingMaterials = await getMaterials().first;
+    final existingMaterialNames = existingMaterials.map((m) => m.name).toSet();
+
+    for (final name in materialNames) {
+      if (!existingMaterialNames.contains(name)) {
+        newMaterialNames.add(name);
+      }
+    }
+
+    if (newMaterialNames.isNotEmpty) {
+      final batch = _db.batch();
+      final collectionRef = _db
+          .collection('users')
+          .doc(_userId)
+          .collection('materials');
+
+      for (final name in newMaterialNames) {
+        final newMaterial = Material(
+          name: name,
+          components: {},
+          order: DateTime.now().millisecondsSinceEpoch,
+          category: MaterialCategory.base,
+        );
+        batch.set(collectionRef.doc(), newMaterial.toFirestore());
+      }
+      await batch.commit();
+    }
+    return newMaterialNames;
+  }
+
   // 釉薬一覧を取得 (リアルタイム)
   Stream<List<Glaze>> getGlazes() {
     if (_userId == null) return Stream.value([]);

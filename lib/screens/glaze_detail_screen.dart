@@ -86,8 +86,8 @@ class GlazeDetailScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16.0),
             children: [
               if (glaze.tags.isNotEmpty) ...[
-                _buildInfoTile(context, 'タグ', glaze.tags.join(', ')),
-                const Divider(),
+                _buildTagsSection(context, glaze.tags),
+                const Divider(height: 32),
               ],
               Text('調合レシピ', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
@@ -141,15 +141,24 @@ class GlazeDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoTile(BuildContext context, String label, String value) {
+  Widget _buildTagsSection(BuildContext context, List<String> tags) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 4),
-          Text(value, style: Theme.of(context).textTheme.bodyLarge),
+          Text('タグ', style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8.0,
+            runSpacing: 4.0,
+            children: tags.map((tag) {
+              return Chip(
+                label: Text(tag, style: const TextStyle(color: Colors.white)),
+                backgroundColor: Theme.of(context).primaryColor,
+              );
+            }).toList(),
+          ),
         ],
       ),
     );
