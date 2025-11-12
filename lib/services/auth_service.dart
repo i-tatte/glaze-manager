@@ -26,6 +26,42 @@ class AuthService {
     }
   }
 
+  /// メールアドレスとパスワードで新規登録
+  Future<User?> signUpWithEmailAndPassword(
+    String email,
+    String password,
+  ) async {
+    try {
+      final userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return userCredential.user;
+    } on FirebaseAuthException catch (e) {
+      debugPrint("Error signing up with email: $e");
+      // 例外を再スローしてUI側でハンドリングさせる
+      rethrow;
+    }
+  }
+
+  /// メールアドレスとパスワードでサインイン
+  Future<User?> signInWithEmailAndPassword(
+    String email,
+    String password,
+  ) async {
+    try {
+      final userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return userCredential.user;
+    } on FirebaseAuthException catch (e) {
+      debugPrint("Error signing in with email: $e");
+      // 例外を再スローしてUI側でハンドリングさせる
+      rethrow;
+    }
+  }
+
   /// Googleでサインイン
   Future<UserCredential?> signInWithGoogle() async {
     switch (defaultTargetPlatform) {
