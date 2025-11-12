@@ -11,6 +11,7 @@ import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/storage_service.dart';
 import 'package:glaze_manager/screens/image_crop_screen.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:dropdown_search/dropdown_search.dart';
 import 'package:provider/provider.dart';
 
 class TestPieceEditScreen extends StatefulWidget {
@@ -333,24 +334,37 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   List<Widget> _buildFormFields() {
     return [
       // 釉薬選択
-      DropdownButtonFormField<String>(
-        decoration: const InputDecoration(labelText: '釉薬名'),
-        initialValue: _selectedGlazeId,
-        hint: const Text('関連する釉薬を選択'),
-        isExpanded: true,
-        items: _availableGlazes
-            .map(
-              (glaze) =>
-                  DropdownMenuItem(value: glaze.id, child: Text(glaze.name)),
-            )
-            .toList(),
-        onChanged: (value) {
+      DropdownSearch<Glaze>(
+        items: (f, cs) => _availableGlazes,
+        itemAsString: (Glaze g) => g.name,
+        selectedItem: _selectedGlazeId != null
+            ? _availableGlazes
+                  .where((g) => g.id == _selectedGlazeId)
+                  .firstOrNull
+            : null,
+        onChanged: (Glaze? data) {
           _markAsDirty();
           setState(() {
-            _selectedGlazeId = value;
+            _selectedGlazeId = data?.id;
           });
         },
-        validator: (value) => value == null ? '釉薬を選択してください' : null,
+        popupProps: PopupProps.menu(
+          showSearchBox: true,
+          searchFieldProps: TextFieldProps(
+            decoration: InputDecoration(
+              border: const OutlineInputBorder(),
+              contentPadding: const EdgeInsets.fromLTRB(12, 12, 8, 0),
+              labelText: "釉薬を検索",
+              hintText: "釉薬名を入力...",
+            ),
+            autofocus: true,
+          ),
+        ),
+        decoratorProps: const DropDownDecoratorProps(
+          decoration: InputDecoration(labelText: "釉薬名"),
+        ),
+        validator: (Glaze? item) => item == null ? "釉薬を選択してください" : null,
+        compareFn: (Glaze a, Glaze b) => a.id == b.id,
       ),
       const SizedBox(height: 16),
       // 素地土名

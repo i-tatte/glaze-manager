@@ -3,6 +3,7 @@ import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as app;
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:provider/provider.dart';
+import 'package:dropdown_search/dropdown_search.dart';
 
 class GlazeEditScreen extends StatefulWidget {
   final Glaze? glaze;
@@ -240,22 +241,34 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
         children: [
           Expanded(
             flex: 3,
-            child: DropdownButton<String>(
-              isExpanded: true,
-              value: row.selectedMaterialId,
-              hint: const Text('原料を選択'),
-              items: _availableMaterials
-                  .map(
-                    (material) => DropdownMenuItem(
-                      value: material.id,
-                      child: Text(material.name),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
+            child: DropdownSearch<app.Material>(
+              items: (f, cs) => _availableMaterials,
+              itemAsString: (app.Material m) => m.name,
+              selectedItem: row.selectedMaterialId != null
+                  ? _availableMaterials
+                        .where((m) => m.id == row.selectedMaterialId)
+                        .firstOrNull
+                  : null,
+              onChanged: (app.Material? data) {
                 _markAsDirty();
-                setState(() => row.selectedMaterialId = value);
+                setState(() => row.selectedMaterialId = data?.id);
               },
+              popupProps: PopupProps.menu(
+                showSearchBox: true,
+                searchFieldProps: TextFieldProps(
+                  decoration: InputDecoration(
+                    border: const OutlineInputBorder(),
+                    contentPadding: const EdgeInsets.fromLTRB(12, 12, 8, 0),
+                    labelText: "原料を検索",
+                    hintText: "原料名を入力...",
+                  ),
+                  autofocus: true,
+                ),
+              ),
+              decoratorProps: const DropDownDecoratorProps(
+                decoration: InputDecoration(labelText: "原料"),
+              ),
+              compareFn: (app.Material a, app.Material b) => a.id == b.id,
             ),
           ),
           const SizedBox(width: 8),
