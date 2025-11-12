@@ -4,6 +4,7 @@ import 'package:glaze_manager/models/material.dart' as app;
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:provider/provider.dart';
 import 'package:dropdown_search/dropdown_search.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class GlazeEditScreen extends StatefulWidget {
   final Glaze? glaze;
@@ -17,6 +18,7 @@ class GlazeEditScreen extends StatefulWidget {
 class _GlazeEditScreenState extends State<GlazeEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
+  late TextEditingController _descriptionController;
   final _tagInputController = TextEditingController();
   final _tagFocusNode = FocusNode();
 
@@ -34,10 +36,14 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.glaze?.name ?? '');
+    _descriptionController = TextEditingController(
+      text: widget.glaze?.description ?? '',
+    );
     _tags = widget.glaze?.tags.toList() ?? [];
     _recipeRows = [];
 
     _nameController.addListener(_markAsDirty);
+    _descriptionController.addListener(_markAsDirty);
 
     _loadMaterialsAndSetupRecipe();
     _tagInputController.addListener(_onTagInputChanged);
@@ -93,8 +99,10 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
   @override
   void dispose() {
     _nameController.removeListener(_markAsDirty);
+    _descriptionController.removeListener(_markAsDirty);
     _tagInputController.removeListener(_onTagInputChanged);
     _nameController.dispose();
+    _descriptionController.dispose();
     _tagInputController.dispose();
     _tagFocusNode.dispose();
     for (var row in _recipeRows) {
@@ -125,7 +133,9 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
           id: widget.glaze?.id,
           name: _nameController.text,
           recipe: recipeMap,
+          description: _descriptionController.text.trim(),
           tags: _tags,
+          createdAt: widget.glaze?.createdAt ?? Timestamp.now(),
         );
 
         if (widget.glaze == null) {
@@ -206,6 +216,12 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
                 decoration: const InputDecoration(labelText: '釉薬名'),
                 validator: (value) =>
                     (value == null || value.isEmpty) ? '釉薬名を入力してください' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(labelText: '備考'),
+                maxLines: 3,
               ),
               const SizedBox(height: 24),
               Text('配合レシピ', style: Theme.of(context).textTheme.titleMedium),

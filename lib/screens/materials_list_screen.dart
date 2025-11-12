@@ -32,119 +32,288 @@ class MaterialsListScreen extends StatefulWidget {
 }
 
 class _MaterialsListScreenState extends State<MaterialsListScreen> {
+  final _searchController = TextEditingController();
+
+  List<app.Material> _allMaterials = [];
+  List<app.Material> _displayedMaterials = [];
+
+  bool _isLoading = true;
+  String _searchQuery = '';
+  Set<app.MaterialCategory> _selectedCategories = app.MaterialCategory.values
+      .toSet();
+
   @override
-  Widget build(BuildContext context) {
-    final firestoreService = Provider.of<FirestoreService>(
-      context,
-      listen: false,
-    );
+  void initState() {
+    super.initState();
+    _loadData();
+    _searchController.addListener(_onSearchChanged);
+    widget.isEditingNotifier.addListener(_onEditingChanged);
+  }
 
-    // ValueListenableBuilderでNotifierの変更を監視し、UIを再描画する
-    return ValueListenableBuilder<bool>(
-      valueListenable: widget.isEditingNotifier,
-      builder: (context, isEditing, child) {
-        return Stack(
-          children: [
-            StreamBuilder<List<app.Material>>(
-              stream: firestoreService.getMaterials(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Center(child: Text('エラーが発生しました: ${snapshot.error}'));
-                }
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      '原料が登録されていません。\n右下のボタンから追加してください。',
-                      textAlign: TextAlign.center,
-                    ),
-                  );
-                }
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    widget.isEditingNotifier.removeListener(_onEditingChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
 
-                final materials = snapshot.data!;
+  Future<void> _loadData() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
 
-                if (isEditing) {
-                  return ReorderableListView.builder(
-                    itemCount: materials.length,
-                    itemBuilder: (context, index) {
-                      final material = materials[index];
-                      return _buildReorderableTile(
-                        context,
-                        material,
-                        index,
-                        firestoreService,
-                      );
-                    },
-                    onReorder: (oldIndex, newIndex) {
-                      // onReorder内でsetStateを呼ぶ必要はない
-                      if (newIndex > oldIndex) {
-                        newIndex -= 1;
-                      }
-                      final item = materials.removeAt(oldIndex);
-                      materials.insert(newIndex, item);
-                      // Firestoreの順序を一括更新
-                      firestoreService.updateMaterialOrder(materials);
+    final firestoreService = context.read<FirestoreService>();
+    // StreamではなくFutureで一度だけ取得
+    final materials = await firestoreService.getMaterials().first;
+
+    if (mounted) {
+      setState(() {
+        _allMaterials = materials;
+        _applyFilter();
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _onSearchChanged() {
+    if (_searchQuery != _searchController.text) {
+      setState(() {
+        _searchQuery = _searchController.text;
+        _applyFilter();
+      });
+    }
+  }
+
+  void _onEditingChanged() {
+    // 編集モードが切り替わったら再描画
+    setState(() {});
+  }
+
+  void _applyFilter() {
+    List<app.Material> filtered = _allMaterials;
+
+    // カテゴリで絞り込み
+    if (_selectedCategories.length != app.MaterialCategory.values.length) {
+      filtered = filtered
+          .where((material) => _selectedCategories.contains(material.category))
+          .toList();
+    }
+
+    // テキストで絞り込み
+    if (_searchQuery.isNotEmpty) {
+      final lowerCaseQuery = _searchQuery.toLowerCase();
+      filtered = filtered.where((material) {
+        // 原料名
+        if (material.name.toLowerCase().contains(lowerCaseQuery)) {
+          return true;
+        }
+        // 化学成分名
+        if (material.components.keys.any(
+          (component) => component.toLowerCase().contains(lowerCaseQuery),
+        )) {
+          return true;
+        }
+        return false;
+      }).toList();
+    }
+
+    // 表示用リストを更新
+    setState(() {
+      _displayedMaterials = filtered;
+    });
+  }
+
+  void _showCategoryFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        // ダイアログ内の状態を管理するためにStatefulBuilderを使用
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('カテゴリで絞り込み'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: app.MaterialCategory.values.map((category) {
+                  return CheckboxListTile(
+                    title: Text(category.displayName),
+                    value: _selectedCategories.contains(category),
+                    onChanged: (bool? value) {
+                      setDialogState(() {
+                        if (value == true) {
+                          _selectedCategories.add(category);
+                        } else {
+                          _selectedCategories.remove(category);
+                        }
+                      });
                     },
                   );
-                } else {
-                  return ListView.builder(
-                    itemCount: materials.length,
-                    itemBuilder: (context, index) {
-                      final material = materials[index];
-                      return ListTile(
-                        title: Text(material.name),
-                        subtitle: Text('成分数: ${material.components.length}'),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  MaterialDetailScreen(material: material),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  );
-                }
-              },
-            ),
-            Positioned(
-              bottom: 16.0,
-              right: 16.0,
-              child: FloatingActionButton(
-                heroTag: 'materialsListFab', // ユニークなタグを追加
-                // 編集モード中はFABを非表示にする
-                onPressed: isEditing
-                    ? null
-                    : () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            // 引数を渡さない場合は新規作成モード
-                            builder: (context) => const MaterialEditScreen(),
-                          ),
-                        );
-                      },
-                backgroundColor: isEditing
-                    ? Colors.grey
-                    : Theme.of(context).colorScheme.primary,
-                foregroundColor: isEditing ? Colors.black54 : Colors.white,
-                child: const Icon(Icons.add),
+                }).toList(),
               ),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('キャンセル'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _applyFilter();
+                    });
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('適用'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
 
-  Widget _buildReorderableTile(
-    BuildContext context,
-    app.Material material,
-    int index,
-    FirestoreService firestoreService,
-  ) {
+  @override
+  Widget build(BuildContext context) {
+    final isEditing = widget.isEditingNotifier.value;
+    return Stack(
+      children: [
+        Column(
+          children: [
+            // 検索・絞り込みバー
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: '原料名, 化学成分で検索...',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12.0),
+                          borderSide: BorderSide.none,
+                        ),
+                        filled: true,
+                        fillColor: Theme.of(context).scaffoldBackgroundColor,
+                        contentPadding: EdgeInsets.zero,
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () => _searchController.clear(),
+                              )
+                            : null,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.filter_list),
+                    onPressed: _showCategoryFilterDialog,
+                    tooltip: 'カテゴリで絞り込み',
+                  ),
+                ],
+              ),
+            ),
+            // リスト表示エリア
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _displayedMaterials.isEmpty
+                  ? Center(
+                      child: Text(
+                        _searchQuery.isNotEmpty ||
+                                _selectedCategories.length !=
+                                    app.MaterialCategory.values.length
+                            ? '条件に一致する原料が見つかりません。'
+                            : '原料が登録されていません。\n右下のボタンから追加してください。',
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadData,
+                      child: ListView.builder(
+                        itemCount: _displayedMaterials.length,
+                        itemBuilder: (context, index) {
+                          final material = _displayedMaterials[index];
+                          return isEditing
+                              ? _buildEditableTile(context, material)
+                              : _buildNormalTile(context, material);
+                        },
+                      ),
+                    ),
+            ),
+          ],
+        ),
+        // フローティングアクションボタン
+        Positioned(
+          bottom: 16.0,
+          right: 16.0,
+          child: FloatingActionButton(
+            heroTag: 'materialsListFab',
+            onPressed: isEditing
+                ? null
+                : () {
+                    Navigator.of(context)
+                        .push(
+                          MaterialPageRoute(
+                            builder: (context) => const MaterialEditScreen(),
+                          ),
+                        )
+                        .then((_) => _loadData());
+                  },
+            backgroundColor: isEditing
+                ? Colors.grey
+                : Theme.of(context).colorScheme.primary,
+            foregroundColor: isEditing ? Colors.black54 : Colors.white,
+            child: const Icon(Icons.add),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 通常表示用のタイル
+  Widget _buildNormalTile(BuildContext context, app.Material material) {
+    return ListTile(
+      title: Row(
+        children: [
+          Text(material.name),
+          const SizedBox(width: 8),
+          Chip(
+            label: Text(
+              material.category.displayName,
+              style: const TextStyle(fontSize: 12, color: Colors.white),
+            ),
+            backgroundColor: material.category == app.MaterialCategory.pigment
+                ? Colors.pink
+                : material.category == app.MaterialCategory.additive
+                ? Colors.blue
+                : Colors.green,
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+          ),
+        ],
+      ),
+      subtitle: Text(
+        material.components.keys.join(', '),
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        Navigator.of(context)
+            .push(
+              MaterialPageRoute(
+                builder: (context) => MaterialDetailScreen(material: material),
+              ),
+            )
+            .then((_) => _loadData());
+      },
+    );
+  }
+
+  /// 編集モード用のタイル
+  Widget _buildEditableTile(BuildContext context, app.Material material) {
+    final firestoreService = context.read<FirestoreService>();
     return ListTile(
       key: ValueKey(material.id),
       leading: IconButton(
@@ -170,18 +339,16 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
           );
           if (confirmed == true) {
             firestoreService.deleteMaterial(material.id!);
+            _loadData(); // 削除後にリストを再読み込み
           }
         },
       ),
       title: Text(material.name),
-      trailing: ReorderableDragStartListener(
-        index: index,
-        child: const Icon(Icons.drag_handle),
-      ),
+      trailing: const Icon(Icons.edit_note),
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) => MaterialDetailScreen(material: material),
+            builder: (context) => MaterialEditScreen(material: material),
           ),
         );
       },

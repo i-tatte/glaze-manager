@@ -89,6 +89,11 @@ class GlazeDetailScreen extends StatelessWidget {
                 _buildTagsSection(context, glaze.tags),
                 const Divider(height: 32),
               ],
+              if (glaze.description != null &&
+                  glaze.description!.isNotEmpty) ...[
+                _buildInfoTile(context, '備考', glaze.description!),
+                const Divider(height: 32),
+              ],
               Text('調合レシピ', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               if (glaze.recipe.isEmpty)
@@ -97,7 +102,7 @@ class GlazeDetailScreen extends StatelessWidget {
                 DataTable(
                   columns: const [
                     DataColumn(label: Text('原料')),
-                    DataColumn(label: Text('割合'), numeric: true),
+                    DataColumn(label: Text('配合(g)'), numeric: true),
                   ],
                   rows: glaze.recipe.entries.toList().asMap().entries.map((
                     indexedEntry,
@@ -137,6 +142,20 @@ class GlazeDetailScreen extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildInfoTile(BuildContext context, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 4),
+          Text(value, style: Theme.of(context).textTheme.bodyLarge),
+        ],
       ),
     );
   }
