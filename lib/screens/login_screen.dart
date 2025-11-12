@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:glaze_manager/services/auth_service.dart';
 import 'package:provider/provider.dart';
+import 'package:glaze_manager/screens/email_password_login_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -73,6 +74,18 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: () => _signIn(AuthMethod.google),
                         ),
                       ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.email_outlined),
+                          label: const Text(
+                            'メールアドレスでサインイン/登録',
+                            style: TextStyle(fontSize: 18),
+                          ),
+                          onPressed: () => _navigateToEmailLogin(context),
+                        ),
+                      ),
                     ],
                   ),
           ],
@@ -81,12 +94,38 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Future<void> _signIn(AuthMethod method) async {
+  Future<void> _navigateToEmailLogin(BuildContext context) async {
     // インターネット接続を確認
     final connectivityResult = await Connectivity().checkConnectivity();
     if (!connectivityResult.contains(ConnectivityResult.mobile) &&
         !connectivityResult.contains(ConnectivityResult.wifi) &&
         !connectivityResult.contains(ConnectivityResult.ethernet)) {
+      if (mounted) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('インターネット接続がありません'),
+            content: const Text('サインイン/登録するにはインターネット接続が必要です。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const EmailPasswordLoginScreen()));
+  }
+
+  Future<void> _signIn(AuthMethod method) async {
+    // インターネット接続を確認
+    final connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult.contains(ConnectivityResult.none)) {
       if (mounted) {
         await showDialog(
           context: context,
