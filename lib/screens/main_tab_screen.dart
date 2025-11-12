@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/screens/glaze_list_screen.dart';
@@ -132,42 +133,97 @@ class _MainTabScreenState extends State<MainTabScreen> {
 
       // 2. ヘッダーから原料リストを抽出し、未登録なら自動作成
       final headerRow = sheet.row(0);
-      final materialNames = headerRow
-          .skip(1) // 1列目は無視
+      final materialNamesInHeader = headerRow
+          .skip(2) // 1, 2列目は無視
           .map((cell) => cell?.value?.toString().trim() ?? '')
-          .where((name) => name.isNotEmpty)
+          .where((name) => name.isNotEmpty && name != '顔料' && name != '備考')
           .toList();
 
       final newlyAddedMaterials = await firestoreService.findOrCreateMaterials(
-        materialNames,
+        materialNamesInHeader,
       );
+      List<String> newlyAddedPigments = [];
 
-      // 3. 全原料データを取得し、名前とIDのマップを作成
+      // 3. 既存の釉薬名リストと、全原料の名前->IDマップを作成
+      final existingGlazes = await firestoreService.getGlazes().first;
+      final existingGlazeNames = existingGlazes.map((g) => g.name).toSet();
       final allMaterials = await firestoreService.getMaterials().first;
       final materialIdMap = {for (var mat in allMaterials) mat.name: mat.id!};
 
       // 4. 釉薬データを作成
       final List<Glaze> importedGlazes = [];
+      final List<String> skippedGlazes = [];
+
       for (int i = 1; i < sheet.maxRows; i++) {
         final row = sheet.row(i);
         if (row.isEmpty || row.first == null) continue;
 
         final glazeName = row.first!.value.toString().trim();
-        if (glazeName.isEmpty) continue;
+        if (glazeName.isEmpty || glazeName == 'null') continue;
 
+        // 釉薬名の重複チェック
+        if (existingGlazeNames.contains(glazeName)) {
+          skippedGlazes.add(glazeName);
+          continue;
+        }
+
+        // エイリアスと備考の取得
+        final alias = row.length > 1 && row[1] != null
+            ? row[1]!.value.toString().trim()
+            : '';
+        final note =
+            row.length > headerRow.length - 1 &&
+                row[headerRow.length - 1] != null
+            ? row[headerRow.length - 1]!.value.toString().trim()
+            : '';
+        final description = [
+          alias,
+          note,
+        ].where((s) => s.isNotEmpty && s != 'null').join('\n');
+
+        // レシピの作成
         final recipe = <String, double>{};
-        for (int j = 1; j < row.length && j - 1 < materialNames.length; j++) {
-          final materialName = materialNames[j - 1];
+        // 3列目から顔料列の2つ手前までを原料として処理
+        for (int j = 2; j < headerRow.length - 3; j++) {
+          if (j >= headerRow.length) continue;
+          final materialName = headerRow[j]?.value.toString().trim() ?? '';
           final materialId = materialIdMap[materialName];
           if (materialId == null) continue;
 
-          final cell = row[j];
-          final amount = (cell?.value != null)
-              ? double.tryParse(cell!.value.toString())
+          final amount = row.length > j
+              ? double.tryParse(row[j]?.value.toString() ?? '')
               : null;
 
           if (amount != null && amount > 0) {
             recipe[materialId] = amount;
+          }
+        }
+
+        // 顔料列の処理 (最後から2つ前の列)
+        final pigmentCellIndex = headerRow.length - 3;
+        if (row.length > pigmentCellIndex && row[pigmentCellIndex] != null) {
+          final pigmentData = row[pigmentCellIndex]!.value.toString().trim();
+          final pigmentEntries = pigmentData
+              .split(',')
+              .map((e) => e.trim())
+              .where((e) => e.isNotEmpty);
+
+          for (final entry in pigmentEntries) {
+            final re = RegExp(r'^(.*?)([\d.]+)$');
+            final match = re.firstMatch(entry);
+
+            if (match != null) {
+              final pigmentName = match.group(1)!.trim();
+              final amount = double.tryParse(match.group(2)!);
+
+              if (pigmentName.isNotEmpty && amount != null && amount > 0) {
+                var pigmentId = await firestoreService.findOrCreatePigmentID(
+                  pigmentName,
+                );
+                recipe[pigmentId] = amount;
+                newlyAddedPigments.add(pigmentName);
+              }
+            }
           }
         }
 
@@ -177,6 +233,8 @@ class _MainTabScreenState extends State<MainTabScreen> {
               name: glazeName,
               recipe: recipe,
               tags: ['インポート'], // インポートされたことがわかるようにタグ付け
+              description: description.isNotEmpty ? description : null,
+              createdAt: Timestamp.now(),
             ),
           );
         }
@@ -190,21 +248,28 @@ class _MainTabScreenState extends State<MainTabScreen> {
         return;
       }
 
-      // 5. 釉薬を一括登録
+      // 7. 釉薬を一括登録
       await firestoreService.addGlazesBatch(importedGlazes);
 
-      // 6. 結果を通知
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text('${importedGlazes.length}件の釉薬をインポートしました。')),
-      );
+      // 8. 結果を通知
+      String message = '${importedGlazes.length}件の釉薬をインポートしました。';
+      if (skippedGlazes.isNotEmpty) {
+        message += '\n（${skippedGlazes.length}件は重複のためスキップ）';
+      }
+      scaffoldMessenger.showSnackBar(SnackBar(content: Text(message)));
 
-      if (newlyAddedMaterials.isNotEmpty && mounted) {
+      final allNewMaterials = <String>{
+        ...newlyAddedMaterials,
+        ...newlyAddedPigments,
+      }.toList();
+
+      if (allNewMaterials.isNotEmpty && mounted) {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('原料の自動登録'),
             content: Text(
-              '以下の未登録原料を自動登録しました:\n\n${newlyAddedMaterials.join(', ')}\n\n必要であれば原料一覧画面から化学成分を登録してください。',
+              '以下の未登録原料を自動登録しました:\n\n${allNewMaterials.join(', ')}\n\n必要であれば原料一覧画面から化学成分を登録してください。',
             ),
             actions: [
               TextButton(

@@ -38,6 +38,22 @@ class FirestoreService {
         );
   }
 
+  // 原料名からIDを取得
+  Future<String?> getMaterialIdByName(String name) async {
+    if (_userId == null) throw Exception("User not logged in");
+    final querySnapshot = await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('materials')
+        .where('name', isEqualTo: name)
+        .limit(1)
+        .get();
+    if (querySnapshot.docs.isNotEmpty) {
+      return querySnapshot.docs.first.id;
+    }
+    return null;
+  }
+
   // 原料を更新
   Future<void> updateMaterial(Material material) async {
     if (_userId == null) throw Exception("User not logged in");
@@ -143,6 +159,66 @@ class FirestoreService {
       await batch.commit();
     }
     return newMaterialNames;
+  }
+
+  /// 名前で顔料を検索し、存在しない場合はカテゴリ「顔料」で新規作成する。
+  /// IDを返す
+  Future<String> findOrCreatePigmentID(String pigmentName) async {
+    if (_userId == null) throw Exception("User not logged in");
+    if (pigmentName.isEmpty) return '';
+
+    final existingMaterials = await getMaterials().first;
+    final existingMaterialNames = existingMaterials.map((m) => m.name).toSet();
+
+    if (!existingMaterialNames.contains(pigmentName)) {
+      final newMaterial = Material(
+        name: pigmentName,
+        components: {},
+        order: DateTime.now().millisecondsSinceEpoch,
+        category: MaterialCategory.pigment, // カテゴリを顔料に設定
+      );
+      await addMaterial(newMaterial);
+    }
+    return await getMaterialIdByName(pigmentName) ?? '';
+  }
+
+  /// 複数の顔料を名前で検索し、存在しない場合はカテゴリ「顔料」で新規作成する
+  Future<List<String>> findOrCreatePigments(List<String> pigmentNames) async {
+    if (_userId == null) throw Exception("User not logged in");
+    if (pigmentNames.isEmpty) return [];
+
+    final uniquePigmentNames = pigmentNames.toSet().toList();
+    final newPigmentNames = <String>[];
+    final existingMaterials = await getMaterials().first;
+    final existingMaterialNames = existingMaterials.map((m) => m.name).toSet();
+
+    for (final name in uniquePigmentNames) {
+      if (!existingMaterialNames.contains(name)) {
+        newPigmentNames.add(name);
+      }
+    }
+
+    if (newPigmentNames.isNotEmpty) {
+      final batch = _db.batch();
+      final collectionRef = _db
+          .collection('users')
+          .doc(_userId)
+          .collection('materials');
+
+      for (final name in newPigmentNames) {
+        final newMaterial = Material(
+          name: name,
+          components: {},
+          order:
+              DateTime.now().millisecondsSinceEpoch +
+              newPigmentNames.indexOf(name),
+          category: MaterialCategory.pigment, // カテゴリを顔料に設定
+        );
+        batch.set(collectionRef.doc(), newMaterial.toFirestore());
+      }
+      await batch.commit();
+    }
+    return newPigmentNames;
   }
 
   // 釉薬一覧を取得 (リアルタイム)
