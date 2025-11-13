@@ -38,6 +38,18 @@ class FirestoreService {
         );
   }
 
+  // 特定の原料を取得 (リアルタイム)
+  Stream<Material> getMaterialStream(String id) {
+    if (_userId == null) return Stream.error("User not logged in");
+    return _db
+        .collection('users')
+        .doc(_userId)
+        .collection('materials')
+        .doc(id)
+        .snapshots()
+        .map((snapshot) => Material.fromFirestore(snapshot));
+  }
+
   // 原料名からIDを取得
   Future<String?> getMaterialIdByName(String name) async {
     if (_userId == null) throw Exception("User not logged in");
@@ -235,6 +247,17 @@ class FirestoreService {
         );
   }
 
+  Stream<Glaze> getGlazeStream(String id) {
+    if (_userId == null) return Stream.error("User not logged in");
+    return _db
+        .collection('users')
+        .doc(_userId)
+        .collection('glazes')
+        .doc(id)
+        .snapshots()
+        .map((snapshot) => Glaze.fromFirestore(snapshot));
+  }
+
   // 釉薬を更新
   Future<void> updateGlaze(Glaze glaze) async {
     if (_userId == null) throw Exception("User not logged in");
@@ -283,6 +306,18 @@ class FirestoreService {
           (snapshot) =>
               snapshot.docs.map((doc) => TestPiece.fromFirestore(doc)).toList(),
         );
+  }
+
+  // 特定のテストピースを取得 (リアルタイム)
+  Stream<TestPiece> getTestPieceStream(String id) {
+    if (_userId == null) return Stream.error("User not logged in");
+    return _db
+        .collection('users')
+        .doc(_userId)
+        .collection('test_pieces')
+        .doc(id)
+        .snapshots()
+        .map((snapshot) => TestPiece.fromFirestore(snapshot));
   }
 
   // テストピースを更新
