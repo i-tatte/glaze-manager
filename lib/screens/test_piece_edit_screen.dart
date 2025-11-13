@@ -193,23 +193,24 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       );
 
       if (widget.testPiece == null) {
-        firestoreService.addTestPiece(testPiece);
+        await firestoreService.addTestPiece(testPiece);
+        if (mounted) {
+          _isDirty = false;
+          navigator.pop(); // 新規作成時は一覧に戻る
+        }
       } else {
-        firestoreService.updateTestPiece(testPiece);
+        await firestoreService.updateTestPiece(testPiece);
+        if (mounted) {
+          _isDirty = false;
+          navigator.pop(); // 更新時は詳細画面に戻る
+        }
       }
-
-      if (mounted) {
-        _isDirty = false; // 保存成功でダーティ状態をリセット
-      }
-      navigator.pop();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
       }
-      // エラー発生時は一覧画面に戻る
-      navigator.pop();
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -247,14 +248,22 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
 
         // Storageから画像を削除
         if (widget.testPiece!.imageUrl != null) {
-          await storageService.deleteTestPieceImage(widget.testPiece!.imageUrl!);
+          await storageService.deleteTestPieceImage(
+            widget.testPiece!.imageUrl!,
+          );
         }
         // Firestoreからドキュメントを削除
         await firestoreService.deleteTestPiece(widget.testPiece!.id!);
 
-        navigator.popUntil((route) => route.isFirst); // 一覧画面まで戻る
+        if (mounted) {
+          // 編集画面と詳細画面を閉じて一覧画面まで戻る
+          int count = 0;
+          navigator.popUntil((_) => count++ >= 2);
+        }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
       }
     }
   }
@@ -316,8 +325,16 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
             Row(
               children: [
                 if (widget.testPiece != null)
-                  IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), tooltip: '削除', onPressed: _confirmDelete),
-                IconButton(icon: const Icon(Icons.save), tooltip: '保存', onPressed: _saveTestPiece),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    tooltip: '削除',
+                    onPressed: _confirmDelete,
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.save),
+                  tooltip: '保存',
+                  onPressed: _saveTestPiece,
+                ),
               ],
             ),
         ],

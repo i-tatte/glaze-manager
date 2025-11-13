@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/glaze.dart';
+import 'package:glaze_manager/models/material.dart' as app;
 import 'package:glaze_manager/screens/glaze_edit_screen.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/screens/glaze_detail_screen.dart';
@@ -16,13 +17,8 @@ class GlazeListScreen extends StatefulWidget {
 
 class _GlazeListScreenState extends State<GlazeListScreen> {
   final _searchController = TextEditingController();
-
-  List<Glaze> _allGlazes = [];
-  List<Glaze> _displayedGlazes = [];
-  Map<String, String> _materialIdToNameMap = {};
-
-  bool _isLoading = true;
   String _searchQuery = '';
+  late Stream<List<Glaze>> _glazesStream;
 
   SortOption _sortOption = SortOption.name;
   bool _isAscending = true;
@@ -30,8 +26,16 @@ class _GlazeListScreenState extends State<GlazeListScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _glazesStream = context.read<FirestoreService>().getGlazes();
     _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    if (_searchQuery != _searchController.text) {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+    }
   }
 
   @override
@@ -41,46 +45,23 @@ class _GlazeListScreenState extends State<GlazeListScreen> {
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    if (!mounted) return;
-    setState(() => _isLoading = true);
-
-    final firestoreService = context.read<FirestoreService>();
-    final glazes = await firestoreService.getGlazes().first;
-    final materials = await firestoreService.getMaterials().first;
-
-    if (mounted) {
-      setState(() {
-        _allGlazes = glazes;
-        _materialIdToNameMap = {for (var m in materials) m.id!: m.name};
-        _applyFilterAndSort();
-        _isLoading = false;
-      });
-    }
-  }
-
-  void _onSearchChanged() {
-    if (_searchQuery != _searchController.text) {
-      setState(() {
-        _searchQuery = _searchController.text;
-        _applyFilterAndSort();
-      });
-    }
-  }
-
-  void _applyFilterAndSort() {
-    List<Glaze> filtered = _allGlazes;
+  List<Glaze> _filterAndSortGlazes(
+    List<Glaze> allGlazes,
+    Map<String, String> materialIdToNameMap,
+  ) {
+    List<Glaze> filtered = allGlazes;
 
     // フィルタリング
     if (_searchQuery.isNotEmpty) {
       final lowerCaseQuery = _searchQuery.toLowerCase();
-      filtered = _allGlazes.where((glaze) {
+      filtered = allGlazes.where((glaze) {
         // 釉薬名
         if (glaze.name.toLowerCase().contains(lowerCaseQuery)) {
           return true;
         }
         // 登録名
-        if (glaze.registeredName?.toLowerCase().contains(lowerCaseQuery) ?? false) {
+        if (glaze.registeredName?.toLowerCase().contains(lowerCaseQuery) ??
+            false) {
           return true;
         }
         // タグ
@@ -91,7 +72,7 @@ class _GlazeListScreenState extends State<GlazeListScreen> {
         }
         // 原料名
         if (glaze.recipe.keys.any((materialId) {
-          final materialName = _materialIdToNameMap[materialId] ?? '';
+          final materialName = materialIdToNameMap[materialId] ?? '';
           return materialName.toLowerCase().contains(lowerCaseQuery);
         })) {
           return true;
@@ -114,7 +95,7 @@ class _GlazeListScreenState extends State<GlazeListScreen> {
       return _isAscending ? comparison : -comparison;
     });
 
-    _displayedGlazes = filtered;
+    return filtered;
   }
 
   void _showSortOptions() {
@@ -139,7 +120,6 @@ class _GlazeListScreenState extends State<GlazeListScreen> {
                     _sortOption = SortOption.name;
                     _isAscending = true;
                   }
-                  _applyFilterAndSort();
                 });
                 Navigator.pop(context);
               },
@@ -160,7 +140,6 @@ class _GlazeListScreenState extends State<GlazeListScreen> {
                     _sortOption = SortOption.createdAt;
                     _isAscending = false; // デフォルトは降順（新しい順）
                   }
-                  _applyFilterAndSort();
                 });
                 Navigator.pop(context);
               },
@@ -212,23 +191,53 @@ class _GlazeListScreenState extends State<GlazeListScreen> {
               ),
             ),
             Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _displayedGlazes.isEmpty
-                  ? Center(
-                      child: Text(
-                        _searchQuery.isNotEmpty
-                            ? '検索結果が見つかりません。'
-                            : '釉薬が登録されていません。\n右下のボタンから追加してください。',
-                        textAlign: TextAlign.center,
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadData,
-                      child: ListView.builder(
-                        itemCount: _displayedGlazes.length,
+              child: StreamBuilder<List<app.Material>>(
+                stream: context.read<FirestoreService>().getMaterials(),
+                builder: (context, materialsSnapshot) {
+                  return StreamBuilder<List<Glaze>>(
+                    stream: _glazesStream,
+                    builder: (context, glazesSnapshot) {
+                      if (glazesSnapshot.connectionState ==
+                              ConnectionState.waiting ||
+                          materialsSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (glazesSnapshot.hasError ||
+                          materialsSnapshot.hasError) {
+                        return Center(
+                          child: Text(
+                            'Error: ${glazesSnapshot.error ?? materialsSnapshot.error}',
+                          ),
+                        );
+                      }
+
+                      final allGlazes = glazesSnapshot.data ?? [];
+                      final allMaterials = materialsSnapshot.data ?? [];
+                      final materialIdToNameMap = {
+                        for (var m in allMaterials) m.id!: m.name,
+                      };
+
+                      final displayedGlazes = _filterAndSortGlazes(
+                        allGlazes,
+                        materialIdToNameMap,
+                      );
+
+                      if (displayedGlazes.isEmpty) {
+                        return Center(
+                          child: Text(
+                            _searchQuery.isNotEmpty
+                                ? '検索結果が見つかりません。'
+                                : '釉薬が登録されていません。\n右下のボタンから追加してください。',
+                            textAlign: TextAlign.center,
+                          ),
+                        );
+                      }
+
+                      return ListView.builder(
+                        itemCount: displayedGlazes.length,
                         itemBuilder: (context, index) {
-                          final glaze = _displayedGlazes[index];
+                          final glaze = displayedGlazes[index];
                           return ListTile(
                             title: Row(
                               children: [
@@ -277,21 +286,20 @@ class _GlazeListScreenState extends State<GlazeListScreen> {
                             ),
                             trailing: const Icon(Icons.chevron_right),
                             onTap: () {
-                              Navigator.of(context)
-                                  .push(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          GlazeDetailScreen(glaze: glaze),
-                                    ),
-                                  )
-                                  .then(
-                                    (_) => _loadData(),
-                                  ); // 詳細画面から戻ってきたら再読み込み
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      GlazeDetailScreen(glaze: glaze),
+                                ),
+                              );
                             },
                           );
                         },
-                      ),
-                    ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),

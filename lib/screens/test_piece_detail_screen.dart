@@ -20,30 +20,132 @@ class TestPieceDetailScreen extends StatefulWidget {
 }
 
 class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
-  late Future<Map<String, dynamic>> _detailsFuture;
-
   @override
-  void initState() {
-    super.initState();
-    _detailsFuture = _loadDetails();
+  Widget build(BuildContext context) {
+    final firestoreService = context.read<FirestoreService>();
+
+    return StreamBuilder<TestPiece>(
+      stream: firestoreService.getTestPieceStream(widget.testPiece.id!),
+      builder: (context, testPieceSnapshot) {
+        if (testPieceSnapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (testPieceSnapshot.hasError || !testPieceSnapshot.hasData) {
+          return Scaffold(
+            appBar: AppBar(),
+            body: const Center(child: Text('テストピースデータの読み込みに失敗しました。')),
+          );
+        }
+
+        final testPiece = testPieceSnapshot.data!;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('テストピース詳細'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit),
+                tooltip: '編集',
+                onPressed: () =>
+                    _navigateToEditScreen(context, testPiece: testPiece),
+              ),
+            ],
+          ),
+          body: FutureBuilder<Map<String, dynamic>>(
+            // 関連データを取得するFuture
+            future: _loadRelatedData(firestoreService, testPiece),
+            builder: (context, relatedDataSnapshot) {
+              if (relatedDataSnapshot.connectionState ==
+                  ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (relatedDataSnapshot.hasError) {
+                return Center(
+                  child: Text(
+                    '関連データの読み込みに失敗しました: ${relatedDataSnapshot.error}',
+                  ),
+                );
+              }
+
+              final details = relatedDataSnapshot.data ?? {};
+              final Glaze? glaze = details['glaze'];
+              final FiringProfile? firingProfile = details['firingProfile'];
+              final FiringAtmosphere? firingAtmosphere =
+                  details['firingAtmosphere'];
+
+              if (glaze == null) {
+                return const Center(child: Text('関連する釉薬データが見つかりません。'));
+              }
+
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide =
+                      constraints.maxWidth / constraints.maxHeight > 1.2;
+                  if (isWide) {
+                    return _buildWideLayout(
+                      testPiece,
+                      glaze,
+                      firingProfile,
+                      firingAtmosphere,
+                    );
+                  } else {
+                    return _buildNarrowLayout(
+                      testPiece,
+                      glaze,
+                      firingProfile,
+                      firingAtmosphere,
+                    );
+                  }
+                },
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
-  Future<Map<String, dynamic>> _loadDetails() async {
-    final firestoreService = context.read<FirestoreService>();
-    final glaze = (await firestoreService.getGlazes().first).firstWhere(
-      (g) => g.id == widget.testPiece.glazeId,
+  /// TestPieceに関連するデータを非同期で取得する
+  Future<Map<String, dynamic>> _loadRelatedData(
+    FirestoreService firestoreService,
+    TestPiece testPiece,
+  ) async {
+    // 各データを並行して取得
+    final results = await Future.wait([
+      firestoreService.getGlazes().first,
+      firestoreService.getFiringProfiles().first,
+      firestoreService.getFiringAtmospheres().first,
+    ]);
+
+    final allGlazes = results[0] as List<Glaze>;
+    final allProfiles = results[1] as List<FiringProfile>;
+    final allAtmospheres = results[2] as List<FiringAtmosphere>;
+
+    final glaze = allGlazes.firstWhere(
+      (g) => g.id == testPiece.glazeId,
+      // orElseでデータが見つからない場合のデフォルト値を返す
+      orElse: () => Glaze(
+        name: '不明な釉薬',
+        recipe: {},
+        tags: [],
+        createdAt: testPiece.createdAt,
+      ),
     );
 
     FiringProfile? firingProfile;
-    if (widget.testPiece.firingProfileId != null) {
-      firingProfile = (await firestoreService.getFiringProfiles().first)
-          .firstWhere((p) => p.id == widget.testPiece.firingProfileId);
+    if (testPiece.firingProfileId != null) {
+      firingProfile = allProfiles.firstWhere(
+        (p) => p.id == testPiece.firingProfileId,
+      );
     }
 
     FiringAtmosphere? firingAtmosphere;
-    if (widget.testPiece.firingAtmosphereId != null) {
-      firingAtmosphere = (await firestoreService.getFiringAtmospheres().first)
-          .firstWhere((a) => a.id == widget.testPiece.firingAtmosphereId);
+    if (testPiece.firingAtmosphereId != null) {
+      firingAtmosphere = allAtmospheres.firstWhere(
+        (a) => a.id == testPiece.firingAtmosphereId,
+      );
     }
 
     return {
@@ -53,60 +155,8 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
     };
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('テストピース詳細'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            tooltip: '編集',
-            onPressed: () async {
-              _navigateToEditScreen(context, testPiece: widget.testPiece);
-            },
-          ),
-        ],
-      ),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _detailsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('詳細データの読み込みに失敗しました: ${snapshot.error}'));
-          }
-          if (!snapshot.hasData) {
-            return const Center(child: Text('データが見つかりません。'));
-          }
-
-          final details = snapshot.data!;
-          final Glaze glaze = details['glaze'];
-          final FiringProfile? firingProfile = details['firingProfile'];
-          final FiringAtmosphere? firingAtmosphere =
-              details['firingAtmosphere'];
-
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final isWide = constraints.maxWidth / constraints.maxHeight > 1.2;
-              if (isWide) {
-                return _buildWideLayout(glaze, firingProfile, firingAtmosphere);
-              } else {
-                return _buildNarrowLayout(
-                  glaze,
-                  firingProfile,
-                  firingAtmosphere,
-                );
-              }
-            },
-          );
-        },
-      ),
-    );
-  }
-
   Widget _buildWideLayout(
+    TestPiece testPiece,
     Glaze glaze,
     FiringProfile? firingProfile,
     FiringAtmosphere? firingAtmosphere,
@@ -118,37 +168,46 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
           flex: 1,
           child: Padding(
             padding: const EdgeInsets.all(16.0),
-            child: _buildImage(),
+            child: _buildImage(testPiece),
           ),
         ),
         const VerticalDivider(width: 1),
         Expanded(
           flex: 1,
-          child: _buildInfoPanel(glaze, firingProfile, firingAtmosphere),
+          child: _buildInfoPanel(
+            testPiece,
+            glaze,
+            firingProfile,
+            firingAtmosphere,
+          ),
         ),
       ],
     );
   }
 
   Widget _buildNarrowLayout(
+    TestPiece testPiece,
     Glaze glaze,
     FiringProfile? firingProfile,
     FiringAtmosphere? firingAtmosphere,
   ) {
     return ListView(
       children: [
-        Padding(padding: const EdgeInsets.all(16.0), child: _buildImage()),
-        _buildInfoPanel(glaze, firingProfile, firingAtmosphere),
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: _buildImage(testPiece),
+        ),
+        _buildInfoPanel(testPiece, glaze, firingProfile, firingAtmosphere),
       ],
     );
   }
 
-  Widget _buildImage() {
+  Widget _buildImage(TestPiece testPiece) {
     return AspectRatio(
       aspectRatio: 1.0,
-      child: widget.testPiece.imageUrl != null
+      child: testPiece.imageUrl != null
           ? Image.network(
-              widget.testPiece.imageUrl!,
+              testPiece.imageUrl!,
               fit: BoxFit.contain,
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) return child;
@@ -165,6 +224,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
   }
 
   Widget _buildInfoPanel(
+    TestPiece testPiece,
     Glaze glaze,
     FiringProfile? firingProfile,
     FiringAtmosphere? firingAtmosphere,
@@ -185,7 +245,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
               );
             },
           ),
-          _buildInfoTile('素地土名', widget.testPiece.clayName),
+          _buildInfoTile('素地土名', testPiece.clayName),
           _buildInfoTile('焼成雰囲気', firingAtmosphere?.name ?? '未設定'),
           const Divider(height: 32),
           if (firingProfile != null) ...[
@@ -236,7 +296,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
   /// 編集画面へ遷移する（オフラインチェック含む）
   Future<void> _navigateToEditScreen(
     BuildContext context, {
-    TestPiece? testPiece,
+    required TestPiece testPiece,
   }) async {
     // ネットワーク接続を確認
     final connectivityResult = await Connectivity().checkConnectivity();
@@ -263,6 +323,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
       if (confirmed != true) return;
     }
     // オンライン、または警告後に「続ける」が押された場合、編集画面に遷移
+    if (!mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => TestPieceEditScreen(testPiece: testPiece),

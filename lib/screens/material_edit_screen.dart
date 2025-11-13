@@ -84,14 +84,14 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
             order: DateTime.now().millisecondsSinceEpoch,
             category: app.MaterialCategory.base, // デフォルト値を設定
           );
-          firestoreService.addMaterial(newMaterial);
+          await firestoreService.addMaterial(newMaterial);
         } else {
           // 更新
           final updatedMaterial = app.Material(
             id: widget.material!.id,
             name: _nameController.text,
             components: componentsMap,
-            order: widget.material!.order,
+            order: widget.material!.order, // 順序は維持
             category: _selectedCategory,
           );
           firestoreService.updateMaterial(updatedMaterial);
@@ -141,10 +141,18 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
     if (confirmed == true && mounted) {
       final navigator = Navigator.of(context);
       try {
-        await context.read<FirestoreService>().deleteMaterial(widget.material!.id!);
-        navigator.popUntil((route) => route.isFirst); // 一覧画面まで戻る
+        await context.read<FirestoreService>().deleteMaterial(
+          widget.material!.id!,
+        );
+        if (mounted) {
+          // 編集画面と詳細画面を閉じて一覧画面まで戻る
+          int count = 0;
+          navigator.popUntil((_) => count++ >= 2);
+        }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
       }
     }
   }
@@ -281,12 +289,17 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
                 children: [
                   if (widget.material != null)
                     IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.red),
-                        tooltip: '削除',
-                        onPressed: _confirmDelete),
-                  IconButton(icon: const Icon(Icons.save), tooltip: '保存', onPressed: _saveMaterial),
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      tooltip: '削除',
+                      onPressed: _confirmDelete,
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.save),
+                    tooltip: '保存',
+                    onPressed: _saveMaterial,
+                  ),
                 ],
-              )
+              ),
           ],
         ),
         body: Form(

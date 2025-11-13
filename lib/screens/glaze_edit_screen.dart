@@ -147,13 +147,14 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
         );
 
         if (widget.glaze == null) {
-          firestoreService.addGlaze(glaze);
+          await firestoreService.addGlaze(glaze);
         } else {
-          firestoreService.updateGlaze(glaze);
+          await firestoreService.updateGlaze(glaze);
         }
 
         if (mounted) {
           _isDirty = false; // 保存成功でダーティ状態をリセット
+          // 1つ前の画面（詳細画面）に戻る
           Navigator.of(context).pop();
         }
       } catch (e) {
@@ -196,7 +197,11 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
       final navigator = Navigator.of(context);
       try {
         await context.read<FirestoreService>().deleteGlaze(widget.glaze!.id!);
-        navigator.popUntil((route) => route.isFirst); // 一覧画面まで戻る
+        if (mounted) {
+          // 編集画面と詳細画面を閉じて一覧画面まで戻る
+          int count = 0;
+          navigator.popUntil((_) => count++ >= 2);
+        }
       } catch (e) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
