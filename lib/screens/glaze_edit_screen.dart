@@ -3,6 +3,8 @@ import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as app;
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:provider/provider.dart';
+import 'package:dropdown_search/dropdown_search.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class GlazeEditScreen extends StatefulWidget {
   final Glaze? glaze;
@@ -16,7 +18,9 @@ class GlazeEditScreen extends StatefulWidget {
 class _GlazeEditScreenState extends State<GlazeEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
-  late TextEditingController _tagsController;
+  late TextEditingController _descriptionController;
+  final _tagInputController = TextEditingController();
+  final _tagFocusNode = FocusNode();
 
   // レシピの各行を管理するためのリスト
   late List<_RecipeRow> _recipeRows;
@@ -24,6 +28,7 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
   // 選択可能な原料のリスト
   List<app.Material> _availableMaterials = [];
 
+  List<String> _tags = [];
   bool _isLoading = false;
   bool _isDirty = false;
 
@@ -31,15 +36,17 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.glaze?.name ?? '');
-    _tagsController = TextEditingController(
-      text: widget.glaze?.tags.join(', ') ?? '',
+    _descriptionController = TextEditingController(
+      text: widget.glaze?.description ?? '',
     );
+    _tags = widget.glaze?.tags.toList() ?? [];
     _recipeRows = [];
 
     _nameController.addListener(_markAsDirty);
-    _tagsController.addListener(_markAsDirty);
+    _descriptionController.addListener(_markAsDirty);
 
     _loadMaterialsAndSetupRecipe();
+    _tagInputController.addListener(_onTagInputChanged);
   }
 
   Future<void> _loadMaterialsAndSetupRecipe() async {
@@ -75,12 +82,29 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
     }
   }
 
+  void _onTagInputChanged() {
+    final text = _tagInputController.text;
+    if (text.contains('　') || text.contains(',')) {
+      final newTag = text.replaceAll('　', '').replaceAll(',', '').trim();
+      if (newTag.isNotEmpty && !_tags.contains(newTag)) {
+        setState(() {
+          _tags.add(newTag);
+          _markAsDirty();
+        });
+      }
+      _tagInputController.clear();
+    }
+  }
+
   @override
   void dispose() {
     _nameController.removeListener(_markAsDirty);
-    _tagsController.removeListener(_markAsDirty);
+    _descriptionController.removeListener(_markAsDirty);
+    _tagInputController.removeListener(_onTagInputChanged);
     _nameController.dispose();
-    _tagsController.dispose();
+    _descriptionController.dispose();
+    _tagInputController.dispose();
+    _tagFocusNode.dispose();
     for (var row in _recipeRows) {
       row.amountController.dispose();
     }
@@ -105,18 +129,13 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
                   double.tryParse(row.amountController.text) ?? 0.0,
         };
 
-        // タグをカンマ区切りでリスト化
-        final tags = _tagsController.text
-            .split(',')
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toList();
-
         final glaze = Glaze(
           id: widget.glaze?.id,
           name: _nameController.text,
           recipe: recipeMap,
-          tags: tags,
+          description: _descriptionController.text.trim(),
+          tags: _tags,
+          createdAt: widget.glaze?.createdAt ?? Timestamp.now(),
         );
 
         if (widget.glaze == null) {
@@ -198,6 +217,12 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
                 validator: (value) =>
                     (value == null || value.isEmpty) ? '釉薬名を入力してください' : null,
               ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(labelText: '備考'),
+                maxLines: 3,
+              ),
               const SizedBox(height: 24),
               Text('配合レシピ', style: Theme.of(context).textTheme.titleMedium),
               ..._buildRecipeRows(),
@@ -216,13 +241,8 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
                 },
               ),
               const SizedBox(height: 24),
-              TextFormField(
-                controller: _tagsController,
-                decoration: const InputDecoration(
-                  labelText: 'タグ (カンマ区切り)',
-                  hintText: 'マット, 透明, 食器用',
-                ),
-              ),
+              // タグ入力UI
+              _buildTagInput(),
             ],
           ),
         ),
@@ -237,22 +257,34 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
         children: [
           Expanded(
             flex: 3,
-            child: DropdownButton<String>(
-              isExpanded: true,
-              value: row.selectedMaterialId,
-              hint: const Text('原料を選択'),
-              items: _availableMaterials
-                  .map(
-                    (material) => DropdownMenuItem(
-                      value: material.id,
-                      child: Text(material.name),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
+            child: DropdownSearch<app.Material>(
+              items: (f, cs) => _availableMaterials,
+              itemAsString: (app.Material m) => m.name,
+              selectedItem: row.selectedMaterialId != null
+                  ? _availableMaterials
+                        .where((m) => m.id == row.selectedMaterialId)
+                        .firstOrNull
+                  : null,
+              onChanged: (app.Material? data) {
                 _markAsDirty();
-                setState(() => row.selectedMaterialId = value);
+                setState(() => row.selectedMaterialId = data?.id);
               },
+              popupProps: PopupProps.menu(
+                showSearchBox: true,
+                searchFieldProps: TextFieldProps(
+                  decoration: InputDecoration(
+                    border: const OutlineInputBorder(),
+                    contentPadding: const EdgeInsets.fromLTRB(12, 12, 8, 0),
+                    labelText: "原料を検索",
+                    hintText: "原料名を入力...",
+                  ),
+                  autofocus: true,
+                ),
+              ),
+              decoratorProps: const DropDownDecoratorProps(
+                decoration: InputDecoration(labelText: "原料"),
+              ),
+              compareFn: (app.Material a, app.Material b) => a.id == b.id,
             ),
           ),
           const SizedBox(width: 8),
@@ -278,6 +310,55 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
         ],
       );
     });
+  }
+
+  Widget _buildTagInput() {
+    return GestureDetector(
+      onTap: () => _tagFocusNode.requestFocus(),
+      child: InputDecorator(
+        decoration: const InputDecoration(
+          labelText: 'タグ (スペース or カンマで確定)',
+          border: OutlineInputBorder(),
+        ),
+        child: Wrap(
+          spacing: 8.0,
+          runSpacing: 4.0,
+          children: [
+            ..._tags.map(
+              (tag) => Chip(
+                label: Text(tag),
+                onDeleted: () {
+                  setState(() {
+                    _tags.remove(tag);
+                    _markAsDirty();
+                  });
+                },
+              ),
+            ),
+            SizedBox(
+              width: 150, // 入力フィールドの幅
+              child: TextField(
+                controller: _tagInputController,
+                focusNode: _tagFocusNode,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 4.0),
+                ),
+                onSubmitted: (value) {
+                  final newTag = value.trim();
+                  if (newTag.isNotEmpty && !_tags.contains(newTag)) {
+                    setState(() => _tags.add(newTag));
+                  }
+                  _tagInputController.clear();
+                  _tagFocusNode.requestFocus(); // Enter後もフォーカスを維持
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

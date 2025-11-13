@@ -6,6 +6,8 @@ class Glaze {
   final Map<String, double> recipe; // {materialId: amount}
   final String? imageUrl;
   final List<String> tags;
+  final String? description;
+  final Timestamp createdAt;
 
   Glaze({
     this.id,
@@ -13,6 +15,8 @@ class Glaze {
     required this.recipe,
     this.imageUrl,
     required this.tags,
+    this.description,
+    required this.createdAt,
   });
 
   factory Glaze.fromFirestore(DocumentSnapshot<Map<String, dynamic>> snapshot) {
@@ -25,10 +29,19 @@ class Glaze {
           : {},
       imageUrl: data['imageUrl'],
       tags: data.containsKey('tags') ? List<String>.from(data['tags']) : [],
+      description: data['description'],
+      createdAt: data['createdAt'] ?? Timestamp.now(),
     );
   }
 
   Map<String, dynamic> toFirestore() {
-    return {'name': name, 'recipe': recipe, 'imageUrl': imageUrl, 'tags': tags};
+    return {
+      'name': name,
+      'recipe': recipe,
+      'imageUrl': imageUrl,
+      'tags': tags,
+      'description': description,
+      'createdAt': createdAt,
+    };
   }
 }
