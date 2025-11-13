@@ -19,6 +19,7 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
   late List<_ComponentController> _componentControllers;
   bool _isLoading = false;
   bool _isDirty = false;
+  late app.MaterialCategory _selectedCategory;
 
   @override
   void initState() {
@@ -32,6 +33,7 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
           );
         }).toList() ??
         [];
+    _selectedCategory = widget.material?.category ?? app.MaterialCategory.base;
 
     _nameController.addListener(_markAsDirty);
     for (var controller in _componentControllers) {
@@ -80,6 +82,7 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
             components: componentsMap,
             // orderは現在時刻のミリ秒を使うことで、オフラインでもユニークな順序を担保する
             order: DateTime.now().millisecondsSinceEpoch,
+            category: app.MaterialCategory.base, // デフォルト値を設定
           );
           firestoreService.addMaterial(newMaterial);
         } else {
@@ -89,6 +92,7 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
             name: _nameController.text,
             components: componentsMap,
             order: widget.material!.order,
+            category: _selectedCategory,
           );
           firestoreService.updateMaterial(updatedMaterial);
         }
@@ -254,6 +258,33 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
                 decoration: const InputDecoration(labelText: '原料名'),
                 validator: (value) =>
                     (value == null || value.isEmpty) ? '原料名を入力してください' : null,
+              ),
+              const SizedBox(height: 24),
+              Text('カテゴリ', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              SegmentedButton<app.MaterialCategory>(
+                segments: app.MaterialCategory.values
+                    .map(
+                      (category) => ButtonSegment<app.MaterialCategory>(
+                        value: category,
+                        label: Text(category.displayName),
+                      ),
+                    )
+                    .toList(),
+                selected: {_selectedCategory},
+                onSelectionChanged: (newSelection) {
+                  _markAsDirty();
+                  setState(() {
+                    _selectedCategory = newSelection.first;
+                  });
+                },
+                style: SegmentedButton.styleFrom(
+                  // 選択されていないボタンのテキスト色を少し薄くする
+                  foregroundColor: Colors.grey.shade600,
+                  selectedForegroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primary,
+                ),
               ),
               const SizedBox(height: 24),
               Row(
