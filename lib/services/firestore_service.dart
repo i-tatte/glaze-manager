@@ -269,20 +269,25 @@ class FirestoreService {
         );
   }
 
-<<<<<<< HEAD
-  /// 特定の釉薬IDを持つテストピース一覧を取得 (リアルタイム)
-  Stream<List<TestPiece>> getTestPiecesByGlazeId(String glazeId) {
-    if (_userId == null) return Stream.value([]);
-=======
   // 特定のテストピースを取得 (リアルタイム)
   Stream<TestPiece> getTestPieceStream(String id) {
     if (_userId == null) return Stream.error("User not logged in");
->>>>>>> fcee5239409afbd4de968f1dd947f3ab309b924b
     return _db
         .collection('users')
         .doc(_userId)
         .collection('test_pieces')
-<<<<<<< HEAD
+        .doc(id)
+        .snapshots()
+        .map((snapshot) => TestPiece.fromFirestore(snapshot));
+  }
+
+  /// 特定の釉薬IDを持つテストピース一覧を取得 (リアルタイム)
+  Stream<List<TestPiece>> getTestPiecesByGlazeId(String glazeId) {
+    if (_userId == null) return Stream.value([]);
+    return _db
+        .collection('users')
+        .doc(_userId)
+        .collection('test_pieces')
         .where('glazeId', isEqualTo: glazeId)
         .orderBy('createdAt', descending: true)
         .snapshots()
@@ -290,11 +295,6 @@ class FirestoreService {
           (snapshot) =>
               snapshot.docs.map((doc) => TestPiece.fromFirestore(doc)).toList(),
         );
-=======
-        .doc(id)
-        .snapshots()
-        .map((snapshot) => TestPiece.fromFirestore(snapshot));
->>>>>>> fcee5239409afbd4de968f1dd947f3ab309b924b
   }
 
   // テストピースを更新
