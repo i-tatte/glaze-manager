@@ -193,26 +193,77 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       );
 
       if (widget.testPiece == null) {
-        firestoreService.addTestPiece(testPiece);
+        await firestoreService.addTestPiece(testPiece);
+        if (mounted) {
+          _isDirty = false;
+          navigator.pop(); // 新規作成時は一覧に戻る
+        }
       } else {
-        firestoreService.updateTestPiece(testPiece);
+        await firestoreService.updateTestPiece(testPiece);
+        if (mounted) {
+          _isDirty = false;
+          navigator.pop(); // 更新時は詳細画面に戻る
+        }
       }
-
-      if (mounted) {
-        _isDirty = false; // 保存成功でダーティ状態をリセット
-      }
-      navigator.pop();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
       }
-      // エラー発生時は一覧画面に戻る
-      navigator.pop();
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _confirmDelete() async {
+    // 新規作成時は何もしない
+    if (widget.testPiece == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('削除の確認'),
+        content: const Text('このテストピースを本当に削除しますか？\nこの操作は元に戻せません。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('削除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final navigator = Navigator.of(context);
+      try {
+        final firestoreService = context.read<FirestoreService>();
+        final storageService = context.read<StorageService>();
+
+        // Storageから画像を削除
+        if (widget.testPiece!.imageUrl != null) {
+          await storageService.deleteTestPieceImage(
+            widget.testPiece!.imageUrl!,
+          );
+        }
+        // Firestoreからドキュメントを削除
+        await firestoreService.deleteTestPiece(widget.testPiece!.id!);
+
+        if (mounted) {
+          // 編集画面と詳細画面を閉じて一覧画面まで戻る
+          int count = 0;
+          navigator.popUntil((_) => count++ >= 2);
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
       }
     }
   }
@@ -271,7 +322,21 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
               ),
             )
           else
-            IconButton(icon: const Icon(Icons.save), onPressed: _saveTestPiece),
+            Row(
+              children: [
+                if (widget.testPiece != null)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    tooltip: '削除',
+                    onPressed: _confirmDelete,
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.save),
+                  tooltip: '保存',
+                  onPressed: _saveTestPiece,
+                ),
+              ],
+            ),
         ],
       ),
       body: LayoutBuilder(

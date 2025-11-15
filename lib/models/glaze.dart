@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class Glaze {
   final String? id;
   final String name;
+  final String? registeredName;
   final Map<String, double> recipe; // {materialId: amount}
   final String? imageUrl;
   final List<String> tags;
@@ -12,6 +13,7 @@ class Glaze {
   Glaze({
     this.id,
     required this.name,
+    this.registeredName,
     required this.recipe,
     this.imageUrl,
     required this.tags,
@@ -24,6 +26,7 @@ class Glaze {
     return Glaze(
       id: snapshot.id,
       name: data['name'] ?? '',
+      registeredName: data['registeredName'],
       recipe: data.containsKey('recipe')
           ? Map<String, double>.from(data['recipe'])
           : {},
@@ -37,6 +40,7 @@ class Glaze {
   Map<String, dynamic> toFirestore() {
     return {
       'name': name,
+      'registeredName': registeredName,
       'recipe': recipe,
       'imageUrl': imageUrl,
       'tags': tags,
