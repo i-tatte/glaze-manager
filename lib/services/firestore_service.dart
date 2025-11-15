@@ -54,6 +54,63 @@ class FirestoreService {
     return null;
   }
 
+  /// 複数の原料を名前で検索し、存在しない場合は新規作成する
+  Future<List<String>> findOrCreateMaterials(List<String> materialNames) async {
+    if (_userId == null) throw Exception("User not logged in");
+    if (materialNames.isEmpty) return [];
+
+    final newMaterialNames = <String>[];
+    final existingMaterials = await getMaterials().first;
+    final existingMaterialNames = existingMaterials.map((m) => m.name).toSet();
+
+    for (final name in materialNames) {
+      if (!existingMaterialNames.contains(name)) {
+        newMaterialNames.add(name);
+      }
+    }
+
+    if (newMaterialNames.isNotEmpty) {
+      final batch = _db.batch();
+      final collectionRef = _db
+          .collection('users')
+          .doc(_userId)
+          .collection('materials');
+
+      for (final name in newMaterialNames) {
+        final newMaterial = Material(
+          name: name,
+          components: {},
+          order: DateTime.now().millisecondsSinceEpoch,
+          category: MaterialCategory.base,
+        );
+        batch.set(collectionRef.doc(), newMaterial.toFirestore());
+      }
+      await batch.commit();
+    }
+    return newMaterialNames;
+  }
+
+  /// 名前で顔料を検索し、存在しない場合はカテゴリ「顔料」で新規作成する。
+  /// IDを返す
+  Future<String> findOrCreatePigmentID(String pigmentName) async {
+    if (_userId == null) throw Exception("User not logged in");
+    if (pigmentName.isEmpty) return '';
+
+    final existingMaterials = await getMaterials().first;
+    final existingMaterialNames = existingMaterials.map((m) => m.name).toSet();
+
+    if (!existingMaterialNames.contains(pigmentName)) {
+      final newMaterial = Material(
+        name: pigmentName,
+        components: {},
+        order: DateTime.now().millisecondsSinceEpoch,
+        category: MaterialCategory.pigment, // カテゴリを顔料に設定
+      );
+      await addMaterial(newMaterial);
+    }
+    return await getMaterialIdByName(pigmentName) ?? '';
+  }
+
   // 原料を更新
   Future<void> updateMaterial(Material material) async {
     if (_userId == null) throw Exception("User not logged in");
@@ -125,102 +182,6 @@ class FirestoreService {
     await batch.commit();
   }
 
-  /// 複数の原料を名前で検索し、存在しない場合は新規作成する
-  Future<List<String>> findOrCreateMaterials(List<String> materialNames) async {
-    if (_userId == null) throw Exception("User not logged in");
-    if (materialNames.isEmpty) return [];
-
-    final newMaterialNames = <String>[];
-    final existingMaterials = await getMaterials().first;
-    final existingMaterialNames = existingMaterials.map((m) => m.name).toSet();
-
-    for (final name in materialNames) {
-      if (!existingMaterialNames.contains(name)) {
-        newMaterialNames.add(name);
-      }
-    }
-
-    if (newMaterialNames.isNotEmpty) {
-      final batch = _db.batch();
-      final collectionRef = _db
-          .collection('users')
-          .doc(_userId)
-          .collection('materials');
-
-      for (final name in newMaterialNames) {
-        final newMaterial = Material(
-          name: name,
-          components: {},
-          order: DateTime.now().millisecondsSinceEpoch,
-          category: MaterialCategory.base,
-        );
-        batch.set(collectionRef.doc(), newMaterial.toFirestore());
-      }
-      await batch.commit();
-    }
-    return newMaterialNames;
-  }
-
-  /// 名前で顔料を検索し、存在しない場合はカテゴリ「顔料」で新規作成する。
-  /// IDを返す
-  Future<String> findOrCreatePigmentID(String pigmentName) async {
-    if (_userId == null) throw Exception("User not logged in");
-    if (pigmentName.isEmpty) return '';
-
-    final existingMaterials = await getMaterials().first;
-    final existingMaterialNames = existingMaterials.map((m) => m.name).toSet();
-
-    if (!existingMaterialNames.contains(pigmentName)) {
-      final newMaterial = Material(
-        name: pigmentName,
-        components: {},
-        order: DateTime.now().millisecondsSinceEpoch,
-        category: MaterialCategory.pigment, // カテゴリを顔料に設定
-      );
-      await addMaterial(newMaterial);
-    }
-    return await getMaterialIdByName(pigmentName) ?? '';
-  }
-
-  /// 複数の顔料を名前で検索し、存在しない場合はカテゴリ「顔料」で新規作成する
-  Future<List<String>> findOrCreatePigments(List<String> pigmentNames) async {
-    if (_userId == null) throw Exception("User not logged in");
-    if (pigmentNames.isEmpty) return [];
-
-    final uniquePigmentNames = pigmentNames.toSet().toList();
-    final newPigmentNames = <String>[];
-    final existingMaterials = await getMaterials().first;
-    final existingMaterialNames = existingMaterials.map((m) => m.name).toSet();
-
-    for (final name in uniquePigmentNames) {
-      if (!existingMaterialNames.contains(name)) {
-        newPigmentNames.add(name);
-      }
-    }
-
-    if (newPigmentNames.isNotEmpty) {
-      final batch = _db.batch();
-      final collectionRef = _db
-          .collection('users')
-          .doc(_userId)
-          .collection('materials');
-
-      for (final name in newPigmentNames) {
-        final newMaterial = Material(
-          name: name,
-          components: {},
-          order:
-              DateTime.now().millisecondsSinceEpoch +
-              newPigmentNames.indexOf(name),
-          category: MaterialCategory.pigment, // カテゴリを顔料に設定
-        );
-        batch.set(collectionRef.doc(), newMaterial.toFirestore());
-      }
-      await batch.commit();
-    }
-    return newPigmentNames;
-  }
-
   // 釉薬一覧を取得 (リアルタイム)
   Stream<List<Glaze>> getGlazes() {
     if (_userId == null) return Stream.value([]);
@@ -277,6 +238,22 @@ class FirestoreService {
         .collection('users')
         .doc(_userId)
         .collection('test_pieces')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => TestPiece.fromFirestore(doc)).toList(),
+        );
+  }
+
+  /// 特定の釉薬IDを持つテストピース一覧を取得 (リアルタイム)
+  Stream<List<TestPiece>> getTestPiecesByGlazeId(String glazeId) {
+    if (_userId == null) return Stream.value([]);
+    return _db
+        .collection('users')
+        .doc(_userId)
+        .collection('test_pieces')
+        .where('glazeId', isEqualTo: glazeId)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
