@@ -205,21 +205,38 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
   Widget _buildImage(TestPiece testPiece) {
     return AspectRatio(
       aspectRatio: 1.0,
-      child: testPiece.imageUrl != null
-          ? Image.network(
-              testPiece.imageUrl!,
-              fit: BoxFit.contain,
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return const Center(child: CircularProgressIndicator());
-              },
-              errorBuilder: (context, error, stackTrace) =>
-                  const Icon(Icons.broken_image, size: 60, color: Colors.grey),
-            )
-          : Container(
-              color: Colors.grey[200],
-              child: const Icon(Icons.photo, size: 60, color: Colors.grey),
-            ),
+      child: Hero(
+        tag: 'testPieceImage_${testPiece.id}',
+        child: Material(
+          child: InkWell(
+            onTap: testPiece.imageUrl != null
+                ? () => _showFullScreenImage(context, testPiece)
+                : null,
+            child: testPiece.imageUrl != null
+                ? Image.network(
+                    testPiece.imageUrl!,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(child: CircularProgressIndicator());
+                    },
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.broken_image,
+                      size: 60,
+                      color: Colors.grey,
+                    ),
+                  )
+                : Container(
+                    color: Colors.grey[200],
+                    child: const Icon(
+                      Icons.photo,
+                      size: 60,
+                      color: Colors.grey,
+                    ),
+                  ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -327,6 +344,123 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => TestPieceEditScreen(testPiece: testPiece),
+      ),
+    );
+  }
+
+  void _showFullScreenImage(BuildContext context, TestPiece testPiece) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false, // 背景を透過させる
+        barrierColor: Colors.black.withOpacity(0.7), // 背景の半透明色
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return _FullScreenImageScreen(testPiece: testPiece);
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          // フェードイン・アウトのアニメーション
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+  }
+}
+
+/// 画像を全画面でインタラクティブに表示する専用の画面
+class _FullScreenImageScreen extends StatefulWidget {
+  final TestPiece testPiece;
+
+  const _FullScreenImageScreen({required this.testPiece});
+
+  @override
+  State<_FullScreenImageScreen> createState() => _FullScreenImageScreenState();
+}
+
+class _FullScreenImageScreenState extends State<_FullScreenImageScreen> {
+  late final TransformationController _transformationController;
+  TapDownDetails? _doubleTapDetails;
+
+  @override
+  void initState() {
+    super.initState();
+    _transformationController = TransformationController();
+  }
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  void _handleDoubleTapDown(TapDownDetails details) {
+    _doubleTapDetails = details;
+  }
+
+  void _handleDoubleTap() {
+    if (_transformationController.value != Matrix4.identity()) {
+      // 既にズームされている場合はリセット
+      _transformationController.value = Matrix4.identity();
+    } else if (_doubleTapDetails != null) {
+      // ズームされていない場合は、ダブルタップした位置を中心に2倍にズーム
+      final position = _doubleTapDetails!.localPosition;
+      _transformationController.value = Matrix4.identity()
+        ..translate(-position.dx, -position.dy)
+        ..scale(2.0);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: GestureDetector(
+        // 背景部分のタップで画面を閉じる
+        behavior: HitTestBehavior.opaque, // 背景全体でタップを検知
+        onTap: () => Navigator.of(context).pop(),
+        child: Stack(
+          children: [
+            Center(
+              child: GestureDetector(
+                onDoubleTapDown: _handleDoubleTapDown,
+                onDoubleTap: _handleDoubleTap,
+                // 画像部分のタップイベントが背景に伝播しないようにする
+                onTap: () {},
+                child: Hero(
+                  tag: 'testPieceImage_${widget.testPiece.id}',
+                  child: InteractiveViewer(
+                    transformationController: _transformationController,
+                    panEnabled: true,
+                    minScale: 0.8,
+                    maxScale: 4.0,
+                    child: Image.network(
+                      widget.testPiece.imageUrl!,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Center(
+                            child: Icon(
+                              Icons.error,
+                              color: Colors.red,
+                              size: 50,
+                            ),
+                          ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // 閉じるボタン（AppBarの代替）
+            Positioned(
+              top: 0,
+              left: 0,
+              child: SafeArea(
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                  tooltip: '閉じる',
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
