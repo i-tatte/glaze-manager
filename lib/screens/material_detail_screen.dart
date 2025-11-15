@@ -16,38 +16,6 @@ class MaterialDetailScreen extends StatefulWidget {
 class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(material.name, overflow: TextOverflow.ellipsis),
-            ),
-            const SizedBox(width: 8),
-            Chip(
-              label: Text(material.category.displayName),
-              labelStyle: const TextStyle(color: Colors.white),
-              backgroundColor: material.category == app.MaterialCategory.pigment
-                  ? Colors.pink
-                  : material.category == app.MaterialCategory.additive
-                  ? Colors.blue
-                  : Colors.green,
-              padding: const EdgeInsets.symmetric(horizontal: 3.0),
-              visualDensity: VisualDensity.compact,
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            tooltip: '編集',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => MaterialEditScreen(material: material),
-=======
     final firestoreService = context.read<FirestoreService>();
 
     return StreamBuilder<app.Material>(
@@ -82,7 +50,6 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   padding: const EdgeInsets.symmetric(horizontal: 3.0),
                   visualDensity: VisualDensity.compact,
->>>>>>> fcee5239409afbd4de968f1dd947f3ab309b924b
                 ),
               ],
             ),
