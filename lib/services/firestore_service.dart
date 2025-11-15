@@ -38,6 +38,18 @@ class FirestoreService {
         );
   }
 
+  // 特定の原料を取得 (リアルタイム)
+  Stream<Material> getMaterialStream(String id) {
+    if (_userId == null) return Stream.error("User not logged in");
+    return _db
+        .collection('users')
+        .doc(_userId)
+        .collection('materials')
+        .doc(id)
+        .snapshots()
+        .map((snapshot) => Material.fromFirestore(snapshot));
+  }
+
   // 原料名からIDを取得
   Future<String?> getMaterialIdByName(String name) async {
     if (_userId == null) throw Exception("User not logged in");
@@ -196,6 +208,17 @@ class FirestoreService {
         );
   }
 
+  Stream<Glaze> getGlazeStream(String id) {
+    if (_userId == null) return Stream.error("User not logged in");
+    return _db
+        .collection('users')
+        .doc(_userId)
+        .collection('glazes')
+        .doc(id)
+        .snapshots()
+        .map((snapshot) => Glaze.fromFirestore(snapshot));
+  }
+
   // 釉薬を更新
   Future<void> updateGlaze(Glaze glaze) async {
     if (_userId == null) throw Exception("User not logged in");
@@ -246,13 +269,20 @@ class FirestoreService {
         );
   }
 
+<<<<<<< HEAD
   /// 特定の釉薬IDを持つテストピース一覧を取得 (リアルタイム)
   Stream<List<TestPiece>> getTestPiecesByGlazeId(String glazeId) {
     if (_userId == null) return Stream.value([]);
+=======
+  // 特定のテストピースを取得 (リアルタイム)
+  Stream<TestPiece> getTestPieceStream(String id) {
+    if (_userId == null) return Stream.error("User not logged in");
+>>>>>>> fcee5239409afbd4de968f1dd947f3ab309b924b
     return _db
         .collection('users')
         .doc(_userId)
         .collection('test_pieces')
+<<<<<<< HEAD
         .where('glazeId', isEqualTo: glazeId)
         .orderBy('createdAt', descending: true)
         .snapshots()
@@ -260,6 +290,11 @@ class FirestoreService {
           (snapshot) =>
               snapshot.docs.map((doc) => TestPiece.fromFirestore(doc)).toList(),
         );
+=======
+        .doc(id)
+        .snapshots()
+        .map((snapshot) => TestPiece.fromFirestore(snapshot));
+>>>>>>> fcee5239409afbd4de968f1dd947f3ab309b924b
   }
 
   // テストピースを更新

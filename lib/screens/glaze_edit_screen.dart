@@ -18,6 +18,7 @@ class GlazeEditScreen extends StatefulWidget {
 class _GlazeEditScreenState extends State<GlazeEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
+  late TextEditingController _registeredNameController;
   late TextEditingController _descriptionController;
   final _tagInputController = TextEditingController();
   final _tagFocusNode = FocusNode();
@@ -36,6 +37,8 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.glaze?.name ?? '');
+    _registeredNameController =
+        TextEditingController(text: widget.glaze?.registeredName ?? '');
     _descriptionController = TextEditingController(
       text: widget.glaze?.description ?? '',
     );
@@ -43,6 +46,7 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
     _recipeRows = [];
 
     _nameController.addListener(_markAsDirty);
+    _registeredNameController.addListener(_markAsDirty);
     _descriptionController.addListener(_markAsDirty);
 
     _loadMaterialsAndSetupRecipe();
@@ -99,9 +103,11 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
   @override
   void dispose() {
     _nameController.removeListener(_markAsDirty);
+    _registeredNameController.removeListener(_markAsDirty);
     _descriptionController.removeListener(_markAsDirty);
     _tagInputController.removeListener(_onTagInputChanged);
     _nameController.dispose();
+    _registeredNameController.dispose();
     _descriptionController.dispose();
     _tagInputController.dispose();
     _tagFocusNode.dispose();
@@ -132,6 +138,8 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
         final glaze = Glaze(
           id: widget.glaze?.id,
           name: _nameController.text,
+          registeredName: _registeredNameController.text.trim().isEmpty
+              ? null : _registeredNameController.text.trim(),
           recipe: recipeMap,
           description: _descriptionController.text.trim(),
           tags: _tags,
@@ -139,13 +147,14 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
         );
 
         if (widget.glaze == null) {
-          firestoreService.addGlaze(glaze);
+          await firestoreService.addGlaze(glaze);
         } else {
-          firestoreService.updateGlaze(glaze);
+          await firestoreService.updateGlaze(glaze);
         }
 
         if (mounted) {
           _isDirty = false; // 保存成功でダーティ状態をリセット
+          // 1つ前の画面（詳細画面）に戻る
           Navigator.of(context).pop();
         }
       } catch (e) {
@@ -158,6 +167,44 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
         if (mounted) {
           setState(() => _isLoading = false);
         }
+      }
+    }
+  }
+
+  Future<void> _confirmDelete() async {
+    // 新規作成時は何もしない
+    if (widget.glaze == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('削除の確認'),
+        content: Text('「${widget.glaze!.name}」を本当に削除しますか？\n関連するテストピースは削除されません。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('削除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final navigator = Navigator.of(context);
+      try {
+        await context.read<FirestoreService>().deleteGlaze(widget.glaze!.id!);
+        if (mounted) {
+          // 編集画面と詳細画面を閉じて一覧画面まで戻る
+          int count = 0;
+          navigator.popUntil((_) => count++ >= 2);
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
       }
     }
   }
@@ -203,7 +250,13 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
                 ),
               )
             else
-              IconButton(icon: const Icon(Icons.save), onPressed: _saveGlaze),
+              Row(
+                children: [
+                  if (widget.glaze != null)
+                    IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), tooltip: '削除', onPressed: _confirmDelete),
+                  IconButton(icon: const Icon(Icons.save), tooltip: '保存', onPressed: _saveGlaze),
+                ],
+              ),
           ],
         ),
         body: Form(
@@ -216,6 +269,11 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
                 decoration: const InputDecoration(labelText: '釉薬名'),
                 validator: (value) =>
                     (value == null || value.isEmpty) ? '釉薬名を入力してください' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _registeredNameController,
+                decoration: const InputDecoration(labelText: '登録名（任意）'),
               ),
               const SizedBox(height: 16),
               TextFormField(

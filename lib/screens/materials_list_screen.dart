@@ -34,10 +34,7 @@ class MaterialsListScreen extends StatefulWidget {
 class _MaterialsListScreenState extends State<MaterialsListScreen> {
   final _searchController = TextEditingController();
 
-  List<app.Material> _allMaterials = [];
-  List<app.Material> _displayedMaterials = [];
-
-  bool _isLoading = true;
+  late Stream<List<app.Material>> _materialsStream;
   String _searchQuery = '';
   Set<app.MaterialCategory> _selectedCategories = app.MaterialCategory.values
       .toSet();
@@ -45,7 +42,7 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _materialsStream = context.read<FirestoreService>().getMaterials();
     _searchController.addListener(_onSearchChanged);
     widget.isEditingNotifier.addListener(_onEditingChanged);
   }
@@ -58,43 +55,25 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    if (!mounted) return;
-    setState(() => _isLoading = true);
-
-    final firestoreService = context.read<FirestoreService>();
-    // StreamではなくFutureで一度だけ取得
-    final materials = await firestoreService.getMaterials().first;
-
-    if (mounted) {
-      setState(() {
-        _allMaterials = materials;
-        _applyFilter();
-        _isLoading = false;
-      });
-    }
-  }
-
   void _onSearchChanged() {
     if (_searchQuery != _searchController.text) {
       setState(() {
         _searchQuery = _searchController.text;
-        _applyFilter();
       });
     }
   }
 
   void _onEditingChanged() {
     // 編集モードが切り替わったら再描画
-    setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
-  void _applyFilter() {
-    List<app.Material> filtered = _allMaterials;
-
+  List<app.Material> _filterMaterials(List<app.Material> allMaterials) {
     // カテゴリで絞り込み
     if (_selectedCategories.length != app.MaterialCategory.values.length) {
-      filtered = filtered
+      allMaterials = allMaterials
           .where((material) => _selectedCategories.contains(material.category))
           .toList();
     }
@@ -102,7 +81,7 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
     // テキストで絞り込み
     if (_searchQuery.isNotEmpty) {
       final lowerCaseQuery = _searchQuery.toLowerCase();
-      filtered = filtered.where((material) {
+      allMaterials = allMaterials.where((material) {
         // 原料名
         if (material.name.toLowerCase().contains(lowerCaseQuery)) {
           return true;
@@ -116,11 +95,7 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
         return false;
       }).toList();
     }
-
-    // 表示用リストを更新
-    setState(() {
-      _displayedMaterials = filtered;
-    });
+    return allMaterials;
   }
 
   void _showCategoryFilterDialog() {
@@ -157,9 +132,7 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    setState(() {
-                      _applyFilter();
-                    });
+                    setState(() {}); // フィルターが変更されたことをUIに反映
                     Navigator.of(context).pop();
                   },
                   child: const Text('適用'),
@@ -216,10 +189,21 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
             ),
             // リスト表示エリア
             Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _displayedMaterials.isEmpty
-                  ? Center(
+              child: StreamBuilder<List<app.Material>>(
+                stream: _materialsStream,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
+
+                  final allMaterials = snapshot.data ?? [];
+                  final displayedMaterials = _filterMaterials(allMaterials);
+
+                  if (displayedMaterials.isEmpty) {
+                    return Center(
                       child: Text(
                         _searchQuery.isNotEmpty ||
                                 _selectedCategories.length !=
@@ -228,23 +212,23 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
                             : '原料が登録されていません。\n右下のボタンから追加してください。',
                         textAlign: TextAlign.center,
                       ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadData,
-                      child: ListView.builder(
-                        itemCount: _displayedMaterials.length,
-                        itemBuilder: (context, index) {
-                          final material = _displayedMaterials[index];
-                          return isEditing
-                              ? _buildEditableTile(context, material)
-                              : _buildNormalTile(context, material);
-                        },
-                      ),
-                    ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    itemCount: displayedMaterials.length,
+                    itemBuilder: (context, index) {
+                      final material = displayedMaterials[index];
+                      return isEditing
+                          ? _buildEditableTile(context, material)
+                          : _buildNormalTile(context, material);
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),
-        // フローティングアクションボタン
         Positioned(
           bottom: 16.0,
           right: 16.0,
@@ -253,13 +237,11 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
             onPressed: isEditing
                 ? null
                 : () {
-                    Navigator.of(context)
-                        .push(
-                          MaterialPageRoute(
-                            builder: (context) => const MaterialEditScreen(),
-                          ),
-                        )
-                        .then((_) => _loadData());
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const MaterialEditScreen(),
+                      ),
+                    );
                   },
             backgroundColor: isEditing
                 ? Colors.grey
@@ -300,13 +282,11 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
       ),
       trailing: const Icon(Icons.chevron_right),
       onTap: () {
-        Navigator.of(context)
-            .push(
-              MaterialPageRoute(
-                builder: (context) => MaterialDetailScreen(material: material),
-              ),
-            )
-            .then((_) => _loadData());
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => MaterialDetailScreen(material: material),
+          ),
+        );
       },
     );
   }
@@ -338,8 +318,12 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
             ),
           );
           if (confirmed == true) {
-            firestoreService.deleteMaterial(material.id!);
-            _loadData(); // 削除後にリストを再読み込み
+            await firestoreService.deleteMaterial(material.id!);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('「${material.name}」を削除しました。')),
+              );
+            }
           }
         },
       ),

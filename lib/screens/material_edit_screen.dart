@@ -84,14 +84,14 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
             order: DateTime.now().millisecondsSinceEpoch,
             category: app.MaterialCategory.base, // デフォルト値を設定
           );
-          firestoreService.addMaterial(newMaterial);
+          await firestoreService.addMaterial(newMaterial);
         } else {
           // 更新
           final updatedMaterial = app.Material(
             id: widget.material!.id,
             name: _nameController.text,
             components: componentsMap,
-            order: widget.material!.order,
+            order: widget.material!.order, // 順序は維持
             category: _selectedCategory,
           );
           firestoreService.updateMaterial(updatedMaterial);
@@ -110,6 +110,49 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
         if (mounted) {
           setState(() => _isLoading = false);
         }
+      }
+    }
+  }
+
+  Future<void> _confirmDelete() async {
+    // 新規作成時は何もしない
+    if (widget.material == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('削除の確認'),
+        content: Text(
+          '「${widget.material!.name}」を本当に削除しますか？\nこの原料を使用している釉薬レシピがある場合、問題が発生する可能性があります。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('削除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final navigator = Navigator.of(context);
+      try {
+        await context.read<FirestoreService>().deleteMaterial(
+          widget.material!.id!,
+        );
+        if (mounted) {
+          // 編集画面と詳細画面を閉じて一覧画面まで戻る
+          int count = 0;
+          navigator.popUntil((_) => count++ >= 2);
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
       }
     }
   }
@@ -242,9 +285,20 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
                 ),
               )
             else
-              IconButton(
-                icon: const Icon(Icons.save),
-                onPressed: _saveMaterial,
+              Row(
+                children: [
+                  if (widget.material != null)
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      tooltip: '削除',
+                      onPressed: _confirmDelete,
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.save),
+                    tooltip: '保存',
+                    onPressed: _saveMaterial,
+                  ),
+                ],
               ),
           ],
         ),
