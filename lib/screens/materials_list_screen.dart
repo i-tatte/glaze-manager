@@ -180,7 +180,7 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.filter_list),
+                    icon: const Icon(Icons.filter_alt),
                     onPressed: _showCategoryFilterDialog,
                     tooltip: 'カテゴリで絞り込み',
                   ),
