@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
+import 'package:glaze_manager/models/firing_atmosphere.dart';
+import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/settings_service.dart';
 import 'package:glaze_manager/widgets/test_piece_card.dart';
@@ -25,6 +27,8 @@ class _SearchScreenState extends State<SearchScreen> {
   // データ
   List<TestPiece> _allTestPieces = [];
   Map<String, Glaze> _glazeMap = {};
+  Map<String, FiringAtmosphere> _atmosphereMap = {};
+  Map<String, FiringProfile> _profileMap = {};
   List<TestPiece> _searchResults = [];
 
   @override
@@ -47,12 +51,23 @@ class _SearchScreenState extends State<SearchScreen> {
 
     final firestoreService = context.read<FirestoreService>();
     // 全ての釉薬とテストピースを一度だけ取得
-    final glazes = await firestoreService.getGlazes().first;
-    final testPieces = await firestoreService.getTestPieces().first;
+    final results = await Future.wait([
+      firestoreService.getGlazes().first,
+      firestoreService.getTestPieces().first,
+      firestoreService.getFiringAtmospheres().first,
+      firestoreService.getFiringProfiles().first,
+    ]);
+
+    final glazes = results[0] as List<Glaze>;
+    final testPieces = results[1] as List<TestPiece>;
+    final atmospheres = results[2] as List<FiringAtmosphere>;
+    final profiles = results[3] as List<FiringProfile>;
 
     if (mounted) {
       setState(() {
-        _glazeMap = {for (var g in glazes) g.id!: g};
+        _glazeMap = {for (var item in glazes) item.id!: item};
+        _atmosphereMap = {for (var item in atmospheres) item.id!: item};
+        _profileMap = {for (var item in profiles) item.id!: item};
         _allTestPieces = testPieces;
         _isLoading = false;
       });
@@ -89,13 +104,31 @@ class _SearchScreenState extends State<SearchScreen> {
       if (glaze == null) return false;
 
       // 釉薬名での部分一致
-      final glazeNameMatch = glaze.name.toLowerCase().contains(lowerQuery);
+      bool glazeNameMatch = glaze.name.toLowerCase().contains(lowerQuery);
+
       // タグでの部分一致
-      final tagMatch = glaze.tags.any(
+      bool tagMatch = glaze.tags.any(
         (tag) => tag.toLowerCase().contains(lowerQuery),
       );
 
-      return glazeNameMatch || tagMatch;
+      // 素地土名での部分一致
+      bool clayNameMatch = tp.clayName.toLowerCase().contains(lowerQuery);
+
+      // 焼成雰囲気名での部分一致
+      final atmosphere = _atmosphereMap[tp.firingAtmosphereId];
+      bool atmosphereMatch =
+          atmosphere?.name.toLowerCase().contains(lowerQuery) ?? false;
+
+      // 焼成プロファイル名での部分一致
+      final profile = _profileMap[tp.firingProfileId];
+      bool profileMatch =
+          profile?.name.toLowerCase().contains(lowerQuery) ?? false;
+
+      return glazeNameMatch ||
+          tagMatch ||
+          clayNameMatch ||
+          atmosphereMatch ||
+          profileMatch;
     }).toList();
 
     setState(() => _isLoading = false);
@@ -210,7 +243,10 @@ class _SearchScreenState extends State<SearchScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Text('検索結果', style: Theme.of(context).textTheme.titleLarge),
+          child: Text(
+            '"$_searchQuery"の検索結果',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
         ),
         Expanded(
           child: _searchResults.isEmpty
