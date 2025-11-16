@@ -32,6 +32,9 @@ class _MainTabScreenState extends State<MainTabScreen> {
   // 釉薬インポート処理の状態
   bool _isImporting = false;
 
+  // PageStorageKeyを管理するためのバケット
+  final PageStorageBucket _bucket = PageStorageBucket();
+
   // 各タブに対応する画面ウィジェットのリスト
   // 今後タブを増減させる場合は、このリストと _bottomNavigationBarItems を修正します。
   // static const List<Widget> _widgetOptions = <Widget>[
@@ -45,14 +48,21 @@ class _MainTabScreenState extends State<MainTabScreen> {
   void initState() {
     super.initState();
     _widgetOptions = <Widget>[
-      TestPieceListScreen(key: _testPieceListKey),
-      const SearchScreen(),
-      GlazeListScreen(key: _glazeListKey),
+      TestPieceListScreen(
+        key: _testPieceListKey,
+        pageStorageKey: const PageStorageKey('testPieceList'),
+      ),
+      const SearchScreen(pageStorageKey: PageStorageKey('search')),
+      GlazeListScreen(
+        key: _glazeListKey,
+        pageStorageKey: const PageStorageKey('glazeList'),
+      ),
       MaterialsListScreen(
         key: _materialsListKey,
         isEditingNotifier: _isMaterialsEditingNotifier,
+        pageStorageKey: const PageStorageKey('materialsList'),
       ),
-      const SettingsScreen(),
+      const SettingsScreen(pageStorageKey: PageStorageKey('settings')),
     ];
   }
 
@@ -230,7 +240,10 @@ class _MainTabScreenState extends State<MainTabScreen> {
                 ),
             ],
           ),
-          body: IndexedStack(index: _selectedIndex, children: _widgetOptions),
+          body: PageStorage(
+            bucket: _bucket,
+            child: _widgetOptions[_selectedIndex],
+          ),
           bottomNavigationBar: BottomNavigationBar(
             items: _bottomNavigationBarItems,
             currentIndex: _selectedIndex,

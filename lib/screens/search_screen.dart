@@ -7,7 +7,8 @@ import 'package:glaze_manager/widgets/test_piece_card.dart';
 import 'package:provider/provider.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  final PageStorageKey? pageStorageKey;
+  const SearchScreen({super.key, this.pageStorageKey});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();

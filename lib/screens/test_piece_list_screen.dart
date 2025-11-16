@@ -8,7 +8,8 @@ import 'package:glaze_manager/widgets/test_piece_card.dart';
 import 'package:provider/provider.dart';
 
 class TestPieceListScreen extends StatefulWidget {
-  const TestPieceListScreen({super.key});
+  final PageStorageKey? pageStorageKey;
+  const TestPieceListScreen({super.key, this.pageStorageKey});
 
   @override
   State<TestPieceListScreen> createState() => TestPieceListScreenState();

@@ -5,7 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:glaze_manager/screens/firing_atmosphere_list_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  final PageStorageKey? pageStorageKey;
+  const SettingsScreen({super.key, this.pageStorageKey});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
