@@ -1,4 +1,6 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/screens/test_piece_detail_screen.dart';
 
@@ -31,31 +33,45 @@ class TestPieceCard extends StatelessWidget {
           children: [
             // 画像部分
             AspectRatio(
-              aspectRatio: 1.0, // 1:1の正方形
-              child: testPiece.imageUrl != null
-                  ? Image.network(
-                      testPiece.imageUrl!,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return const Center(child: CircularProgressIndicator());
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Icon(
+              aspectRatio: 1.0,
+              child: Hero(
+                tag: 'testPieceImage_${testPiece.id}',
+                child: testPiece.imageUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: testPiece.imageUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) {
+                          // BlurHashがあればそれを表示、なければサムネイル、それもなければインジケーター
+                          if (testPiece.blurHash != null) {
+                            return AspectRatio(
+                              aspectRatio: 1.0,
+                              child: BlurHash(hash: testPiece.blurHash!),
+                            );
+                          } else if (testPiece.thumbnailUrl != null) {
+                            return CachedNetworkImage(
+                              imageUrl: testPiece.thumbnailUrl!,
+                              fit: BoxFit.cover,
+                            );
+                          }
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        },
+                        errorWidget: (context, url, error) => const Icon(
                           Icons.broken_image,
                           size: 40,
                           color: Colors.grey,
-                        );
-                      },
-                    )
-                  : Container(
-                      color: Colors.grey[200],
-                      child: const Icon(
-                        Icons.photo,
-                        size: 40,
-                        color: Colors.grey,
+                        ),
+                      )
+                    : Container(
+                        color: Colors.grey[200],
+                        child: const Icon(
+                          Icons.photo,
+                          size: 40,
+                          color: Colors.grey,
+                        ),
                       ),
-                    ),
+              ),
             ),
             // テキスト部分
             Padding(

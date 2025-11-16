@@ -7,6 +7,8 @@ class TestPiece {
   final String? firingAtmosphereId; // 関連するFiringAtmosphereのID
   final String? firingProfileId; // 関連するFiringProfileのID
   final String? imageUrl; // Storageへのパス
+  final String? thumbnailUrl; // サムネイル画像のURL
+  final String? blurHash; // サムネイルのぼかし表示用ハッシュ
   final Map<String, double>? colorData; // 例: {'L': 95.5, 'a': -1.2, 'b': 3.4}
   final Timestamp createdAt; // 作成日時
 
@@ -17,6 +19,8 @@ class TestPiece {
     this.firingAtmosphereId,
     this.firingProfileId,
     this.imageUrl,
+    this.thumbnailUrl,
+    this.blurHash,
     this.colorData,
     required this.createdAt,
   });
@@ -32,6 +36,8 @@ class TestPiece {
       firingAtmosphereId: data['firingAtmosphereId'],
       firingProfileId: data['firingProfileId'],
       imageUrl: data['imageUrl'],
+      thumbnailUrl: data['thumbnailUrl'],
+      blurHash: data['blurHash'],
       colorData: data['colorData'] != null
           ? Map<String, double>.from(data['colorData'] as Map)
           : null,
@@ -46,6 +52,8 @@ class TestPiece {
       'firingAtmosphereId': firingAtmosphereId,
       'firingProfileId': firingProfileId,
       'imageUrl': imageUrl,
+      'thumbnailUrl': thumbnailUrl,
+      'blurHash': blurHash,
       'colorData': colorData,
       'createdAt': createdAt,
     };
