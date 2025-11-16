@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:glaze_manager/screens/glaze_list_screen.dart';
 import 'package:glaze_manager/screens/materials_list_screen.dart';
 import 'package:glaze_manager/screens/settings_screen.dart';
@@ -23,6 +24,11 @@ class _MainTabScreenState extends State<MainTabScreen> {
   // 原料一覧画面の編集状態を管理するNotifier
   final _isMaterialsEditingNotifier = ValueNotifier<bool>(false);
 
+  // 各リスト画面のStateにアクセスするためのGlobalKey
+  final _testPieceListKey = GlobalKey<State<TestPieceListScreen>>();
+  final _glazeListKey = GlobalKey<State<GlazeListScreen>>();
+  final _materialsListKey = GlobalKey<State<MaterialsListScreen>>();
+
   // 釉薬インポート処理の状態
   bool _isImporting = false;
 
@@ -39,10 +45,13 @@ class _MainTabScreenState extends State<MainTabScreen> {
   void initState() {
     super.initState();
     _widgetOptions = <Widget>[
-      const TestPieceListScreen(),
+      TestPieceListScreen(key: _testPieceListKey),
       const SearchScreen(),
-      const GlazeListScreen(),
-      MaterialsListScreen(isEditingNotifier: _isMaterialsEditingNotifier),
+      GlazeListScreen(key: _glazeListKey),
+      MaterialsListScreen(
+        key: _materialsListKey,
+        isEditingNotifier: _isMaterialsEditingNotifier,
+      ),
       const SettingsScreen(),
     ];
   }
@@ -144,80 +153,118 @@ class _MainTabScreenState extends State<MainTabScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_appBarTitles[_selectedIndex]),
-        // 検索画面(index: 1)ではAppBarのactionsを非表示にする
-        // 検索バーをボディに配置するため
-        actions: [
-          // 釉薬一覧画面(index: 2)でのみインポートボタンを表示
-          if (_selectedIndex == 2)
-            if (_isImporting)
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(),
-                ),
-              )
-            else
-              IconButton(
-                icon: const Icon(Icons.upload_file),
-                onPressed: _importGlazes,
-                tooltip: 'ファイルからインポート',
-              ),
-
-          // 原料一覧画面(index: 3)でのみ編集ボタンを表示
-          if (_selectedIndex == 3)
-            // isEditingNotifierの状態が変更されるたびにAppBarのボタンも再描画
-            ValueListenableBuilder<bool>(
-              valueListenable: _isMaterialsEditingNotifier,
-              builder: (context, _, __) => Row(
-                children: MaterialsListScreen.buildActions(
-                  context,
-                  _isMaterialsEditingNotifier,
-                ),
-              ),
-            ),
-
-          // 設定画面(index: 4)でのみサインアウトボタンを表示
-          if (_selectedIndex == 4)
-            IconButton(
-              icon: const Icon(Icons.logout),
-              tooltip: 'サインアウト',
-              onPressed: () async {
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('サインアウト'),
-                    content: const Text('本当にサインアウトしますか？'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: const Text('キャンセル'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        child: const Text('サインアウト'),
-                      ),
-                    ],
+    return Shortcuts(
+      shortcuts: <LogicalKeySet, Intent>{
+        LogicalKeySet(LogicalKeyboardKey.f5): const RefreshIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          RefreshIntent: CallbackAction<RefreshIntent>(
+            onInvoke: (RefreshIntent intent) => _handleRefresh(),
+          ),
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(_appBarTitles[_selectedIndex]),
+            // 検索画面(index: 1)ではAppBarのactionsを非表示にする
+            // 検索バーをボディに配置するため
+            actions: [
+              // 釉薬一覧画面(index: 2)でのみインポートボタンを表示
+              if (_selectedIndex == 2)
+                if (_isImporting)
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                else
+                  IconButton(
+                    icon: const Icon(Icons.upload_file),
+                    onPressed: _importGlazes,
+                    tooltip: 'ファイルからインポート',
                   ),
-                );
-                if (confirmed == true) {
-                  await context.read<AuthService>().signOut();
-                }
-              },
-            ),
-        ],
-      ),
-      body: IndexedStack(index: _selectedIndex, children: _widgetOptions),
-      bottomNavigationBar: BottomNavigationBar(
-        items: _bottomNavigationBarItems,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed, // タブが4つ以上でもレイアウトを維持
+
+              // 原料一覧画面(index: 3)でのみ編集ボタンを表示
+              if (_selectedIndex == 3)
+                // isEditingNotifierの状態が変更されるたびにAppBarのボタンも再描画
+                ValueListenableBuilder<bool>(
+                  valueListenable: _isMaterialsEditingNotifier,
+                  builder: (context, _, __) => Row(
+                    children: MaterialsListScreen.buildActions(
+                      context,
+                      _isMaterialsEditingNotifier,
+                    ),
+                  ),
+                ),
+
+              // 設定画面(index: 4)でのみサインアウトボタンを表示
+              if (_selectedIndex == 4)
+                IconButton(
+                  icon: const Icon(Icons.logout),
+                  tooltip: 'サインアウト',
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('サインアウト'),
+                        content: const Text('本当にサインアウトしますか？'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('キャンセル'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text('サインアウト'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true) {
+                      await context.read<AuthService>().signOut();
+                    }
+                  },
+                ),
+            ],
+          ),
+          body: IndexedStack(index: _selectedIndex, children: _widgetOptions),
+          bottomNavigationBar: BottomNavigationBar(
+            items: _bottomNavigationBarItems,
+            currentIndex: _selectedIndex,
+            onTap: _onItemTapped,
+            type: BottomNavigationBarType.fixed, // タブが4つ以上でもレイアウトを維持
+          ),
+        ),
       ),
     );
   }
+
+  /// 現在表示中のタブのリストをリフレッシュする
+  Future<void> _handleRefresh() async {
+    // _widgetOptionsのStateに直接アクセスすることはできないため、
+    // GlobalKey経由で公開されたメソッドを呼び出すなどの工夫が必要。
+    // ここでは、各Stateクラスに `handleRefresh` メソッドがあると仮定する。
+    switch (_selectedIndex) {
+      case 0:
+        (_testPieceListKey.currentState as TestPieceListScreenState)
+            .handleRefresh();
+        break;
+      case 2:
+        (_glazeListKey.currentState as GlazeListScreenState).handleRefresh();
+        break;
+      case 3:
+        (_materialsListKey.currentState as MaterialsListScreenState)
+            .handleRefresh();
+        break;
+      // 他のタブはリフレッシュ不要
+    }
+  }
+}
+
+// ショートカット用のインテント
+class RefreshIntent extends Intent {
+  const RefreshIntent();
 }
