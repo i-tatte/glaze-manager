@@ -308,6 +308,22 @@ class FirestoreService {
         );
   }
 
+  // 特定の釉薬に関連するテストピース一覧を取得 (リアルタイム)
+  Stream<List<TestPiece>> getTestPiecesForGlaze(String glazeId) {
+    if (_userId == null) return Stream.value([]);
+    return _db
+        .collection('users')
+        .doc(_userId)
+        .collection('test_pieces')
+        .where('glazeId', isEqualTo: glazeId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => TestPiece.fromFirestore(doc)).toList(),
+        );
+  }
+
   // 特定のテストピースを取得 (リアルタイム)
   Stream<TestPiece> getTestPieceStream(String id) {
     if (_userId == null) return Stream.error("User not logged in");

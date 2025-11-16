@@ -15,6 +15,7 @@ import 'package:glaze_manager/widgets/firing_chart.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
+import 'package:path_provider/path_provider.dart';
 
 class TestPieceEditScreen extends StatefulWidget {
   final TestPiece? testPiece;
@@ -100,8 +101,14 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       if (croppedImage != null) {
         setState(() => _isLoading = true); // 画像処理中のインジケーター表示
         try {
+          // 先にメインスレッドで一時ディレクトリのパスを取得
+          final tempDir = await getTemporaryDirectory();
+
           // 画像処理をバックグラウンドで実行
-          final results = await compute(_processImage, croppedImage.path);
+          final results = await compute(_processImage, {
+            'imagePath': croppedImage.path,
+            'tempPath': tempDir.path,
+          });
 
           setState(() {
             _imageFile = croppedImage;
@@ -114,6 +121,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
               context,
             ).showSnackBar(SnackBar(content: Text('画像処理に失敗しました: $e')));
           }
+          debugPrint('Image processing failed: $e');
         } finally {
           if (mounted) {
             setState(() => _isLoading = false);
@@ -124,7 +132,11 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   }
 
   /// 画像処理(BlurHashとサムネイル生成)をまとめたトップレベル関数 (computeで使用するため)
-  static Future<Map<String, dynamic>> _processImage(String imagePath) async {
+  static Future<Map<String, dynamic>> _processImage(
+    Map<String, String> params,
+  ) async {
+    final imagePath = params['imagePath']!;
+    final tempPath = params['tempPath']!;
     final imageBytes = await File(imagePath).readAsBytes();
     final image = img.decodeImage(imageBytes);
 
@@ -132,15 +144,20 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       throw Exception('画像のデコードに失敗しました。');
     }
 
-    // サムネイルの生成 (幅30px)
-    final thumbnail = img.copyResize(image, width: 30);
-    final thumbnailFile = XFile.fromData(
-      Uint8List.fromList(img.encodeJpg(thumbnail, quality: 85)),
-      name: 'thumb_${DateTime.now().millisecondsSinceEpoch}.jpg',
-      mimeType: 'image/jpeg',
+    // サムネイルを生成 (幅100px)
+    final thumbnail = img.copyResize(image, width: 100);
+    final thumbnailBytes = Uint8List.fromList(
+      img.encodeJpg(thumbnail, quality: 85),
     );
 
-    return {'thumbnailFile': thumbnailFile};
+    // メインスレッドから渡されたパスを使って一時ファイルに書き出す
+    final thumbPath =
+        '$tempPath/thumb_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final thumbnailFileOnDisk = File(thumbPath);
+    await thumbnailFileOnDisk.writeAsBytes(thumbnailBytes);
+
+    // 物理パスを持つXFileを生成して返す
+    return {'thumbnailFile': XFile(thumbnailFileOnDisk.path)};
   }
 
   Future<void> _saveTestPiece() async {
@@ -172,17 +189,13 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       // 新しい画像が選択されていればアップロード
       if (_imageFile != null && _thumbnailFile != null) {
         try {
-          // サムネイルと本画像を並行でアップロード
-          final results = await Future.wait([
-            storageService.uploadTestPieceImage(_imageFile!),
-            storageService.uploadTestPieceImage(
-              _thumbnailFile!,
-              isThumbnail: true,
-            ),
-          ]).timeout(const Duration(seconds: 30));
-
-          imageUrl = results[0];
-          thumbnailUrl = results[1];
+          // クラッシュを避けるため、並行処理ではなく直列でアップロードする
+          imageUrl = await storageService
+              .uploadTestPieceImage(_imageFile!)
+              .timeout(const Duration(seconds: 30));
+          thumbnailUrl = await storageService
+              .uploadTestPieceImage(_thumbnailFile!, isThumbnail: true)
+              .timeout(const Duration(seconds: 30));
         } on TimeoutException {
           throw '画像のアップロードがタイムアウトしました。ネットワーク接続を確認してください。';
         }
@@ -191,11 +204,11 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         id: widget.testPiece?.id,
         glazeId: _selectedGlazeId!,
         clayName: _clayNameController.text,
-        firingAtmosphereId: _selectedFiringAtmosphereId,
-        firingProfileId: _selectedFiringProfileId,
         imageUrl: imageUrl,
         thumbnailUrl: thumbnailUrl,
-        blurHash: null, // BlurHashは保存しない
+        firingAtmosphereId: _selectedFiringAtmosphereId,
+        firingProfileId: _selectedFiringProfileId,
+        blurHash: widget.testPiece?.blurHash, // 既存の値を維持
         createdAt: widget.testPiece?.createdAt ?? Timestamp.now(),
       );
 
