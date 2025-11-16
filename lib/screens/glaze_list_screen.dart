@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as app;
 import 'package:glaze_manager/screens/glaze_edit_screen.dart';
@@ -13,10 +12,10 @@ class GlazeListScreen extends StatefulWidget {
   const GlazeListScreen({super.key});
 
   @override
-  State<GlazeListScreen> createState() => _GlazeListScreenState();
+  State<GlazeListScreen> createState() => GlazeListScreenState();
 }
 
-class _GlazeListScreenState extends State<GlazeListScreen> {
+class GlazeListScreenState extends State<GlazeListScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
 
@@ -39,7 +38,7 @@ class _GlazeListScreenState extends State<GlazeListScreen> {
     _materialsStream = firestoreService.getMaterials();
   }
 
-  Future<void> _handleRefresh() async {
+  Future<void> handleRefresh() async {
     setState(() {
       _loadStreams();
     });
@@ -167,200 +166,182 @@ class _GlazeListScreenState extends State<GlazeListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      autofocus: true,
-      child: Shortcuts(
-        shortcuts: <LogicalKeySet, Intent>{
-          LogicalKeySet(LogicalKeyboardKey.f5): const RefreshIntent(),
-        },
-        child: Actions(
-          actions: <Type, Action<Intent>>{
-            RefreshIntent: CallbackAction<RefreshIntent>(
-              onInvoke: (RefreshIntent intent) => _handleRefresh(),
-            ),
-          },
-          child: Stack(
+    return Scaffold(
+      body: Stack(
+        children: [
+          Column(
             children: [
-              Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            decoration: InputDecoration(
-                              hintText: '釉薬名, 登録名, タグ, 原料名で検索...',
-                              prefixIcon: const Icon(Icons.search),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12.0),
-                                borderSide: BorderSide.none,
-                              ),
-                              filled: true,
-                              fillColor: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest,
-                              contentPadding: EdgeInsets.zero,
-                              suffixIcon: _searchQuery.isNotEmpty
-                                  ? IconButton(
-                                      icon: const Icon(Icons.clear),
-                                      onPressed: () =>
-                                          _searchController.clear(),
-                                    )
-                                  : null,
-                            ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: '釉薬名, 登録名, タグ, 原料名で検索...',
+                          prefixIcon: const Icon(Icons.search),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12.0),
+                            borderSide: BorderSide.none,
                           ),
+                          filled: true,
+                          fillColor: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          contentPadding: EdgeInsets.zero,
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () => _searchController.clear(),
+                                )
+                              : null,
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.sort),
-                          onPressed: _showSortOptions,
-                          tooltip: '並べ替え',
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: RefreshIndicator(
-                      onRefresh: _handleRefresh,
-                      child: StreamBuilder<List<app.Material>>(
-                        stream: _materialsStream,
-                        builder: (context, materialsSnapshot) {
-                          return StreamBuilder<List<Glaze>>(
-                            stream: _glazesStream,
-                            builder: (context, glazesSnapshot) {
-                              if (glazesSnapshot.connectionState ==
-                                      ConnectionState.waiting ||
-                                  materialsSnapshot.connectionState ==
-                                      ConnectionState.waiting) {
-                                return const Center(
-                                  child: CircularProgressIndicator(),
-                                );
-                              }
-                              if (glazesSnapshot.hasError ||
-                                  materialsSnapshot.hasError) {
-                                return Center(
-                                  child: Text(
-                                    'Error: ${glazesSnapshot.error ?? materialsSnapshot.error}',
-                                  ),
-                                );
-                              }
+                    IconButton(
+                      icon: const Icon(Icons.sort),
+                      onPressed: _showSortOptions,
+                      tooltip: '並べ替え',
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: handleRefresh,
+                  child: StreamBuilder<List<app.Material>>(
+                    stream: _materialsStream,
+                    builder: (context, materialsSnapshot) {
+                      return StreamBuilder<List<Glaze>>(
+                        stream: _glazesStream,
+                        builder: (context, glazesSnapshot) {
+                          if (glazesSnapshot.connectionState ==
+                                  ConnectionState.waiting ||
+                              materialsSnapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          if (glazesSnapshot.hasError ||
+                              materialsSnapshot.hasError) {
+                            return Center(
+                              child: Text(
+                                'Error: ${glazesSnapshot.error ?? materialsSnapshot.error}',
+                              ),
+                            );
+                          }
 
-                              final allGlazes = glazesSnapshot.data ?? [];
-                              final allMaterials = materialsSnapshot.data ?? [];
-                              final materialIdToNameMap = {
-                                for (var m in allMaterials) m.id!: m.name,
-                              };
+                          final allGlazes = glazesSnapshot.data ?? [];
+                          final allMaterials = materialsSnapshot.data ?? [];
+                          final materialIdToNameMap = {
+                            for (var m in allMaterials) m.id!: m.name,
+                          };
 
-                              final displayedGlazes = _filterAndSortGlazes(
-                                allGlazes,
-                                materialIdToNameMap,
-                              );
+                          final displayedGlazes = _filterAndSortGlazes(
+                            allGlazes,
+                            materialIdToNameMap,
+                          );
 
-                              if (displayedGlazes.isEmpty) {
-                                return Center(
-                                  child: Text(
-                                    _searchQuery.isNotEmpty
-                                        ? '検索結果が見つかりません。'
-                                        : '釉薬が登録されていません。\n右下のボタンから追加してください。',
-                                    textAlign: TextAlign.center,
-                                  ),
-                                );
-                              }
+                          if (displayedGlazes.isEmpty) {
+                            return Center(
+                              child: Text(
+                                _searchQuery.isNotEmpty
+                                    ? '検索結果が見つかりません。'
+                                    : '釉薬が登録されていません。\n右下のボタンから追加してください。',
+                                textAlign: TextAlign.center,
+                              ),
+                            );
+                          }
 
-                              return ListView.builder(
-                                itemCount: displayedGlazes.length,
-                                itemBuilder: (context, index) {
-                                  final glaze = displayedGlazes[index];
-                                  return ListTile(
-                                    title: Row(
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            glaze.name,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        if (glaze.tags.isNotEmpty) ...[
-                                          const SizedBox(width: 8),
-                                          Flexible(
-                                            child: Wrap(
-                                              spacing: 4.0,
-                                              runSpacing: 4.0,
-                                              children: glaze.tags
-                                                  .map(
-                                                    (tag) => Chip(
-                                                      label: Text(
-                                                        tag,
-                                                        style: const TextStyle(
-                                                          color: Colors.white,
-                                                        ),
-                                                      ),
-                                                      backgroundColor: Theme.of(
-                                                        context,
-                                                      ).colorScheme.primary,
-                                                      visualDensity:
-                                                          VisualDensity.compact,
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 4.0,
-                                                          ),
+                          return ListView.builder(
+                            itemCount: displayedGlazes.length,
+                            itemBuilder: (context, index) {
+                              final glaze = displayedGlazes[index];
+                              return ListTile(
+                                title: Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        glaze.name,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (glaze.tags.isNotEmpty) ...[
+                                      const SizedBox(width: 8),
+                                      Flexible(
+                                        child: Wrap(
+                                          spacing: 4.0,
+                                          runSpacing: 4.0,
+                                          children: glaze.tags
+                                              .map(
+                                                (tag) => Chip(
+                                                  label: Text(
+                                                    tag,
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
                                                     ),
-                                                  )
-                                                  .toList(),
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                    subtitle: Text(
-                                      '${glaze.registeredName != null ? '[${glaze.registeredName}] ' : ''}${glaze.description ?? ''}',
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    trailing: const Icon(Icons.chevron_right),
-                                    onTap: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              GlazeDetailScreen(glaze: glaze),
+                                                  ),
+                                                  backgroundColor: Theme.of(
+                                                    context,
+                                                  ).colorScheme.primary,
+                                                  visualDensity:
+                                                      VisualDensity.compact,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 4.0,
+                                                      ),
+                                                ),
+                                              )
+                                              .toList(),
                                         ),
-                                      );
-                                    },
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                subtitle: Text(
+                                  '${glaze.registeredName != null ? '[${glaze.registeredName}] ' : ''}${glaze.description ?? ''}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: const Icon(Icons.chevron_right),
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          GlazeDetailScreen(glaze: glaze),
+                                    ),
                                   );
                                 },
                               );
                             },
                           );
                         },
-                      ),
-                    ),
+                      );
+                    },
                   ),
-                ],
-              ),
-              Positioned(
-                bottom: 16.0,
-                right: 16.0,
-                child: FloatingActionButton(
-                  heroTag: 'glazeListFab',
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const GlazeEditScreen(),
-                      ),
-                    );
-                  },
-                  child: const Icon(Icons.add),
                 ),
               ),
             ],
           ),
-        ),
+          Positioned(
+            bottom: 16.0,
+            right: 16.0,
+            child: FloatingActionButton(
+              heroTag: 'glazeListFab',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const GlazeEditScreen(),
+                  ),
+                );
+              },
+              child: const Icon(Icons.add),
+            ),
+          ),
+        ],
       ),
     );
   }
-}
-
-class RefreshIntent extends Intent {
-  const RefreshIntent();
 }
