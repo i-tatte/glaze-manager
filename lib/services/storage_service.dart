@@ -30,6 +30,7 @@ class StorageService {
               SettableMetadata(contentType: imageFile.mimeType),
             )
           : await ref.putFile(File(imageFile.path));
+
       final downloadUrl = await uploadTask.ref.getDownloadURL();
       return downloadUrl;
     } catch (e) {
