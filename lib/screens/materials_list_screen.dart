@@ -168,7 +168,9 @@ class _MaterialsListScreenState extends State<MaterialsListScreen> {
                           borderSide: BorderSide.none,
                         ),
                         filled: true,
-                        fillColor: Theme.of(context).scaffoldBackgroundColor,
+                        fillColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                         contentPadding: EdgeInsets.zero,
                         suffixIcon: _searchQuery.isNotEmpty
                             ? IconButton(

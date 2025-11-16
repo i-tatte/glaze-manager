@@ -171,7 +171,9 @@ class _GlazeListScreenState extends State<GlazeListScreen> {
                           borderSide: BorderSide.none,
                         ),
                         filled: true,
-                        fillColor: Theme.of(context).scaffoldBackgroundColor,
+                        fillColor: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                         contentPadding: EdgeInsets.zero,
                         suffixIcon: _searchQuery.isNotEmpty
                             ? IconButton(

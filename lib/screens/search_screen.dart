@@ -151,7 +151,7 @@ class _SearchScreenState extends State<SearchScreen> {
             borderSide: const BorderSide(width: 0, style: BorderStyle.none),
           ),
           filled: true,
-          fillColor: Theme.of(context).scaffoldBackgroundColor,
+          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
           suffixIcon: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
