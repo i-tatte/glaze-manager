@@ -14,7 +14,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:glaze_manager/widgets/firing_chart.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:image/image.dart' as img;
-import 'package:blurhash_dart/blurhash_dart.dart';
 import 'package:provider/provider.dart';
 
 class TestPieceEditScreen extends StatefulWidget {
@@ -40,7 +39,6 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   XFile? _imageFile; // 選択された画像ファイル
   String? _networkImageUrl; // 既存の画像のURL
   String? _networkThumbnailUrl; // 既存のサムネイルURL
-  String? _blurHash; // 生成/既存のBlurHash
   XFile? _thumbnailFile; // 生成されたサムネイルファイル
 
   bool _isLoading = false;
@@ -57,7 +55,6 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     _selectedFiringProfileId = widget.testPiece?.firingProfileId;
     _networkImageUrl = widget.testPiece?.imageUrl;
     _networkThumbnailUrl = widget.testPiece?.thumbnailUrl;
-    _blurHash = widget.testPiece?.blurHash;
 
     _clayNameController.addListener(_markAsDirty);
 
@@ -109,7 +106,6 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
           setState(() {
             _imageFile = croppedImage;
             _thumbnailFile = results['thumbnailFile'];
-            _blurHash = results['blurHash'];
             _markAsDirty();
           });
         } catch (e) {
@@ -136,18 +132,15 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       throw Exception('画像のデコードに失敗しました。');
     }
 
-    // BlurHashの生成
-    final blurHash = BlurHash.encode(image, numCompX: 4, numCompY: 3);
-
-    // サムネイルの生成 (例: 幅200px)
-    final thumbnail = img.copyResize(image, width: 200);
+    // サムネイルの生成 (幅30px)
+    final thumbnail = img.copyResize(image, width: 30);
     final thumbnailFile = XFile.fromData(
       Uint8List.fromList(img.encodeJpg(thumbnail, quality: 85)),
       name: 'thumb_${DateTime.now().millisecondsSinceEpoch}.jpg',
       mimeType: 'image/jpeg',
     );
 
-    return {'blurHash': blurHash.hash, 'thumbnailFile': thumbnailFile};
+    return {'thumbnailFile': thumbnailFile};
   }
 
   Future<void> _saveTestPiece() async {
@@ -202,7 +195,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         firingProfileId: _selectedFiringProfileId,
         imageUrl: imageUrl,
         thumbnailUrl: thumbnailUrl,
-        blurHash: _blurHash,
+        blurHash: null, // BlurHashは保存しない
         createdAt: widget.testPiece?.createdAt ?? Timestamp.now(),
       );
 
@@ -434,7 +427,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       DropdownSearch<Glaze>(
         items: (f, cs) => _availableGlazes,
         itemAsString: (Glaze g) => g.name,
-        selectedItem: _selectedGlazeId != null
+        selectedItem: (_selectedGlazeId != null && _availableGlazes.isNotEmpty)
             ? _availableGlazes
                   .where((g) => g.id == _selectedGlazeId)
                   .firstOrNull
