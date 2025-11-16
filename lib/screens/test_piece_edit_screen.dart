@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
@@ -11,7 +11,10 @@ import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/storage_service.dart';
 import 'package:glaze_manager/screens/image_crop_screen.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:glaze_manager/widgets/firing_chart.dart';
 import 'package:dropdown_search/dropdown_search.dart';
+import 'package:image/image.dart' as img;
+import 'package:blurhash_dart/blurhash_dart.dart';
 import 'package:provider/provider.dart';
 
 class TestPieceEditScreen extends StatefulWidget {
@@ -36,12 +39,14 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
 
   XFile? _imageFile; // 選択された画像ファイル
   String? _networkImageUrl; // 既存の画像のURL
+  String? _networkThumbnailUrl; // 既存のサムネイルURL
+  String? _blurHash; // 生成/既存のBlurHash
+  XFile? _thumbnailFile; // 生成されたサムネイルファイル
 
   bool _isLoading = false;
   bool _isDirty = false;
   // グラフ表示用の状態
   bool _isChartVisible = false;
-  List<FlSpot> _spots = [];
 
   @override
   void initState() {
@@ -51,13 +56,12 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     _selectedFiringAtmosphereId = widget.testPiece?.firingAtmosphereId;
     _selectedFiringProfileId = widget.testPiece?.firingProfileId;
     _networkImageUrl = widget.testPiece?.imageUrl;
+    _networkThumbnailUrl = widget.testPiece?.thumbnailUrl;
+    _blurHash = widget.testPiece?.blurHash;
 
     _clayNameController.addListener(_markAsDirty);
 
-    _loadDropdownData().then((_) {
-      // 初期データでグラフを更新
-      _updateChartDataForSelectedProfile(_selectedFiringProfileId);
-    });
+    _loadDropdownData();
   }
 
   Future<void> _loadDropdownData() async {
@@ -80,47 +84,6 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     }
   }
 
-  void _updateChartDataForSelectedProfile(String? profileId) {
-    if (profileId == null) {
-      setState(() => _spots = []);
-      return;
-    }
-    try {
-      final selectedProfile = _availableFiringProfiles.firstWhere(
-        (p) => p.id == profileId,
-      );
-      _updateChartData(selectedProfile.curveData);
-    } catch (e) {
-      // プロファイルが見つからない場合など
-      setState(() => _spots = []);
-    }
-  }
-
-  void _updateChartData(String? text) {
-    final List<FlSpot> newSpots = [const FlSpot(0, 20)]; // 開始点 (室温20℃と仮定)
-    if (text == null || text.trim().isEmpty) {
-      setState(() => _spots = []);
-      return;
-    }
-
-    double lastTime = 0;
-    final lines = text.trim().split('\n');
-    for (final line in lines) {
-      final parts = line.trim().split(',');
-      if (parts.length == 2) {
-        final time = double.tryParse(parts[0].trim());
-        final temp = double.tryParse(parts[1].trim());
-
-        if (time != null && temp != null && time > lastTime) {
-          newSpots.add(FlSpot(time / 60.0, temp)); // 分を時間に変換
-          lastTime = time;
-        }
-      }
-    }
-
-    setState(() => _spots = newSpots.length > 1 ? newSpots : []);
-  }
-
   @override
   void dispose() {
     _clayNameController.dispose();
@@ -138,12 +101,53 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       );
 
       if (croppedImage != null) {
-        setState(() {
-          _imageFile = croppedImage;
-          _markAsDirty(); // トリミングされた画像が設定されたらダーティ
-        });
+        setState(() => _isLoading = true); // 画像処理中のインジケーター表示
+        try {
+          // 画像処理をバックグラウンドで実行
+          final results = await compute(_processImage, croppedImage.path);
+
+          setState(() {
+            _imageFile = croppedImage;
+            _thumbnailFile = results['thumbnailFile'];
+            _blurHash = results['blurHash'];
+            _markAsDirty();
+          });
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('画像処理に失敗しました: $e')));
+          }
+        } finally {
+          if (mounted) {
+            setState(() => _isLoading = false);
+          }
+        }
       }
     }
+  }
+
+  /// 画像処理(BlurHashとサムネイル生成)をまとめたトップレベル関数 (computeで使用するため)
+  static Future<Map<String, dynamic>> _processImage(String imagePath) async {
+    final imageBytes = await File(imagePath).readAsBytes();
+    final image = img.decodeImage(imageBytes);
+
+    if (image == null) {
+      throw Exception('画像のデコードに失敗しました。');
+    }
+
+    // BlurHashの生成
+    final blurHash = BlurHash.encode(image, numCompX: 4, numCompY: 3);
+
+    // サムネイルの生成 (例: 幅200px)
+    final thumbnail = img.copyResize(image, width: 200);
+    final thumbnailFile = XFile.fromData(
+      Uint8List.fromList(img.encodeJpg(thumbnail, quality: 85)),
+      name: 'thumb_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      mimeType: 'image/jpeg',
+    );
+
+    return {'blurHash': blurHash.hash, 'thumbnailFile': thumbnailFile};
   }
 
   Future<void> _saveTestPiece() async {
@@ -170,18 +174,26 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         listen: false,
       );
       String? imageUrl = _networkImageUrl;
+      String? thumbnailUrl = _networkThumbnailUrl;
 
       // 新しい画像が選択されていればアップロード
-      if (_imageFile != null) {
+      if (_imageFile != null && _thumbnailFile != null) {
         try {
-          imageUrl = await storageService
-              .uploadTestPieceImage(_imageFile!)
-              .timeout(const Duration(seconds: 15));
+          // サムネイルと本画像を並行でアップロード
+          final results = await Future.wait([
+            storageService.uploadTestPieceImage(_imageFile!),
+            storageService.uploadTestPieceImage(
+              _thumbnailFile!,
+              isThumbnail: true,
+            ),
+          ]).timeout(const Duration(seconds: 30));
+
+          imageUrl = results[0];
+          thumbnailUrl = results[1];
         } on TimeoutException {
           throw '画像のアップロードがタイムアウトしました。ネットワーク接続を確認してください。';
         }
       }
-
       final testPiece = TestPiece(
         id: widget.testPiece?.id,
         glazeId: _selectedGlazeId!,
@@ -189,6 +201,8 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         firingAtmosphereId: _selectedFiringAtmosphereId,
         firingProfileId: _selectedFiringProfileId,
         imageUrl: imageUrl,
+        thumbnailUrl: thumbnailUrl,
+        blurHash: _blurHash,
         createdAt: widget.testPiece?.createdAt ?? Timestamp.now(),
       );
 
@@ -246,12 +260,24 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         final firestoreService = context.read<FirestoreService>();
         final storageService = context.read<StorageService>();
 
-        // Storageから画像を削除
+        // Storageから画像とサムネイルを削除 (並行処理)
+        final deleteFutures = <Future>[];
         if (widget.testPiece!.imageUrl != null) {
-          await storageService.deleteTestPieceImage(
-            widget.testPiece!.imageUrl!,
+          deleteFutures.add(
+            storageService.deleteTestPieceImage(widget.testPiece!.imageUrl!),
           );
         }
+        if (widget.testPiece!.thumbnailUrl != null) {
+          deleteFutures.add(
+            storageService.deleteTestPieceImage(
+              widget.testPiece!.thumbnailUrl!,
+            ),
+          );
+        }
+        if (deleteFutures.isNotEmpty) {
+          await Future.wait(deleteFutures);
+        }
+
         // Firestoreからドキュメントを削除
         await firestoreService.deleteTestPiece(widget.testPiece!.id!);
 
@@ -397,6 +423,12 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
 
   /// フォーム部分のウィジェットリストを生成
   List<Widget> _buildFormFields() {
+    final selectedProfile = _selectedFiringProfileId != null
+        ? _availableFiringProfiles
+              .where((p) => p.id == _selectedFiringProfileId)
+              .firstOrNull
+        : null;
+
     return [
       // 釉薬選択
       DropdownSearch<Glaze>(
@@ -464,7 +496,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       // 焼成プロファイル
       DropdownButtonFormField<String>(
         decoration: const InputDecoration(labelText: '焼成プロファイル'),
-        initialValue: _selectedFiringProfileId,
+        value: _selectedFiringProfileId,
         hint: const Text('焼成プロファイルを選択 (任意)'),
         isExpanded: true,
         items: _availableFiringProfiles
@@ -478,12 +510,12 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         onChanged: (value) {
           _markAsDirty();
           setState(() => _selectedFiringProfileId = value);
-          _updateChartDataForSelectedProfile(value);
         },
         validator: null,
       ),
       // グラフ表示エリア
-      if (_selectedFiringProfileId != null && _spots.isNotEmpty) ...[
+      if (selectedProfile?.curveData != null &&
+          selectedProfile!.curveData!.isNotEmpty) ...[
         const Divider(),
         const SizedBox(height: 8),
         TextButton.icon(
@@ -493,7 +525,10 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
             setState(() => _isChartVisible = !_isChartVisible);
           },
         ),
-        Visibility(visible: _isChartVisible, child: _buildChart()),
+        Visibility(
+          visible: _isChartVisible,
+          child: FiringChart(curveData: selectedProfile.curveData!),
+        ),
       ],
     ];
   }
@@ -517,7 +552,11 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   Widget _buildImagePreview() {
     // 新しい画像が選択されている場合
     if (_imageFile != null) {
-      return Image.file(File(_imageFile!.path), fit: BoxFit.contain);
+      if (kIsWeb) {
+        return Image.network(_imageFile!.path, fit: BoxFit.contain);
+      } else {
+        return Image.file(File(_imageFile!.path), fit: BoxFit.contain);
+      }
     }
     // 既存の画像URLがある場合
     if (_networkImageUrl != null) {
@@ -549,99 +588,6 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       ),
       child: const Center(
         child: Icon(Icons.camera_alt, color: Colors.grey, size: 50),
-      ),
-    );
-  }
-
-  Widget _buildChart() {
-    final double ymax = 1400;
-    final double ymin = 0;
-    return AspectRatio(
-      aspectRatio: 1.5,
-      child: Padding(
-        padding: const EdgeInsets.only(right: 18.0, top: 24.0, bottom: 12.0),
-        child: LineChart(
-          LineChartData(
-            rangeAnnotations: RangeAnnotations(
-              horizontalRangeAnnotations: [
-                // 100-200℃の領域(炙り領域)
-                HorizontalRangeAnnotation(
-                  y1: 100,
-                  y2: 200,
-                  color: Colors.lightGreen.withValues(alpha: 0.2),
-                ),
-                // 800-1200℃の領域(素焼き領域)
-                HorizontalRangeAnnotation(
-                  y1: 800,
-                  y2: 1200,
-                  color: Colors.yellow.withValues(alpha: 0.2),
-                ),
-                // 1200-1300℃の領域(本焼き領域)
-                HorizontalRangeAnnotation(
-                  y1: 1200,
-                  y2: 1300, // グラフの最大Y値より大きい値を設定
-                  color: Colors.orange.withValues(alpha: 0.2),
-                ),
-                // 1300℃以上の領域(高温領域)
-                HorizontalRangeAnnotation(
-                  y1: 1300,
-                  y2: ymax, // グラフの最大Y値と同じ値を設定
-                  color: Colors.red.withValues(alpha: 0.2),
-                ),
-              ],
-            ),
-            gridData: FlGridData(
-              show: true,
-              drawVerticalLine: true,
-              getDrawingHorizontalLine: (value) =>
-                  const FlLine(color: Colors.black12, strokeWidth: 1),
-              getDrawingVerticalLine: (value) =>
-                  const FlLine(color: Colors.black12, strokeWidth: 1),
-            ),
-            titlesData: const FlTitlesData(
-              rightTitles: AxisTitles(
-                sideTitles: SideTitles(showTitles: false),
-              ),
-              topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              bottomTitles: AxisTitles(
-                sideTitles: SideTitles(showTitles: true, reservedSize: 30),
-                axisNameWidget: Text("時間 (h)"),
-              ),
-              leftTitles: AxisTitles(
-                sideTitles: SideTitles(showTitles: true, reservedSize: 40),
-                axisNameWidget: Text("温度 (°C)"),
-                axisNameSize: 24,
-              ),
-            ),
-            borderData: FlBorderData(
-              show: true,
-              border: Border.all(color: const Color(0xff37434d), width: 1),
-            ),
-            lineTouchData: LineTouchData(
-              touchTooltipData: LineTouchTooltipData(
-                getTooltipItems: (touchedSpots) {
-                  return touchedSpots.map((spot) {
-                    return LineTooltipItem(
-                      '${(spot.x).toStringAsFixed(0)} 時間\n${spot.y.toStringAsFixed(0)} °C',
-                      const TextStyle(color: Colors.white),
-                    );
-                  }).toList();
-                },
-              ),
-            ),
-            lineBarsData: [
-              LineChartBarData(
-                spots: _spots,
-                isCurved: false,
-                color: Theme.of(context).primaryColor,
-                barWidth: 3,
-                dotData: const FlDotData(show: true),
-              ),
-            ],
-            minY: ymin,
-            maxY: ymax,
-          ),
-        ),
       ),
     );
   }

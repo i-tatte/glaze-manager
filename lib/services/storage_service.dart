@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 
 class StorageService {
@@ -10,15 +11,25 @@ class StorageService {
   String? get _userId => _auth.currentUser?.uid;
 
   /// 画像をアップロードし、ダウンロードURLを返す
-  Future<String?> uploadTestPieceImage(XFile imageFile) async {
+  Future<String?> uploadTestPieceImage(
+    XFile imageFile, {
+    bool isThumbnail = false,
+  }) async {
     if (_userId == null) throw Exception("User not logged in");
 
     try {
+      final pathPrefix = isThumbnail ? 'thumbnails' : 'images';
       final filePath =
-          'users/$_userId/test_pieces/${DateTime.now().millisecondsSinceEpoch}_${imageFile.name}';
+          'users/$_userId/test_pieces/$pathPrefix/'
+          '${DateTime.now().millisecondsSinceEpoch}_${imageFile.name}';
       final ref = _storage.ref(filePath);
 
-      final uploadTask = await ref.putFile(File(imageFile.path));
+      final uploadTask = kIsWeb
+          ? await ref.putData(
+              await imageFile.readAsBytes(),
+              SettableMetadata(contentType: imageFile.mimeType),
+            )
+          : await ref.putFile(File(imageFile.path));
       final downloadUrl = await uploadTask.ref.getDownloadURL();
       return downloadUrl;
     } catch (e) {

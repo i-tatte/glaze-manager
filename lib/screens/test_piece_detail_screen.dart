@@ -1,4 +1,5 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
@@ -212,17 +213,15 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
             onTap: testPiece.imageUrl != null
                 ? () => _showFullScreenImage(context, testPiece)
                 : null,
-            child: testPiece.imageUrl != null
-                ? Image.network(
-                    testPiece.imageUrl!,
+            child: (testPiece.imageUrl != null)
+                ? CachedNetworkImage(
+                    imageUrl: testPiece.imageUrl!,
                     fit: BoxFit.contain,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return const Center(child: CircularProgressIndicator());
-                    },
-                    errorBuilder: (context, error, stackTrace) => const Icon(
-                      Icons.broken_image,
-                      size: 60,
+                    placeholder: (context, url) =>
+                        const Center(child: CircularProgressIndicator()),
+                    errorWidget: (context, url, error) => const Icon(
+                      Icons.broken_image_outlined,
+                      size: 50,
                       color: Colors.grey,
                     ),
                   )
@@ -431,17 +430,14 @@ class _FullScreenImageScreenState extends State<_FullScreenImageScreen> {
                     panEnabled: true,
                     minScale: 0.8,
                     maxScale: 4.0,
-                    child: Image.network(
-                      widget.testPiece.imageUrl!,
+                    child: CachedNetworkImage(
+                      imageUrl: widget.testPiece.imageUrl!,
                       fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Center(
-                            child: Icon(
-                              Icons.error,
-                              color: Colors.red,
-                              size: 50,
-                            ),
-                          ),
+                      placeholder: (context, url) =>
+                          const Center(child: CircularProgressIndicator()),
+                      errorWidget: (context, url, error) => const Center(
+                        child: Icon(Icons.error, color: Colors.red, size: 50),
+                      ),
                     ),
                   ),
                 ),
