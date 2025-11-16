@@ -9,7 +9,8 @@ import 'package:provider/provider.dart';
 enum SortOption { name, createdAt }
 
 class GlazeListScreen extends StatefulWidget {
-  const GlazeListScreen({super.key});
+  final PageStorageKey? pageStorageKey;
+  const GlazeListScreen({super.key, this.pageStorageKey});
 
   @override
   State<GlazeListScreen> createState() => GlazeListScreenState();

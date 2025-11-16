@@ -6,11 +6,15 @@ import 'package:glaze_manager/screens/material_detail_screen.dart';
 import 'package:provider/provider.dart';
 
 class MaterialsListScreen extends StatefulWidget {
+  final PageStorageKey? pageStorageKey;
   // MainTabScreenから編集状態を監視するためのValueNotifierを受け取る
   final ValueNotifier<bool> isEditingNotifier;
 
-  const MaterialsListScreen({super.key, required this.isEditingNotifier});
-
+  const MaterialsListScreen({
+    super.key,
+    this.pageStorageKey,
+    required this.isEditingNotifier,
+  });
   // AppBarに表示するアクションボタンを生成する静的メソッド
   // MainTabScreenから呼び出される
   static List<Widget> buildActions(
