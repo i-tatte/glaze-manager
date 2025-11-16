@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:glaze_manager/services/settings_service.dart';
 import 'package:glaze_manager/screens/firing_profile_list_screen.dart';
 import 'package:provider/provider.dart';
+import 'package:glaze_manager/screens/clay_list_screen.dart';
 import 'package:glaze_manager/screens/firing_atmosphere_list_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -78,6 +79,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           MaterialPageRoute(
                             builder: (context) =>
                                 const FiringAtmosphereListScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                // 中項目: データ管理
+                ExpansionTile(
+                  title: const Text('  データ管理'),
+                  initiallyExpanded: true,
+                  children: [
+                    ListTile(
+                      contentPadding: const EdgeInsets.only(
+                        left: 32.0,
+                        right: 16.0,
+                      ),
+                      title: const Text('素地土名の管理'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const ClayListScreen(),
                           ),
                         );
                       },

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
@@ -27,6 +28,7 @@ class _SearchScreenState extends State<SearchScreen> {
   // データ
   List<TestPiece> _allTestPieces = [];
   Map<String, Glaze> _glazeMap = {};
+  Map<String, Clay> _clayMap = {};
   Map<String, FiringAtmosphere> _atmosphereMap = {};
   Map<String, FiringProfile> _profileMap = {};
   List<TestPiece> _searchResults = [];
@@ -56,16 +58,19 @@ class _SearchScreenState extends State<SearchScreen> {
       firestoreService.getTestPieces().first,
       firestoreService.getFiringAtmospheres().first,
       firestoreService.getFiringProfiles().first,
+      firestoreService.getClays().first,
     ]);
 
     final glazes = results[0] as List<Glaze>;
     final testPieces = results[1] as List<TestPiece>;
     final atmospheres = results[2] as List<FiringAtmosphere>;
     final profiles = results[3] as List<FiringProfile>;
+    final clays = results[4] as List<Clay>;
 
     if (mounted) {
       setState(() {
         _glazeMap = {for (var item in glazes) item.id!: item};
+        _clayMap = {for (var item in clays) item.id!: item};
         _atmosphereMap = {for (var item in atmospheres) item.id!: item};
         _profileMap = {for (var item in profiles) item.id!: item};
         _allTestPieces = testPieces;
@@ -112,7 +117,9 @@ class _SearchScreenState extends State<SearchScreen> {
       );
 
       // 素地土名での部分一致
-      bool clayNameMatch = tp.clayName.toLowerCase().contains(lowerQuery);
+      final clay = _clayMap[tp.clayId];
+      bool clayNameMatch =
+          clay?.name.toLowerCase().contains(lowerQuery) ?? false;
 
       // 焼成雰囲気名での部分一致
       final atmosphere = _atmosphereMap[tp.firingAtmosphereId];
@@ -280,7 +287,12 @@ class _SearchScreenState extends State<SearchScreen> {
       itemBuilder: (context, index) {
         final testPiece = pieces[index];
         final glazeName = _glazeMap[testPiece.glazeId]?.name ?? '不明な釉薬';
-        return TestPieceCard(testPiece: testPiece, glazeName: glazeName);
+        final clayName = _clayMap[testPiece.clayId]?.name ?? '不明な素地';
+        return TestPieceCard(
+          testPiece: testPiece,
+          glazeName: glazeName,
+          clayName: clayName,
+        );
       },
     );
   }

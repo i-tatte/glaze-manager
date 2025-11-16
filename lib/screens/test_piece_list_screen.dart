@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/glaze.dart';
+import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
@@ -18,6 +19,7 @@ class TestPieceListScreen extends StatefulWidget {
 class TestPieceListScreenState extends State<TestPieceListScreen> {
   late Stream<List<Glaze>> _glazesStream;
   late Stream<List<TestPiece>> _testPiecesStream;
+  late Stream<List<Clay>> _claysStream;
 
   @override
   void initState() {
@@ -29,6 +31,7 @@ class TestPieceListScreenState extends State<TestPieceListScreen> {
     final firestoreService = context.read<FirestoreService>();
     _glazesStream = firestoreService.getGlazes();
     _testPiecesStream = firestoreService.getTestPieces();
+    _claysStream = firestoreService.getClays();
   }
 
   Future<void> handleRefresh() async {
@@ -60,75 +63,93 @@ class TestPieceListScreenState extends State<TestPieceListScreen> {
                 for (var glaze in glazeSnapshot.data ?? []) glaze.id: glaze,
               };
 
-              // Consumerを使ってSettingsServiceの変更を監視し、GridViewだけを再描画する
-              return Consumer<SettingsService>(
-                builder: (context, settingsService, child) {
-                  // 2. テストピース一覧を取得してグリッド表示する
-                  return StreamBuilder<List<TestPiece>>(
-                    stream: _testPiecesStream,
-                    builder: (context, testPieceSnapshot) {
-                      if (testPieceSnapshot.connectionState ==
-                          ConnectionState.waiting) {
-                        // 釉薬データ取得中にインジケータを表示しているので、ここでは何も表示しないか、
-                        // より小さなインジケータを表示しても良い
-                        return const SizedBox.shrink();
-                      }
-                      if (testPieceSnapshot.hasError) {
-                        return Center(
-                          child: Text(
-                            'テストピースの読込エラー: ${testPieceSnapshot.error}',
-                          ),
-                        );
-                      }
-                      if (!testPieceSnapshot.hasData ||
-                          testPieceSnapshot.data!.isEmpty) {
-                        return const Center(
-                          child: Text(
-                            'テストピースが登録されていません。\n右下のボタンから追加してください。',
-                            textAlign: TextAlign.center,
-                          ),
-                        );
-                      }
+              // 2. 次に全素地土名データを取得してマップ化する
+              return StreamBuilder<List<Clay>>(
+                stream: _claysStream,
+                builder: (context, claySnapshot) {
+                  if (claySnapshot.connectionState == ConnectionState.waiting) {
+                    return const SizedBox.shrink(); // 上位でインジケータ表示中
+                  }
+                  if (claySnapshot.hasError) {
+                    return Center(
+                      child: Text('素地土データの読込エラー: ${claySnapshot.error}'),
+                    );
+                  }
+                  final clayMap = {
+                    for (var clay in claySnapshot.data ?? []) clay.id: clay,
+                  };
 
-                      final testPieces = testPieceSnapshot.data!;
-
-                      // 画面の幅から、1アイテムあたりのおおよその幅を計算
-                      final screenWidth = MediaQuery.of(context).size.width;
-                      final crossAxisCount = settingsService.gridCrossAxisCount;
-                      const padding = 8.0;
-                      const spacing = 8.0;
-                      final maxCardWidth =
-                          (screenWidth -
-                              (padding * 2) -
-                              (spacing * (crossAxisCount - 1))) /
-                          crossAxisCount;
-
-                      return RefreshIndicator(
-                        onRefresh: handleRefresh,
-                        child: GridView.builder(
-                          padding: const EdgeInsets.all(padding),
-                          gridDelegate:
-                              SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: maxCardWidth, // 各アイテムの最大幅
-                                mainAxisSpacing: spacing, // アイテム間の垂直方向のスペース
-                                crossAxisSpacing: spacing, // アイテム間の水平方向のスペース
-                                // 画像を正方形にし、その下にテキストの高さを加える
-                                // テキスト部分のおおよその高さを60と仮定
-                                childAspectRatio:
-                                    maxCardWidth / (maxCardWidth + 60),
+                  // Consumerを使ってSettingsServiceの変更を監視し、GridViewだけを再描画する
+                  return Consumer<SettingsService>(
+                    builder: (context, settingsService, child) {
+                      // 3. テストピース一覧を取得してグリッド表示する
+                      return StreamBuilder<List<TestPiece>>(
+                        stream: _testPiecesStream,
+                        builder: (context, testPieceSnapshot) {
+                          if (testPieceSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const SizedBox.shrink();
+                          }
+                          if (testPieceSnapshot.hasError) {
+                            return Center(
+                              child: Text(
+                                'テストピースの読込エラー: ${testPieceSnapshot.error}',
                               ),
-                          itemCount: testPieces.length,
-                          itemBuilder: (context, index) {
-                            final testPiece = testPieces[index];
-                            // マップから釉薬名を取得（見つからなければ '不明な釉薬' とする）
-                            final glazeName =
-                                glazeMap[testPiece.glazeId]?.name ?? '不明な釉薬';
-                            return TestPieceCard(
-                              glazeName: glazeName,
-                              testPiece: testPiece,
                             );
-                          },
-                        ),
+                          }
+                          if (!testPieceSnapshot.hasData ||
+                              testPieceSnapshot.data!.isEmpty) {
+                            return const Center(
+                              child: Text(
+                                'テストピースが登録されていません。\n右下のボタンから追加してください。',
+                                textAlign: TextAlign.center,
+                              ),
+                            );
+                          }
+
+                          final testPieces = testPieceSnapshot.data!;
+
+                          // 画面の幅から、1アイテムあたりのおおよその幅を計算
+                          final screenWidth = MediaQuery.of(context).size.width;
+                          final crossAxisCount =
+                              settingsService.gridCrossAxisCount;
+                          const padding = 8.0;
+                          const spacing = 8.0;
+                          final maxCardWidth =
+                              (screenWidth -
+                                  (padding * 2) -
+                                  (spacing * (crossAxisCount - 1))) /
+                              crossAxisCount;
+
+                          return RefreshIndicator(
+                            onRefresh: handleRefresh,
+                            child: GridView.builder(
+                              padding: const EdgeInsets.all(padding),
+                              gridDelegate:
+                                  SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: maxCardWidth,
+                                    mainAxisSpacing: spacing,
+                                    crossAxisSpacing: spacing,
+                                    childAspectRatio:
+                                        maxCardWidth / (maxCardWidth + 60),
+                                  ),
+                              itemCount: testPieces.length,
+                              itemBuilder: (context, index) {
+                                final testPiece = testPieces[index];
+                                final glazeName =
+                                    glazeMap[testPiece.glazeId]?.name ??
+                                    '不明な釉薬';
+                                final clayName =
+                                    clayMap[testPiece.clayId]?.name ?? '不明な素地';
+                                return TestPieceCard(
+                                  testPiece: testPiece,
+                                  glazeName: glazeName,
+                                  clayName: clayName,
+                                );
+                              },
+                            ),
+                          );
+                        },
                       );
                     },
                   );

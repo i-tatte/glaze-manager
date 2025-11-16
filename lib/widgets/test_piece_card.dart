@@ -8,11 +8,13 @@ class TestPieceCard extends StatelessWidget {
   // TestPieceオブジェクトと、それに関連する釉薬名を受け取る
   final TestPiece testPiece;
   final String glazeName;
+  final String clayName;
 
   const TestPieceCard({
     super.key,
     required this.testPiece,
     required this.glazeName,
+    required this.clayName,
   });
 
   @override
@@ -87,7 +89,7 @@ class TestPieceCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    testPiece.clayName,
+                    clayName,
                     style: Theme.of(
                       context,
                     ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),

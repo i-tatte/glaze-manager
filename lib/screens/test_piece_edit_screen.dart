@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:glaze_manager/models/clay.dart';
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
@@ -28,13 +29,14 @@ class TestPieceEditScreen extends StatefulWidget {
 
 class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _clayNameController = TextEditingController();
 
   String? _selectedGlazeId;
+  String? _selectedClayId;
   String? _selectedFiringProfileId;
   String? _selectedFiringAtmosphereId;
   List<FiringProfile> _availableFiringProfiles = [];
   List<FiringAtmosphere> _availableFiringAtmospheres = [];
+  List<Clay> _availableClays = [];
   List<Glaze> _availableGlazes = [];
 
   XFile? _imageFile; // 選択された画像ファイル
@@ -50,14 +52,12 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   @override
   void initState() {
     super.initState();
-    _clayNameController.text = widget.testPiece?.clayName ?? '';
     _selectedGlazeId = widget.testPiece?.glazeId;
+    _selectedClayId = widget.testPiece?.clayId;
     _selectedFiringAtmosphereId = widget.testPiece?.firingAtmosphereId;
     _selectedFiringProfileId = widget.testPiece?.firingProfileId;
     _networkImageUrl = widget.testPiece?.imageUrl;
     _networkThumbnailUrl = widget.testPiece?.thumbnailUrl;
-
-    _clayNameController.addListener(_markAsDirty);
 
     _loadDropdownData();
   }
@@ -68,6 +68,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       listen: false,
     );
     _availableGlazes = await firestoreService.getGlazes().first;
+    _availableClays = await firestoreService.getClays().first;
     _availableFiringProfiles = await firestoreService.getFiringProfiles().first;
     _availableFiringAtmospheres = await firestoreService
         .getFiringAtmospheres()
@@ -84,9 +85,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
 
   @override
   void dispose() {
-    _clayNameController.dispose();
     super.dispose();
-    _clayNameController.removeListener(_markAsDirty);
   }
 
   Future<void> _pickImage() async {
@@ -170,6 +169,12 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       ).showSnackBar(const SnackBar(content: Text('釉薬を選択してください。')));
       return;
     }
+    if (_selectedClayId == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('素地土名を選択してください。')));
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -203,7 +208,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       final testPiece = TestPiece(
         id: widget.testPiece?.id,
         glazeId: _selectedGlazeId!,
-        clayName: _clayNameController.text,
+        clayId: _selectedClayId!,
         imageUrl: imageUrl,
         thumbnailUrl: thumbnailUrl,
         firingAtmosphereId: _selectedFiringAtmosphereId,
@@ -470,12 +475,36 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         compareFn: (Glaze a, Glaze b) => a.id == b.id,
       ),
       const SizedBox(height: 16),
-      // 素地土名
-      TextFormField(
-        controller: _clayNameController,
-        decoration: const InputDecoration(labelText: '素地土名'),
-        validator: (value) =>
-            (value == null || value.isEmpty) ? '素地土名を入力' : null,
+      // 素地土名選択
+      DropdownSearch<Clay>(
+        items: (f, cs) => _availableClays,
+        itemAsString: (Clay c) => c.name,
+        selectedItem: (_selectedClayId != null && _availableClays.isNotEmpty)
+            ? _availableClays.where((c) => c.id == _selectedClayId).firstOrNull
+            : null,
+        onChanged: (Clay? data) {
+          _markAsDirty();
+          setState(() {
+            _selectedClayId = data?.id;
+          });
+        },
+        popupProps: PopupProps.menu(
+          showSearchBox: true,
+          searchFieldProps: TextFieldProps(
+            decoration: InputDecoration(
+              border: const OutlineInputBorder(),
+              contentPadding: const EdgeInsets.fromLTRB(12, 12, 8, 0),
+              labelText: "素地土名を検索",
+              hintText: "素地土名を入力...",
+            ),
+            autofocus: true,
+          ),
+        ),
+        decoratorProps: const DropDownDecoratorProps(
+          decoration: InputDecoration(labelText: "素地土名"),
+        ),
+        validator: (Clay? item) => item == null ? "素地土名を選択してください" : null,
+        compareFn: (Clay a, Clay b) => a.id == b.id,
       ),
       const SizedBox(height: 16),
       // 焼成雰囲気
