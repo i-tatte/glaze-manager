@@ -1,6 +1,7 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
@@ -72,6 +73,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
 
               final details = relatedDataSnapshot.data ?? {};
               final Glaze? glaze = details['glaze'];
+              final Clay? clay = details['clay'];
               final FiringProfile? firingProfile = details['firingProfile'];
               final FiringAtmosphere? firingAtmosphere =
                   details['firingAtmosphere'];
@@ -88,6 +90,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
                     return _buildWideLayout(
                       testPiece,
                       glaze,
+                      clay,
                       firingProfile,
                       firingAtmosphere,
                     );
@@ -95,6 +98,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
                     return _buildNarrowLayout(
                       testPiece,
                       glaze,
+                      clay,
                       firingProfile,
                       firingAtmosphere,
                     );
@@ -118,11 +122,13 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
       firestoreService.getGlazes().first,
       firestoreService.getFiringProfiles().first,
       firestoreService.getFiringAtmospheres().first,
+      firestoreService.getClays().first,
     ]);
 
     final allGlazes = results[0] as List<Glaze>;
     final allProfiles = results[1] as List<FiringProfile>;
     final allAtmospheres = results[2] as List<FiringAtmosphere>;
+    final allClays = results[3] as List<Clay>;
 
     final glaze = allGlazes.firstWhere(
       (g) => g.id == testPiece.glazeId,
@@ -135,6 +141,11 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
       ),
     );
 
+    final clay = allClays.firstWhere(
+      (c) => c.id == testPiece.clayId,
+      // orElseでデータが見つからない場合のデフォルト値を返す
+      orElse: () => Clay(name: '不明な素地', order: 0),
+    );
     FiringProfile? firingProfile;
     if (testPiece.firingProfileId != null) {
       firingProfile = allProfiles.firstWhere(
@@ -151,6 +162,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
 
     return {
       'glaze': glaze,
+      'clay': clay,
       'firingProfile': firingProfile,
       'firingAtmosphere': firingAtmosphere,
     };
@@ -159,6 +171,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
   Widget _buildWideLayout(
     TestPiece testPiece,
     Glaze glaze,
+    Clay? clay,
     FiringProfile? firingProfile,
     FiringAtmosphere? firingAtmosphere,
   ) {
@@ -178,6 +191,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
           child: _buildInfoPanel(
             testPiece,
             glaze,
+            clay,
             firingProfile,
             firingAtmosphere,
           ),
@@ -189,6 +203,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
   Widget _buildNarrowLayout(
     TestPiece testPiece,
     Glaze glaze,
+    Clay? clay,
     FiringProfile? firingProfile,
     FiringAtmosphere? firingAtmosphere,
   ) {
@@ -198,7 +213,13 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
           padding: const EdgeInsets.all(16.0),
           child: _buildImage(testPiece),
         ),
-        _buildInfoPanel(testPiece, glaze, firingProfile, firingAtmosphere),
+        _buildInfoPanel(
+          testPiece,
+          glaze,
+          clay,
+          firingProfile,
+          firingAtmosphere,
+        ),
       ],
     );
   }
@@ -242,6 +263,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
   Widget _buildInfoPanel(
     TestPiece testPiece,
     Glaze glaze,
+    Clay? clay,
     FiringProfile? firingProfile,
     FiringAtmosphere? firingAtmosphere,
   ) {
@@ -261,7 +283,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
               );
             },
           ),
-          _buildInfoTile('素地土名', testPiece.clayName),
+          _buildInfoTile('素地土名', clay?.name ?? '未設定'),
           _buildInfoTile('焼成雰囲気', firingAtmosphere?.name ?? '未設定'),
           const Divider(height: 32),
           if (firingProfile != null) ...[

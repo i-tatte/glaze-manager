@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:glaze_manager/models/material.dart';
+import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
@@ -465,5 +466,74 @@ class FirestoreService {
         .collection('firing_atmospheres')
         .doc(atmosphereId)
         .delete();
+  }
+
+  // --- Clay Methods ---
+
+  /// 素地土名を追加
+  Future<void> addClay(Clay clay) async {
+    if (_userId == null) throw Exception("User not logged in");
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('clays')
+        .add(clay.toFirestore());
+  }
+
+  /// 素地土名一覧を取得 (リアルタイム)
+  Stream<List<Clay>> getClays() {
+    if (_userId == null) return Stream.value([]);
+    return _db
+        .collection('users')
+        .doc(_userId)
+        .collection('clays')
+        .orderBy('order') // orderフィールドで並び替え
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Clay.fromFirestore(doc)).toList(),
+        );
+  }
+
+  /// 素地土名を更新
+  Future<void> updateClay(Clay clay) async {
+    if (_userId == null) throw Exception("User not logged in");
+    if (clay.id == null) {
+      throw Exception("Clay ID is required for update");
+    }
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('clays')
+        .doc(clay.id)
+        .update(clay.toFirestore());
+  }
+
+  /// 素地土名を削除
+  Future<void> deleteClay(String clayId) async {
+    if (_userId == null) throw Exception("User not logged in");
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('clays')
+        .doc(clayId)
+        .delete();
+  }
+
+  /// 複数の素地土名の並び順を更新
+  Future<void> updateClayOrder(List<Clay> clays) async {
+    if (_userId == null) throw Exception("User not logged in");
+
+    final batch = _db.batch();
+    for (int i = 0; i < clays.length; i++) {
+      final clay = clays[i];
+      final docRef = _db
+          .collection('users')
+          .doc(_userId)
+          .collection('clays')
+          .doc(clay.id);
+      batch.update(docRef, {'order': i});
+    }
+    await batch.commit();
   }
 }

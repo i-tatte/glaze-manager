@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class TestPiece {
   final String? id;
   final String glazeId; // 関連するGlazeのID
-  final String clayName; // 素地土名
+  final String clayId; // 関連するClayのID
   final String? firingAtmosphereId; // 関連するFiringAtmosphereのID
   final String? firingProfileId; // 関連するFiringProfileのID
   final String? imageUrl; // Storageへのパス
@@ -15,7 +15,7 @@ class TestPiece {
   TestPiece({
     this.id,
     required this.glazeId,
-    required this.clayName,
+    required this.clayId,
     this.firingAtmosphereId,
     this.firingProfileId,
     this.imageUrl,
@@ -32,7 +32,7 @@ class TestPiece {
     return TestPiece(
       id: snapshot.id,
       glazeId: data['glazeId'] ?? '',
-      clayName: data['clayName'] ?? '',
+      clayId: data['clayId'] ?? '',
       firingAtmosphereId: data['firingAtmosphereId'],
       firingProfileId: data['firingProfileId'],
       imageUrl: data['imageUrl'],
@@ -48,7 +48,7 @@ class TestPiece {
   Map<String, dynamic> toFirestore() {
     return {
       'glazeId': glazeId,
-      'clayName': clayName,
+      'clayId': clayId,
       'firingAtmosphereId': firingAtmosphereId,
       'firingProfileId': firingProfileId,
       'imageUrl': imageUrl,
