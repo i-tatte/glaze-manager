@@ -362,6 +362,32 @@ class FirestoreService {
         .delete();
   }
 
+  // --- ViewHistory Methods ---
+
+  /// テストピースの閲覧履歴を更新または作成する
+  Future<void> updateViewHistory(String testPieceId) async {
+    if (_userId == null) return; // ログインしていない場合は何もしない
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('view_history')
+        .doc(testPieceId)
+        .set({'viewedAt': FieldValue.serverTimestamp()});
+  }
+
+  /// 最近見たテストピースのIDリストを取得する
+  Stream<List<String>> getRecentTestPieceIds({int limit = 20}) {
+    if (_userId == null) return Stream.value([]);
+    return _db
+        .collection('users')
+        .doc(_userId)
+        .collection('view_history')
+        .orderBy('viewedAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.id).toList());
+  }
+
   // --- FiringProfile Methods ---
 
   /// 焼成プロファイルを追加
@@ -388,6 +414,18 @@ class FirestoreService {
               .map((doc) => FiringProfile.fromFirestore(doc))
               .toList(),
         );
+  }
+
+  /// 特定の焼成プロファイルを取得 (リアルタイム)
+  Stream<FiringProfile> getFiringProfileStream(String id) {
+    if (_userId == null) return Stream.error("User not logged in");
+    return _db
+        .collection('users')
+        .doc(_userId)
+        .collection('firing_profiles')
+        .doc(id)
+        .snapshots()
+        .map((snapshot) => FiringProfile.fromFirestore(snapshot));
   }
 
   /// 焼成プロファイルを更新
@@ -443,6 +481,18 @@ class FirestoreService {
         );
   }
 
+  /// 特定の焼成雰囲気を取得 (リアルタイム)
+  Stream<FiringAtmosphere> getFiringAtmosphereStream(String id) {
+    if (_userId == null) return Stream.error("User not logged in");
+    return _db
+        .collection('users')
+        .doc(_userId)
+        .collection('firing_atmospheres')
+        .doc(id)
+        .snapshots()
+        .map((snapshot) => FiringAtmosphere.fromFirestore(snapshot));
+  }
+
   /// 焼成雰囲気を更新
   Future<void> updateFiringAtmosphere(FiringAtmosphere atmosphere) async {
     if (_userId == null) throw Exception("User not logged in");
@@ -493,6 +543,18 @@ class FirestoreService {
           (snapshot) =>
               snapshot.docs.map((doc) => Clay.fromFirestore(doc)).toList(),
         );
+  }
+
+  /// 特定の素地土名を取得 (リアルタイム)
+  Stream<Clay> getClayStream(String id) {
+    if (_userId == null) return Stream.error("User not logged in");
+    return _db
+        .collection('users')
+        .doc(_userId)
+        .collection('clays')
+        .doc(id)
+        .snapshots()
+        .map((snapshot) => Clay.fromFirestore(snapshot));
   }
 
   /// 素地土名を更新

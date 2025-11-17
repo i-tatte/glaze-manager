@@ -23,6 +23,19 @@ class TestPieceDetailScreen extends StatefulWidget {
 
 class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
   @override
+  void initState() {
+    super.initState();
+    _updateViewHistory();
+  }
+
+  void _updateViewHistory() {
+    // initStateではcontext.readが直接使えないため、Future.microtaskで遅延実行
+    Future.microtask(() {
+      context.read<FirestoreService>().updateViewHistory(widget.testPiece.id!);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final firestoreService = context.read<FirestoreService>();
 
@@ -117,54 +130,39 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
     FirestoreService firestoreService,
     TestPiece testPiece,
   ) async {
+    // 各IDに対応するドキュメントを直接取得
+    final glazeFuture = firestoreService
+        .getGlazeStream(testPiece.glazeId)
+        .first;
+    final clayFuture = firestoreService.getClayStream(testPiece.clayId).first;
+
+    final Future<FiringProfile?> profileFuture =
+        testPiece.firingProfileId != null
+        ? firestoreService
+              .getFiringProfileStream(testPiece.firingProfileId!)
+              .first
+        : Future.value(null);
+
+    final Future<FiringAtmosphere?> atmosphereFuture =
+        testPiece.firingAtmosphereId != null
+        ? firestoreService
+              .getFiringAtmosphereStream(testPiece.firingAtmosphereId!)
+              .first
+        : Future.value(null);
+
     // 各データを並行して取得
     final results = await Future.wait([
-      firestoreService.getGlazes().first,
-      firestoreService.getFiringProfiles().first,
-      firestoreService.getFiringAtmospheres().first,
-      firestoreService.getClays().first,
+      glazeFuture,
+      clayFuture,
+      profileFuture,
+      atmosphereFuture,
     ]);
 
-    final allGlazes = results[0] as List<Glaze>;
-    final allProfiles = results[1] as List<FiringProfile>;
-    final allAtmospheres = results[2] as List<FiringAtmosphere>;
-    final allClays = results[3] as List<Clay>;
-
-    final glaze = allGlazes.firstWhere(
-      (g) => g.id == testPiece.glazeId,
-      // orElseでデータが見つからない場合のデフォルト値を返す
-      orElse: () => Glaze(
-        name: '不明な釉薬',
-        recipe: {},
-        tags: [],
-        createdAt: testPiece.createdAt,
-      ),
-    );
-
-    final clay = allClays.firstWhere(
-      (c) => c.id == testPiece.clayId,
-      // orElseでデータが見つからない場合のデフォルト値を返す
-      orElse: () => Clay(name: '不明な素地', order: 0),
-    );
-    FiringProfile? firingProfile;
-    if (testPiece.firingProfileId != null) {
-      firingProfile = allProfiles.firstWhere(
-        (p) => p.id == testPiece.firingProfileId,
-      );
-    }
-
-    FiringAtmosphere? firingAtmosphere;
-    if (testPiece.firingAtmosphereId != null) {
-      firingAtmosphere = allAtmospheres.firstWhere(
-        (a) => a.id == testPiece.firingAtmosphereId,
-      );
-    }
-
     return {
-      'glaze': glaze,
-      'clay': clay,
-      'firingProfile': firingProfile,
-      'firingAtmosphere': firingAtmosphere,
+      'glaze': results[0] as Glaze?,
+      'clay': results[1] as Clay?,
+      'firingProfile': results[2] as FiringProfile?,
+      'firingAtmosphere': results[3] as FiringAtmosphere?,
     };
   }
 
@@ -274,7 +272,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
         children: [
           _buildInfoTile(
             '釉薬名',
-            glaze.name,
+            glaze.name, // glazeはnullでないことが確認済み
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
