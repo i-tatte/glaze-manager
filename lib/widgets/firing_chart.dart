@@ -240,6 +240,11 @@ class FiringChart extends StatelessWidget {
               horizontalRangeAnnotations: [
                 HorizontalRangeAnnotation(
                   y1: 100,
+                  y2: 500,
+                  color: Colors.lightGreen.withValues(alpha: 0.2),
+                ),
+                HorizontalRangeAnnotation(
+                  y1: 100,
                   y2: 200,
                   color: Colors.lightGreen.withValues(alpha: 0.2),
                 ),
@@ -257,6 +262,77 @@ class FiringChart extends StatelessWidget {
                   y1: 1300,
                   y2: ymax,
                   color: Colors.red.withValues(alpha: 0.2),
+                ),
+              ],
+            ),
+            extraLinesData: ExtraLinesData(
+              horizontalLines: [
+                HorizontalLine(
+                  y: 800,
+                  color: Colors.transparent,
+                  label: HorizontalLineLabel(
+                    show: true,
+                    alignment: Alignment.topLeft,
+                    style: TextStyle(
+                      color: Colors.orange.withValues(alpha: 0.8),
+                      fontSize: 12,
+                    ),
+                    labelResolver: (line) => '素焼き',
+                  ),
+                ),
+                HorizontalLine(
+                  y: 1200,
+                  color: Colors.transparent,
+                  label: HorizontalLineLabel(
+                    show: true,
+                    alignment: Alignment.topLeft,
+                    style: TextStyle(
+                      color: Colors.orange.withValues(alpha: 0.8),
+                      fontSize: 12,
+                    ),
+                    labelResolver: (line) => '本焼き',
+                  ),
+                ),
+                HorizontalLine(
+                  y: 573,
+                  color: Colors.purple.withValues(alpha: 0.8),
+                  strokeWidth: 1,
+                  dashArray: [5, 5], // 破線にする
+                  label: HorizontalLineLabel(
+                    show: true,
+                    alignment: Alignment.topRight,
+                    style: TextStyle(
+                      color: Colors.purple.withValues(alpha: 0.8),
+                      fontSize: 12,
+                    ),
+                    labelResolver: (line) => ' 573°C 石英α-β転移点',
+                  ),
+                ),
+                HorizontalLine(
+                  y: 500,
+                  color: Colors.transparent,
+                  label: HorizontalLineLabel(
+                    show: true,
+                    alignment: Alignment.bottomRight,
+                    style: TextStyle(
+                      color: Colors.lightGreen.withValues(alpha: 0.8),
+                      fontSize: 12,
+                    ),
+                    labelResolver: (line) => '結晶水遊離',
+                  ),
+                ),
+                HorizontalLine(
+                  y: 200,
+                  color: Colors.transparent,
+                  label: HorizontalLineLabel(
+                    show: true,
+                    alignment: Alignment.bottomRight,
+                    style: TextStyle(
+                      color: Colors.lightGreen.withValues(alpha: 0.8),
+                      fontSize: 12,
+                    ),
+                    labelResolver: (line) => '吸着水遊離',
+                  ),
                 ),
               ],
             ),
