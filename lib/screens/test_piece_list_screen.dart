@@ -5,7 +5,7 @@ import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/settings_service.dart';
-import 'package:glaze_manager/widgets/test_piece_card.dart';
+import 'package:glaze_manager/widgets/test_piece_grid.dart';
 import 'package:provider/provider.dart';
 
 class TestPieceListScreen extends StatefulWidget {
@@ -59,7 +59,7 @@ class TestPieceListScreenState extends State<TestPieceListScreen> {
               }
 
               // glazeIdをキー、Glazeオブジェクトを値とするマップを作成
-              final glazeMap = {
+              final Map<String, Glaze> glazeMap = {
                 for (var glaze in glazeSnapshot.data ?? []) glaze.id: glaze,
               };
 
@@ -75,7 +75,7 @@ class TestPieceListScreenState extends State<TestPieceListScreen> {
                       child: Text('素地土データの読込エラー: ${claySnapshot.error}'),
                     );
                   }
-                  final clayMap = {
+                  final Map<String, Clay> clayMap = {
                     for (var clay in claySnapshot.data ?? []) clay.id: clay,
                   };
 
@@ -109,45 +109,12 @@ class TestPieceListScreenState extends State<TestPieceListScreen> {
 
                           final testPieces = testPieceSnapshot.data!;
 
-                          // 画面の幅から、1アイテムあたりのおおよその幅を計算
-                          final screenWidth = MediaQuery.of(context).size.width;
-                          final crossAxisCount =
-                              settingsService.gridCrossAxisCount;
-                          const padding = 8.0;
-                          const spacing = 8.0;
-                          final maxCardWidth =
-                              (screenWidth -
-                                  (padding * 2) -
-                                  (spacing * (crossAxisCount - 1))) /
-                              crossAxisCount;
-
-                          return RefreshIndicator(
+                          return TestPieceGrid(
+                            testPieces: testPieces,
+                            glazeMap: glazeMap,
+                            clayMap: clayMap,
+                            crossAxisCount: settingsService.gridCrossAxisCount,
                             onRefresh: handleRefresh,
-                            child: GridView.builder(
-                              padding: const EdgeInsets.all(padding),
-                              gridDelegate:
-                                  SliverGridDelegateWithMaxCrossAxisExtent(
-                                    maxCrossAxisExtent: maxCardWidth,
-                                    mainAxisSpacing: spacing,
-                                    crossAxisSpacing: spacing,
-                                    childAspectRatio:
-                                        maxCardWidth / (maxCardWidth + 60),
-                                  ),
-                              itemCount: testPieces.length,
-                              itemBuilder: (context, index) {
-                                final testPiece = testPieces[index];
-                                final glazeName =
-                                    glazeMap[testPiece.glazeId]?.name ??
-                                    '不明な釉薬';
-                                final clayName =
-                                    clayMap[testPiece.clayId]?.name ?? '不明な素地';
-                                return TestPieceCard(
-                                  testPiece: testPiece,
-                                  glazeName: glazeName,
-                                  clayName: clayName,
-                                );
-                              },
-                            ),
                           );
                         },
                       );

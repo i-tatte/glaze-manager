@@ -6,7 +6,7 @@ import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/settings_service.dart';
-import 'package:glaze_manager/widgets/test_piece_card.dart';
+import 'package:glaze_manager/widgets/test_piece_grid.dart';
 import 'package:provider/provider.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -221,26 +221,53 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildRecentTestPieces(int crossAxisCount) {
-    // TODO: 「最近見たテストピース」のロジックを実装する。
-    // ここでは最新のテストピースを代わりに表示します。
-    final recentPieces = _allTestPieces.take(20).toList();
+    final firestoreService = context.read<FirestoreService>();
+    return StreamBuilder<List<String>>(
+      stream: firestoreService.getRecentTestPieceIds(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text('最近見たテストピースはありません。'));
+        }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Text(
-            '最近のテストピース', // 仕様では「最近見た」だが、実装の都合上「最近の」とする
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-        ),
-        Expanded(
-          child: recentPieces.isEmpty
-              ? const Center(child: Text('テストピースがありません。'))
-              : _buildGridView(recentPieces, crossAxisCount),
-        ),
-      ],
+        final recentIds = snapshot.data!;
+        // IDの順序を保持したまま、対応するTestPieceオブジェクトのリストを作成
+        final recentPieces = <TestPiece>[];
+        for (final id in recentIds) {
+          try {
+            final piece = _allTestPieces.firstWhere((p) => p.id == id);
+            recentPieces.add(piece);
+          } catch (e) {
+            // _allTestPieces内にIDが見つからない場合は何もしない (無視する)
+          }
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 8.0,
+              ),
+              child: Text(
+                '最近見たテストピース',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            Expanded(
+              child: TestPieceGrid(
+                testPieces: recentPieces,
+                glazeMap: _glazeMap,
+                clayMap: _clayMap,
+                crossAxisCount: crossAxisCount,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -258,42 +285,14 @@ class _SearchScreenState extends State<SearchScreen> {
         Expanded(
           child: _searchResults.isEmpty
               ? Center(child: Text('「$_searchQuery」に一致する結果はありません。'))
-              : _buildGridView(_searchResults, crossAxisCount),
+              : TestPieceGrid(
+                  testPieces: _searchResults,
+                  glazeMap: _glazeMap,
+                  clayMap: _clayMap,
+                  crossAxisCount: crossAxisCount,
+                ),
         ),
       ],
-    );
-  }
-
-  Widget _buildGridView(List<TestPiece> pieces, int crossAxisCount) {
-    // 画面の幅から、1アイテムあたりのおおよその幅を計算
-    final screenWidth = MediaQuery.of(context).size.width;
-    const padding = 8.0;
-    const spacing = 8.0;
-    final maxCardWidth =
-        (screenWidth - (padding * 2) - (spacing * (crossAxisCount - 1))) /
-        crossAxisCount;
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(padding),
-      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: maxCardWidth, // 各アイテムの最大幅
-        mainAxisSpacing: spacing, // アイテム間の垂直方向のスペース
-        crossAxisSpacing: spacing, // アイテム間の水平方向のスペース
-        // 画像を正方形にし、その下にテキストの高さを加える
-        // テキスト部分のおおよその高さを60と仮定 (TestPieceCardの実装に依存)
-        childAspectRatio: maxCardWidth / (maxCardWidth + 60),
-      ),
-      itemCount: pieces.length,
-      itemBuilder: (context, index) {
-        final testPiece = pieces[index];
-        final glazeName = _glazeMap[testPiece.glazeId]?.name ?? '不明な釉薬';
-        final clayName = _clayMap[testPiece.clayId]?.name ?? '不明な素地';
-        return TestPieceCard(
-          testPiece: testPiece,
-          glazeName: glazeName,
-          clayName: clayName,
-        );
-      },
     );
   }
 }
