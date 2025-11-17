@@ -18,6 +18,9 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _curveDataController;
+  late TextEditingController _reductionStartTempController;
+  late TextEditingController _reductionEndTempController;
+  bool _isReduction = false;
   bool _isLoading = false;
   bool _isDirty = false;
 
@@ -28,8 +31,18 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
     _curveDataController = TextEditingController(
       text: widget.profile?.curveData ?? '',
     );
+    _isReduction = widget.profile?.isReduction ?? false;
+    _reductionStartTempController = TextEditingController(
+      text: widget.profile?.reductionStartTemp?.toString() ?? '',
+    );
+    _reductionEndTempController = TextEditingController(
+      text: widget.profile?.reductionEndTemp?.toString() ?? '',
+    );
+
     _nameController.addListener(_markAsDirty);
     _curveDataController.addListener(_onCurveDataChanged);
+    _reductionStartTempController.addListener(_onChartDataChanged);
+    _reductionEndTempController.addListener(_onChartDataChanged);
   }
 
   void _markAsDirty() {
@@ -37,8 +50,12 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
   }
 
   void _onCurveDataChanged() {
+    _onChartDataChanged();
+  }
+
+  void _onChartDataChanged() {
     _markAsDirty();
-    setState(() {}); // テキストが変更されたらUIを再描画してグラフを更新
+    setState(() {}); // グラフに影響するデータが変更されたらUIを再描画
   }
 
   Future<void> _saveProfile() async {
@@ -55,6 +72,9 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
         id: widget.profile?.id,
         name: _nameController.text,
         curveData: _curveDataController.text,
+        isReduction: _isReduction,
+        reductionStartTemp: int.tryParse(_reductionStartTempController.text),
+        reductionEndTemp: int.tryParse(_reductionEndTempController.text),
       );
 
       if (widget.profile == null) {
@@ -82,6 +102,8 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
   void dispose() {
     _nameController.dispose();
     _curveDataController.dispose();
+    _reductionStartTempController.dispose();
+    _reductionEndTempController.dispose();
     super.dispose();
   }
 
@@ -229,6 +251,55 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
           return null;
         },
       ),
+      const SizedBox(height: 24),
+      CheckboxListTile(
+        title: const Text('火入れ還元'),
+        value: _isReduction,
+        onChanged: (bool? value) {
+          setState(() {
+            _isReduction = value ?? false;
+            _markAsDirty();
+          });
+        },
+      ),
+      if (_isReduction) ...[
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _reductionStartTempController,
+          decoration: const InputDecoration(
+            labelText: '火入れ開始温度 (°C)',
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.number,
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return '開始温度を入力してください';
+            }
+            if (int.tryParse(value) == null) {
+              return '数値を入力してください';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _reductionEndTempController,
+          decoration: const InputDecoration(
+            labelText: '火入れ終了温度 (°C)',
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.number,
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return '終了温度を入力してください';
+            }
+            if (int.tryParse(value) == null) {
+              return '数値を入力してください';
+            }
+            return null;
+          },
+        ),
+      ],
     ];
   }
 
@@ -254,6 +325,11 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
     }
 
     // FiringChartウィジェットを再利用
-    return FiringChart(curveData: curveData);
+    return FiringChart(
+      curveData: curveData,
+      isReduction: _isReduction,
+      reductionStartTemp: int.tryParse(_reductionStartTempController.text),
+      reductionEndTemp: int.tryParse(_reductionEndTempController.text),
+    );
   }
 }
