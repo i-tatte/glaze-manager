@@ -1,6 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_blurhash/flutter_blurhash.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/screens/test_piece_detail_screen.dart';
 
@@ -43,13 +42,8 @@ class TestPieceCard extends StatelessWidget {
                         imageUrl: testPiece.imageUrl!,
                         fit: BoxFit.cover,
                         placeholder: (context, url) {
-                          // BlurHashがあればそれを表示、なければサムネイル、それもなければインジケーター
-                          if (testPiece.blurHash != null) {
-                            return AspectRatio(
-                              aspectRatio: 1.0,
-                              child: BlurHash(hash: testPiece.blurHash!),
-                            );
-                          } else if (testPiece.thumbnailUrl != null) {
+                          // サムネイルがあればそれを表示、なければインジケーター
+                          if (testPiece.thumbnailUrl != null) {
                             return CachedNetworkImage(
                               imageUrl: testPiece.thumbnailUrl!,
                               fit: BoxFit.cover,
