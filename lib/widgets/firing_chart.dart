@@ -71,21 +71,17 @@ class FiringChart extends StatelessWidget {
       final p2 = spots[i + 1];
 
       // 開始時間を探す
-      if (reductionStartTime == null) {
-        reductionStartTime = _getInterpolatedX(
-          reductionStartTemp!.toDouble(),
-          p1,
-          p2,
-        );
-      }
+      reductionStartTime ??= _getInterpolatedX(
+        reductionStartTemp!.toDouble(),
+        p1,
+        p2,
+      );
       // 終了時間を探す
-      if (reductionEndTime == null) {
-        reductionEndTime = _getInterpolatedX(
-          reductionEndTemp!.toDouble(),
-          p1,
-          p2,
-        );
-      }
+      reductionEndTime ??= _getInterpolatedX(
+        reductionEndTemp!.toDouble(),
+        p1,
+        p2,
+      );
     }
 
     return (start: reductionStartTime, end: reductionEndTime);

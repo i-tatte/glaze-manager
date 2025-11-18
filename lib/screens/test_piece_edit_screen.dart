@@ -480,7 +480,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       // 焼成雰囲気
       DropdownButtonFormField<String>(
         decoration: const InputDecoration(labelText: '焼成雰囲気'),
-        value: _selectedFiringAtmosphereId,
+        initialValue: _selectedFiringAtmosphereId,
         hint: const Text('焼成雰囲気を選択 (任意)'),
         isExpanded: true,
         items: _availableFiringAtmospheres
@@ -501,7 +501,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       // 焼成プロファイル
       DropdownButtonFormField<String>(
         decoration: const InputDecoration(labelText: '焼成プロファイル'),
-        value: _selectedFiringProfileId,
+        initialValue: _selectedFiringProfileId,
         hint: const Text('焼成プロファイルを選択 (任意)'),
         isExpanded: true,
         items: _availableFiringProfiles

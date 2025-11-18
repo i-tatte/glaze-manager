@@ -40,7 +40,9 @@ class MaterialsListScreenState extends State<MaterialsListScreen> {
 
   late Stream<List<app.Material>> _materialsStream;
   String _searchQuery = '';
-  Set<app.MaterialCategory> _selectedCategories = app.MaterialCategory.values
+  final Set<app.MaterialCategory> _selectedCategories = app
+      .MaterialCategory
+      .values
       .toSet();
 
   @override
