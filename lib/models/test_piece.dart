@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:glaze_manager/models/color_swatch.dart';
 
 class TestPiece {
   final String? id;
@@ -10,8 +11,7 @@ class TestPiece {
   final String?
   imagePath; // Storage内のファイルパス (例: users/xxx/test_pieces/images/yyy.jpg)
   final String? thumbnailUrl; // サムネイル画像のURL
-  final String? blurHash; // サムネイルのぼかし表示用ハッシュ
-  final Map<String, double>? colorData; // 例: {'L': 95.5, 'a': -1.2, 'b': 3.4}
+  final List<ColorSwatch>? colorData; // 解析された色のリスト
   final Timestamp createdAt; // 作成日時
 
   TestPiece({
@@ -23,7 +23,6 @@ class TestPiece {
     this.imageUrl,
     this.imagePath,
     this.thumbnailUrl,
-    this.blurHash,
     this.colorData,
     required this.createdAt,
   });
@@ -41,10 +40,9 @@ class TestPiece {
       imageUrl: data['imageUrl'],
       imagePath: data['imagePath'],
       thumbnailUrl: data['thumbnailUrl'],
-      blurHash: data['blurHash'],
-      colorData: data['colorData'] != null
-          ? Map<String, double>.from(data['colorData'] as Map)
-          : null,
+      colorData: (data['colorData'] as List<dynamic>?)?.map((swatchMap) {
+        return ColorSwatch.fromMap(swatchMap as Map<String, dynamic>);
+      }).toList(),
       createdAt: data['createdAt'] ?? Timestamp.now(),
     );
   }
@@ -58,6 +56,8 @@ class TestPiece {
       'imageUrl': imageUrl,
       'thumbnailUrl': thumbnailUrl,
       'imagePath': imagePath,
+      if (colorData != null)
+        'colorData': colorData!.map((swatch) => swatch.toMap()).toList(),
       'createdAt': createdAt,
     };
   }

@@ -1,3 +1,5 @@
 firebase-functions
 firebase-admin
 Pillow
+numpy
+opencv-python
