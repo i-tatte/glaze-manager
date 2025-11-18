@@ -1,7 +1,8 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide ColorSwatch;
 import 'package:glaze_manager/models/clay.dart';
+import 'package:glaze_manager/models/color_swatch.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
@@ -106,6 +107,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
                       clay,
                       firingProfile,
                       firingAtmosphere,
+                      constraints,
                     );
                   } else {
                     return _buildNarrowLayout(
@@ -172,12 +174,14 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
     Clay? clay,
     FiringProfile? firingProfile,
     FiringAtmosphere? firingAtmosphere,
+    BoxConstraints constraints,
   ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          flex: 1,
+        // 左側：固定幅の画像エリア
+        SizedBox(
+          width: (constraints.maxHeight - 50), // 表示領域の高さに応じて幅を決定
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: _buildImage(testPiece),
@@ -185,6 +189,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
         ),
         const VerticalDivider(width: 1),
         Expanded(
+          // 右側：残りのスペースをすべて使用する情報エリア
           flex: 1,
           child: _buildInfoPanel(
             testPiece,
@@ -223,38 +228,52 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
   }
 
   Widget _buildImage(TestPiece testPiece) {
-    return AspectRatio(
-      aspectRatio: 1.0,
-      child: Hero(
-        tag: 'testPieceImage_${testPiece.id}',
-        child: Material(
-          child: InkWell(
-            onTap: testPiece.imageUrl != null
-                ? () => _showFullScreenImage(context, testPiece)
-                : null,
-            child: (testPiece.imageUrl != null)
-                ? CachedNetworkImage(
-                    imageUrl: testPiece.imageUrl!,
-                    fit: BoxFit.contain,
-                    placeholder: (context, url) =>
-                        const Center(child: CircularProgressIndicator()),
-                    errorWidget: (context, url, error) => const Icon(
-                      Icons.broken_image_outlined,
-                      size: 50,
-                      color: Colors.grey,
-                    ),
-                  )
-                : Container(
-                    color: Colors.grey[200],
-                    child: const Icon(
-                      Icons.photo,
-                      size: 60,
-                      color: Colors.grey,
-                    ),
-                  ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AspectRatio(
+          aspectRatio: 1.0,
+          child: Hero(
+            tag: 'testPieceImage_${testPiece.id}',
+            child: Material(
+              child: InkWell(
+                onTap: testPiece.imageUrl != null
+                    ? () => _showFullScreenImage(context, testPiece)
+                    : null,
+                child: (testPiece.imageUrl != null)
+                    ? CachedNetworkImage(
+                        imageUrl: testPiece.imageUrl!,
+                        fit: BoxFit.contain,
+                        placeholder: (context, url) =>
+                            const Center(child: CircularProgressIndicator()),
+                        errorWidget: (context, url, error) => const Icon(
+                          Icons.broken_image_outlined,
+                          size: 50,
+                          color: Colors.grey,
+                        ),
+                      )
+                    : Container(
+                        color: Colors.grey[200],
+                        child: const Icon(
+                          Icons.photo,
+                          size: 60,
+                          color: Colors.grey,
+                        ),
+                      ),
+              ),
+            ),
           ),
         ),
-      ),
+        // 色見本表示エリア
+        if (testPiece.colorData != null && testPiece.colorData!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [_buildColorSwatches(testPiece.colorData!)],
+            ),
+          ),
+      ],
     );
   }
 
@@ -299,6 +318,27 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
             _buildInfoTile('焼成プロファイル', '未設定'),
         ],
       ),
+    );
+  }
+
+  /// 色見本ウィジェットを生成
+  Widget _buildColorSwatches(List<ColorSwatch> colorData) {
+    final significantColors = colorData.toList();
+
+    return Wrap(
+      spacing: 8.0,
+      runSpacing: 8.0,
+      children: significantColors.map((swatch) {
+        return Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: swatch.toColor(),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.black54, width: 1.0),
+          ),
+        );
+      }).toList(),
     );
   }
 

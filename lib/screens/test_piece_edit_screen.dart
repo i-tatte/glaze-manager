@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:glaze_manager/models/clay.dart';
-import 'package:flutter/material.dart';
+import 'package:glaze_manager/models/color_swatch.dart';
+import 'package:flutter/material.dart' hide ColorSwatch;
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
@@ -41,6 +43,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   String? _newImageFileName; // 新しく生成されたファイル名
   Uint8List? _newImageBytes; // 新しく生成された画像のバイトデータ
   String? _networkImageUrl; // 既存の画像のURL
+  List<ColorSwatch> _colorData = []; // 編集用の色データ
 
   bool _isLoading = false;
   bool _isDirty = false;
@@ -55,6 +58,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     _selectedFiringAtmosphereId = widget.testPiece?.firingAtmosphereId;
     _selectedFiringProfileId = widget.testPiece?.firingProfileId;
     _networkImageUrl = widget.testPiece?.imageUrl;
+    _colorData = List<ColorSwatch>.from(widget.testPiece?.colorData ?? []);
 
     _loadDropdownData();
   }
@@ -171,6 +175,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         imagePath: imagePath,
         thumbnailUrl: widget.testPiece?.thumbnailUrl, // 既存のURLを維持
         firingAtmosphereId: _selectedFiringAtmosphereId,
+        colorData: _colorData, // 編集された色データをセット
         firingProfileId: _selectedFiringProfileId,
         createdAt: widget.testPiece?.createdAt ?? Timestamp.now(),
       );
@@ -182,6 +187,9 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
           bytes: _newImageBytes!,
           mimeType: 'image/jpeg',
         );
+        // 新しい画像をアップロードした場合、Cloud Functionによる色解析を期待するため、
+        // クライアント側の色データをクリアする
+        setState(() => _colorData.clear());
       }
 
       // Firestoreへの書き込み処理
@@ -368,6 +376,8 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         children: [
           ..._buildFormFields(),
           const SizedBox(height: 24),
+          ..._buildColorSection(),
+          const SizedBox(height: 24),
           ..._buildImageSection(),
         ],
       ),
@@ -385,7 +395,11 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
             key: _formKey,
             child: ListView(
               padding: const EdgeInsets.all(16.0),
-              children: _buildFormFields(),
+              children: [
+                ..._buildFormFields(),
+                const SizedBox(height: 24),
+                ..._buildColorSection(),
+              ],
             ),
           ),
         ),
@@ -394,7 +408,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         Expanded(
           flex: 1,
           child: ListView(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 80.0),
             children: _buildImageSection(),
           ),
         ),
@@ -591,5 +605,87 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         child: Icon(Icons.camera_alt, color: Colors.grey, size: 50),
       ),
     );
+  }
+
+  /// 色編集セクションのウィジェットリストを生成
+  List<Widget> _buildColorSection() {
+    return [
+      Text('テストピースの色', style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: 8),
+      _buildColorSwatches(),
+      const SizedBox(height: 8),
+      OutlinedButton.icon(
+        icon: const Icon(Icons.add),
+        label: const Text('色を追加'),
+        onPressed: _addColor,
+      ),
+    ];
+  }
+
+  /// 色見本ウィジェットを生成
+  Widget _buildColorSwatches() {
+    if (_colorData.isEmpty) {
+      return const Text('色が登録されていません。');
+    }
+    return Wrap(
+      spacing: 8.0,
+      runSpacing: 8.0,
+      children: _colorData.map((swatch) {
+        return Chip(
+          label: const SizedBox.shrink(), // ラベルは不要
+          avatar: CircleAvatar(backgroundColor: swatch.toColor(), radius: 12),
+          onDeleted: () {
+            setState(() {
+              _colorData.remove(swatch);
+              _markAsDirty();
+            });
+          },
+          deleteIcon: const Icon(Icons.close, size: 16),
+          padding: const EdgeInsets.all(2),
+        );
+      }).toList(),
+    );
+  }
+
+  /// 色を追加する処理
+  Future<void> _addColor() async {
+    Color selectedColor = Colors.white;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('色の選択'),
+          // 高機能なColorPickerに変更
+          content: SingleChildScrollView(
+            child: ColorPicker(
+              pickerColor: selectedColor,
+              onColorChanged: (color) => selectedColor = color,
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('キャンセル'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            TextButton(
+              child: const Text('追加'),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      // RGB to Lab 変換
+      final lab = ColorSwatch.fromColor(selectedColor);
+      setState(() {
+        // percentageは手動追加では0とする
+        _colorData.add(
+          ColorSwatch(l: lab.l, a: lab.a, b: lab.b, percentage: 0),
+        );
+        _markAsDirty();
+      });
+    }
   }
 }
