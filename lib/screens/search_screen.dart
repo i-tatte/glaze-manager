@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide ColorSwatch;
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:glaze_manager/models/clay.dart';
+import 'package:glaze_manager/models/color_swatch.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
@@ -24,6 +26,7 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _isSearching = false;
   bool _isLoading = false;
   String _searchQuery = '';
+  Color? _searchColor;
 
   // データ
   List<TestPiece> _allTestPieces = [];
@@ -85,6 +88,7 @@ class _SearchScreenState extends State<SearchScreen> {
         _isSearching = false;
         _searchResults.clear();
         _searchQuery = '';
+        _searchColor = null;
       });
     }
   }
@@ -99,6 +103,7 @@ class _SearchScreenState extends State<SearchScreen> {
       _isLoading = true;
       _isSearching = true;
       _searchQuery = query;
+      _searchColor = null;
     });
 
     final lowerQuery = query.toLowerCase();
@@ -141,11 +146,80 @@ class _SearchScreenState extends State<SearchScreen> {
     setState(() => _isLoading = false);
   }
 
-  void _openColorPicker() {
-    // TODO: Implement color picker and search logic
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('色味検索は未実装です。')));
+  Future<void> _openColorPicker() async {
+    Color selectedColor = _searchColor ?? Colors.grey;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('色の選択'),
+          content: SingleChildScrollView(
+            child: ColorPicker(
+              pickerColor: selectedColor,
+              onColorChanged: (color) => selectedColor = color,
+              enableAlpha: false,
+              displayThumbColor: true,
+              hexInputBar: true,
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('キャンセル'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            TextButton(
+              child: const Text('検索'),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      _performColorSearch(selectedColor);
+    }
+  }
+
+  void _performColorSearch(Color color) {
+    setState(() {
+      _isLoading = true;
+      _isSearching = true;
+      _searchQuery = ''; // テキスト検索クエリはクリア
+      _searchColor = color;
+    });
+
+    // 検索対象の色をLab値に変換
+    final targetColorSwatch = ColorSwatch.fromColor(color);
+    const double deltaEThreshold = 30.0; // 色差のしきい値
+
+    final List<(TestPiece, double)> matchedPieces = [];
+
+    for (final testPiece in _allTestPieces) {
+      if (testPiece.colorData == null || testPiece.colorData!.isEmpty) continue;
+
+      double minDeltaE = double.infinity;
+
+      // テストピース内の各色との色差を計算し、最小値を取得
+      for (final swatch in testPiece.colorData!) {
+        final deltaE = targetColorSwatch.deltaE(swatch);
+        if (deltaE < minDeltaE) {
+          minDeltaE = deltaE;
+        }
+      }
+
+      // しきい値以下の色差であれば、結果に追加
+      if (minDeltaE <= deltaEThreshold) {
+        matchedPieces.add((testPiece, minDeltaE));
+      }
+    }
+
+    // 色差が小さい順にソート
+    matchedPieces.sort((a, b) => a.$2.compareTo(b.$2));
+    _searchResults = matchedPieces.map((e) => e.$1).toList();
+
+    setState(() => _isLoading = false);
   }
 
   void _openTagSelector() {
@@ -276,10 +350,26 @@ class _SearchScreenState extends State<SearchScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Text(
-            '"$_searchQuery"の検索結果',
-            style: Theme.of(context).textTheme.titleLarge,
+          padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0),
+          child: Row(
+            children: [
+              if (_searchColor != null) ...[
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: _searchColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.grey),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                _searchColor != null ? 'に近い色の検索結果' : '"$_searchQuery"の検索結果',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ],
           ),
         ),
         Expanded(

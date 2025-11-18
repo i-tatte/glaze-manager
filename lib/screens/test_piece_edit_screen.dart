@@ -660,6 +660,9 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
             child: ColorPicker(
               pickerColor: selectedColor,
               onColorChanged: (color) => selectedColor = color,
+              enableAlpha: false,
+              displayThumbColor: true,
+              hexInputBar: true,
             ),
           ),
           actions: [
