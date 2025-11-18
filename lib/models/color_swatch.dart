@@ -27,6 +27,14 @@ class ColorSwatch {
     return {'L': l, 'a': a, 'b': b, 'percentage': percentage};
   }
 
+  /// 2つのLab色間の色差(ΔE)をCIE76式で計算する
+  double deltaE(ColorSwatch other) {
+    final deltaL = l - other.l;
+    final deltaA = a - other.a;
+    final deltaB = b - other.b;
+    return sqrt(pow(deltaL, 2) + pow(deltaA, 2) + pow(deltaB, 2));
+  }
+
   /// Lab値をFlutterのColor (sRGB) に変換する
   Color toColor() {
     // Step 1: Lab to XYZ
