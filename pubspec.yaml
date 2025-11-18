@@ -58,6 +58,8 @@ dependencies:
   flutter_blurhash: ^0.9.1
   blurhash_dart: ^1.2.1
   image: ^4.3.0
+  path: ^1.9.1
+  uuid: ^4.5.2
 
 dev_dependencies:
   flutter_test:

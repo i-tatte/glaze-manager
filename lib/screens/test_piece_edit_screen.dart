@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -12,11 +11,11 @@ import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/storage_service.dart';
 import 'package:glaze_manager/screens/image_crop_screen.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:glaze_manager/widgets/firing_chart.dart';
 import 'package:dropdown_search/dropdown_search.dart';
-import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:glaze_manager/widgets/firing_chart.dart';
+import 'package:uuid/uuid.dart';
+import 'package:path/path.dart' as p;
 
 class TestPieceEditScreen extends StatefulWidget {
   final TestPiece? testPiece;
@@ -39,10 +38,9 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   List<Clay> _availableClays = [];
   List<Glaze> _availableGlazes = [];
 
-  XFile? _imageFile; // 選択された画像ファイル
+  String? _newImageFileName; // 新しく生成されたファイル名
+  Uint8List? _newImageBytes; // 新しく生成された画像のバイトデータ
   String? _networkImageUrl; // 既存の画像のURL
-  String? _networkThumbnailUrl; // 既存のサムネイルURL
-  XFile? _thumbnailFile; // 生成されたサムネイルファイル
 
   bool _isLoading = false;
   bool _isDirty = false;
@@ -57,7 +55,6 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     _selectedFiringAtmosphereId = widget.testPiece?.firingAtmosphereId;
     _selectedFiringProfileId = widget.testPiece?.firingProfileId;
     _networkImageUrl = widget.testPiece?.imageUrl;
-    _networkThumbnailUrl = widget.testPiece?.thumbnailUrl;
 
     _loadDropdownData();
   }
@@ -90,73 +87,36 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
 
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    // 画像を読み込む際にリサイズし、処理負荷を軽減する
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1500, // 最大幅を指定
+      maxHeight: 1500, // 最大高さを指定
+    );
     if (image != null) {
       // 画像選択後、トリミング画面に遷移
-      final XFile? croppedImage = await Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => ImageCropScreen(image: image)),
+      // UUIDと元の拡張子を使って一意なファイル名を生成
+      final uuid = const Uuid().v4();
+      final extension = p.extension(image.name);
+      final newFileName = '$uuid$extension';
+
+      // ファイル名とバイトデータを受け取る
+      final Map<String, dynamic>? cropResult = await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) =>
+              ImageCropScreen(image: image, outputFileName: newFileName),
+        ),
       );
 
-      if (croppedImage != null) {
-        setState(() => _isLoading = true); // 画像処理中のインジケーター表示
-        try {
-          // 先にメインスレッドで一時ディレクトリのパスを取得
-          final tempDir = await getTemporaryDirectory();
-
-          // 画像処理をバックグラウンドで実行
-          final results = await compute(_processImage, {
-            'imagePath': croppedImage.path,
-            'tempPath': tempDir.path,
-          });
-
-          setState(() {
-            _imageFile = croppedImage;
-            _thumbnailFile = results['thumbnailFile'];
-            _markAsDirty();
-          });
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('画像処理に失敗しました: $e')));
-          }
-          debugPrint('Image processing failed: $e');
-        } finally {
-          if (mounted) {
-            setState(() => _isLoading = false);
-          }
-        }
+      if (cropResult != null) {
+        setState(() {
+          _newImageFileName = cropResult['fileName'];
+          _newImageBytes = cropResult['bytes'];
+          _networkImageUrl = null; // プレビューを新しい画像に切り替える
+          _markAsDirty();
+        });
       }
     }
-  }
-
-  /// 画像処理(BlurHashとサムネイル生成)をまとめたトップレベル関数 (computeで使用するため)
-  static Future<Map<String, dynamic>> _processImage(
-    Map<String, String> params,
-  ) async {
-    final imagePath = params['imagePath']!;
-    final tempPath = params['tempPath']!;
-    final imageBytes = await File(imagePath).readAsBytes();
-    final image = img.decodeImage(imageBytes);
-
-    if (image == null) {
-      throw Exception('画像のデコードに失敗しました。');
-    }
-
-    // サムネイルを生成 (幅100px)
-    final thumbnail = img.copyResize(image, width: 100);
-    final thumbnailBytes = Uint8List.fromList(
-      img.encodeJpg(thumbnail, quality: 85),
-    );
-
-    // メインスレッドから渡されたパスを使って一時ファイルに書き出す
-    final thumbPath =
-        '$tempPath/thumb_${DateTime.now().millisecondsSinceEpoch}.jpg';
-    final thumbnailFileOnDisk = File(thumbPath);
-    await thumbnailFileOnDisk.writeAsBytes(thumbnailBytes);
-
-    // 物理パスを持つXFileを生成して返す
-    return {'thumbnailFile': XFile(thumbnailFileOnDisk.path)};
   }
 
   Future<void> _saveTestPiece() async {
@@ -188,46 +148,56 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         context,
         listen: false,
       );
-      String? imageUrl = _networkImageUrl;
-      String? thumbnailUrl = _networkThumbnailUrl;
 
-      // 新しい画像が選択されていればアップロード
-      if (_imageFile != null && _thumbnailFile != null) {
-        try {
-          // クラッシュを避けるため、並行処理ではなく直列でアップロードする
-          imageUrl = await storageService
-              .uploadTestPieceImage(_imageFile!)
-              .timeout(const Duration(seconds: 30));
-          thumbnailUrl = await storageService
-              .uploadTestPieceImage(_thumbnailFile!, isThumbnail: true)
-              .timeout(const Duration(seconds: 30));
-        } on TimeoutException {
-          throw '画像のアップロードがタイムアウトしました。ネットワーク接続を確認してください。';
-        }
+      // --- パフォーマンス改善のためのロジック変更 ---
+      // 1. 先にFirestoreにドキュメントを保存し、すぐに画面遷移させる
+      // 2. 画像のアップロードは待たずにバックグラウンドで実行する
+
+      String? imagePath;
+      // 新規画像がある場合、アップロード先のパスを事前に決定
+      if (_newImageFileName != null) {
+        imagePath = storageService.getUploadPath(name: _newImageFileName!);
+      } else {
+        imagePath = widget.testPiece?.imagePath;
       }
-      final testPiece = TestPiece(
+
+      // 更新または作成するTestPieceオブジェクトを準備
+      // この時点ではimageUrlとthumbnailUrlは未定
+      final testPieceData = TestPiece(
         id: widget.testPiece?.id,
         glazeId: _selectedGlazeId!,
         clayId: _selectedClayId!,
-        imageUrl: imageUrl,
-        thumbnailUrl: thumbnailUrl,
+        imageUrl: widget.testPiece?.imageUrl, // 既存のURLを維持
+        imagePath: imagePath,
+        thumbnailUrl: widget.testPiece?.thumbnailUrl, // 既存のURLを維持
         firingAtmosphereId: _selectedFiringAtmosphereId,
         firingProfileId: _selectedFiringProfileId,
-        blurHash: widget.testPiece?.blurHash, // 既存の値を維持
         createdAt: widget.testPiece?.createdAt ?? Timestamp.now(),
       );
 
+      // 新規画像がある場合のみ、アップロード処理を待たずに開始
+      if (_newImageFileName != null && _newImageBytes != null) {
+        storageService.uploadTestPieceImage(
+          name: _newImageFileName!,
+          bytes: _newImageBytes!,
+          mimeType: 'image/jpeg',
+        );
+      }
+
+      // Firestoreへの書き込み処理
       if (widget.testPiece == null) {
-        await firestoreService.addTestPiece(testPiece);
+        // 新規作成
+        await firestoreService.addTestPiece(testPieceData);
         if (mounted) {
           _isDirty = false;
-          navigator.pop(); // 新規作成時は一覧に戻る
+          navigator.pop(); // すぐに一覧に戻る
         }
       } else {
-        await firestoreService.updateTestPiece(testPiece);
+        // 更新
+        await firestoreService.updateTestPiece(testPieceData);
         if (mounted) {
           _isDirty = false;
-          navigator.pop(); // 更新時は詳細画面に戻る
+          navigator.pop(); // すぐに詳細画面に戻る
         }
       }
     } catch (e) {
@@ -586,12 +556,8 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
 
   Widget _buildImagePreview() {
     // 新しい画像が選択されている場合
-    if (_imageFile != null) {
-      if (kIsWeb) {
-        return Image.network(_imageFile!.path, fit: BoxFit.contain);
-      } else {
-        return Image.file(File(_imageFile!.path), fit: BoxFit.contain);
-      }
+    if (_newImageBytes != null) {
+      return Image.memory(_newImageBytes!, fit: BoxFit.contain);
     }
     // 既存の画像URLがある場合
     if (_networkImageUrl != null) {
