@@ -92,8 +92,9 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
                           color: WidgetStateProperty.resolveWith<Color?>((
                             states,
                           ) {
-                            if (index.isEven)
+                            if (index.isEven) {
                               return Colors.grey.withOpacity(0.1);
+                            }
                             return null;
                           }),
                           cells: [
