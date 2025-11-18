@@ -1,14 +1,19 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'package:crop_your_image/crop_your_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:image/image.dart' as img;
 
 class ImageCropScreen extends StatefulWidget {
   final XFile image;
+  final String outputFileName; // 保存するファイル名を外部から受け取る
 
-  const ImageCropScreen({super.key, required this.image});
+  const ImageCropScreen({
+    super.key,
+    required this.image,
+    required this.outputFileName,
+  });
 
   @override
   State<ImageCropScreen> createState() => _ImageCropScreenState();
@@ -42,7 +47,7 @@ class _ImageCropScreenState extends State<ImageCropScreen> {
               child: SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(color: Colors.white),
+                child: CircularProgressIndicator(),
               ),
             )
           else
@@ -64,16 +69,18 @@ class _ImageCropScreenState extends State<ImageCropScreen> {
                 image: _imageData!,
                 onCropped: (croppedData) async {
                   try {
-                    // 一時ディレクトリに画像を保存
-                    final tempDir = await getTemporaryDirectory();
-                    final path =
-                        '${tempDir.path}/cropped_${DateTime.now().millisecondsSinceEpoch}.png';
-                    final file = await File(
-                      path,
-                    ).writeAsBytes((croppedData as CropSuccess).croppedImage);
+                    // 画像処理をバックグラウンドで実行
+                    final jpegBytes = await compute(
+                      _encodeToJpeg,
+                      (croppedData as CropSuccess).croppedImage,
+                    );
 
                     if (mounted) {
-                      Navigator.of(context).pop(XFile(file.path));
+                      // ファイル名とバイトデータをMapで返す
+                      Navigator.of(context).pop({
+                        'fileName': widget.outputFileName,
+                        'bytes': jpegBytes,
+                      });
                     }
                   } catch (e) {
                     if (mounted) {
@@ -89,11 +96,21 @@ class _ImageCropScreenState extends State<ImageCropScreen> {
                 aspectRatio: 1.0, // 正方形に固定
                 cornerDotBuilder: (size, edgeAlignment) =>
                     const DotControl(color: Colors.white),
-                maskColor: Colors.black.withOpacity(0.5),
+                maskColor: Colors.black.withValues(alpha: 0.5),
                 baseColor: Colors.grey.shade900,
                 progressIndicator: const CircularProgressIndicator(),
               ),
       ),
     );
+  }
+
+  /// 画像データをJPEGにエンコードするトップレベル関数 (computeで使用)
+  static Future<Uint8List> _encodeToJpeg(Uint8List imageData) async {
+    final image = img.decodeImage(imageData);
+    if (image == null) {
+      throw Exception('画像のデコードに失敗しました。');
+    }
+    // 品質85でJPEGにエンコード
+    return Uint8List.fromList(img.encodeJpg(image, quality: 85));
   }
 }

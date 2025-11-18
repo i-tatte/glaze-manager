@@ -7,6 +7,8 @@ class TestPiece {
   final String? firingAtmosphereId; // 関連するFiringAtmosphereのID
   final String? firingProfileId; // 関連するFiringProfileのID
   final String? imageUrl; // Storageへのパス
+  final String?
+  imagePath; // Storage内のファイルパス (例: users/xxx/test_pieces/images/yyy.jpg)
   final String? thumbnailUrl; // サムネイル画像のURL
   final String? blurHash; // サムネイルのぼかし表示用ハッシュ
   final Map<String, double>? colorData; // 例: {'L': 95.5, 'a': -1.2, 'b': 3.4}
@@ -19,6 +21,7 @@ class TestPiece {
     this.firingAtmosphereId,
     this.firingProfileId,
     this.imageUrl,
+    this.imagePath,
     this.thumbnailUrl,
     this.blurHash,
     this.colorData,
@@ -36,6 +39,7 @@ class TestPiece {
       firingAtmosphereId: data['firingAtmosphereId'],
       firingProfileId: data['firingProfileId'],
       imageUrl: data['imageUrl'],
+      imagePath: data['imagePath'],
       thumbnailUrl: data['thumbnailUrl'],
       blurHash: data['blurHash'],
       colorData: data['colorData'] != null
@@ -53,8 +57,7 @@ class TestPiece {
       'firingProfileId': firingProfileId,
       'imageUrl': imageUrl,
       'thumbnailUrl': thumbnailUrl,
-      'blurHash': blurHash,
-      'colorData': colorData,
+      'imagePath': imagePath,
       'createdAt': createdAt,
     };
   }

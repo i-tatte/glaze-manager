@@ -1,8 +1,6 @@
-import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart';
 
 class StorageService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
@@ -10,32 +8,31 @@ class StorageService {
 
   String? get _userId => _auth.currentUser?.uid;
 
-  /// 画像をアップロードし、ダウンロードURLを返す
-  Future<String?> uploadTestPieceImage(
-    XFile imageFile, {
-    bool isThumbnail = false,
+  /// アップロード先のファイルパスを生成して返す
+  String getUploadPath({required String name}) {
+    if (_userId == null) throw Exception("User not logged in");
+    return 'users/$_userId/test_pieces/images/$name';
+  }
+
+  /// 画像をアップロードする (待機しない)
+  Future<void> uploadTestPieceImage({
+    required String name,
+    required Uint8List bytes,
+    String? mimeType,
   }) async {
     if (_userId == null) throw Exception("User not logged in");
 
     try {
-      final pathPrefix = isThumbnail ? 'thumbnails' : 'images';
-      final filePath =
-          'users/$_userId/test_pieces/$pathPrefix/'
-          '${DateTime.now().millisecondsSinceEpoch}_${imageFile.name}';
+      final filePath = getUploadPath(name: name);
       final ref = _storage.ref(filePath);
 
-      final uploadTask = kIsWeb
-          ? await ref.putData(
-              await imageFile.readAsBytes(),
-              SettableMetadata(contentType: imageFile.mimeType),
-            )
-          : await ref.putFile(File(imageFile.path));
+      final metadata = mimeType != null
+          ? SettableMetadata(contentType: mimeType)
+          : null;
 
-      final downloadUrl = await uploadTask.ref.getDownloadURL();
-      return downloadUrl;
+      await ref.putData(bytes, metadata);
     } catch (e) {
-      print('Image upload failed: $e');
-      return null;
+      debugPrint('Image upload failed: $e');
     }
   }
 
@@ -47,7 +44,7 @@ class StorageService {
       final ref = _storage.refFromURL(imageUrl);
       await ref.delete();
     } catch (e) {
-      print('Image deletion failed: $e');
+      debugPrint('Image deletion failed: $e');
     }
   }
 }
