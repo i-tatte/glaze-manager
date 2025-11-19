@@ -158,8 +158,8 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
 
     // 追加の釉薬を取得
     final additionalGlazesFuture = Future.wait(
-      testPiece.additionalGlazeIds.map((id) => 
-        firestoreService.getGlazeStream(id).first
+      testPiece.additionalGlazeIds.map(
+        (id) => firestoreService.getGlazeStream(id).first,
       ),
     );
 
@@ -321,25 +321,27 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
           if (additionalGlazes.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text('追加の釉薬', style: Theme.of(context).textTheme.labelLarge),
-            ...additionalGlazes.map((g) => InkWell(
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => GlazeDetailScreen(glaze: g),
-                  ),
-                );
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Text(
-                  g.name,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                    decoration: TextDecoration.underline,
+            ...additionalGlazes.map(
+              (g) => InkWell(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => GlazeDetailScreen(glaze: g),
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Text(
+                    g.name,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
                 ),
               ),
-            )),
+            ),
           ],
           _buildInfoTile('素地土名', clay?.name ?? '未設定'),
           _buildInfoTile('焼成雰囲気', firingAtmosphere?.name ?? '未設定'),
@@ -357,15 +359,12 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
               FiringChart(curveData: firingProfile.curveData!),
           ] else
             _buildInfoTile('焼成プロファイル', '未設定'),
-          
+
           if (testPiece.note != null && testPiece.note!.isNotEmpty) ...[
             const Divider(height: 32),
             Text('備考', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            Text(
-              testPiece.note!,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
+            Text(testPiece.note!, style: Theme.of(context).textTheme.bodyLarge),
           ],
         ],
       ),
@@ -374,7 +373,9 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
 
   /// 色見本ウィジェットを生成
   Widget _buildColorSwatches(List<ColorSwatch> colorData) {
-    final significantColors = colorData.toList();
+    final significantColors = colorData
+        .where((x) => x.percentage > 5.0)
+        .toList();
 
     return Wrap(
       spacing: 8.0,

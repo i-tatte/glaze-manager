@@ -57,8 +57,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   void initState() {
     super.initState();
     _selectedGlazeId = widget.testPiece?.glazeId;
-    _additionalGlazeIds =
-        widget.testPiece?.additionalGlazeIds.toList() ?? [];
+    _additionalGlazeIds = widget.testPiece?.additionalGlazeIds.toList() ?? [];
     _selectedClayId = widget.testPiece?.clayId;
     _selectedFiringAtmosphereId = widget.testPiece?.firingAtmosphereId;
     _selectedFiringProfileId = widget.testPiece?.firingProfileId;
@@ -186,7 +185,9 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         firingAtmosphereId: _selectedFiringAtmosphereId,
         colorData: _colorData, // 編集された色データをセット
         firingProfileId: _selectedFiringProfileId,
-        note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
+        note: _noteController.text.trim().isEmpty
+            ? null
+            : _noteController.text.trim(),
         createdAt: widget.testPiece?.createdAt ?? Timestamp.now(),
       );
 
@@ -384,11 +385,9 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          ..._buildFormFields(),
-          const SizedBox(height: 24),
-          ..._buildColorSection(),
-          const SizedBox(height: 24),
           ..._buildImageSection(),
+          const SizedBox(height: 24),
+          ..._buildFormFields(),
         ],
       ),
     );
@@ -405,11 +404,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
             key: _formKey,
             child: ListView(
               padding: const EdgeInsets.all(16.0),
-              children: [
-                ..._buildFormFields(),
-                const SizedBox(height: 24),
-                ..._buildColorSection(),
-              ],
+              children: [..._buildFormFields()],
             ),
           ),
         ),
@@ -469,7 +464,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         compareFn: (Glaze a, Glaze b) => a.id == b.id,
       ),
       const SizedBox(height: 16),
-      
+
       // 追加の釉薬 (Additional)
       DropdownSearch<Glaze>.multiSelection(
         items: (f, cs) => _availableGlazes,
@@ -580,11 +575,14 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       TextFormField(
         controller: _noteController,
         decoration: const InputDecoration(
-          labelText: '備考',
+          labelText: '備考\n\n\n',
           border: OutlineInputBorder(),
         ),
         maxLines: 3,
       ),
+      const SizedBox(height: 16),
+      // 色編集セクション
+      ..._buildColorSection(),
 
       // グラフ表示エリア
       if (selectedProfile?.curveData != null &&
@@ -746,4 +744,3 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     }
   }
 }
-
