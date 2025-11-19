@@ -316,13 +316,16 @@ class FirestoreService {
         .collection('users')
         .doc(_userId)
         .collection('test_pieces')
-        .where('glazeId', isEqualTo: glazeId)
-        .orderBy('createdAt', descending: true)
+        .where('relatedGlazeIds', arrayContains: glazeId)
+        // .orderBy('createdAt', descending: true) // 複合インデックスが必要なためクライアント側でソート
         .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => TestPiece.fromFirestore(doc)).toList(),
-        );
+        .map((snapshot) {
+          final docs = snapshot.docs
+              .map((doc) => TestPiece.fromFirestore(doc))
+              .toList();
+          docs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return docs;
+        });
   }
 
   // 特定のテストピースを取得 (リアルタイム)
@@ -597,5 +600,44 @@ class FirestoreService {
       batch.update(docRef, {'order': i});
     }
     await batch.commit();
+  }
+  // --- Tag Methods ---
+
+  /// タグ一覧を取得 (リアルタイム)
+  Stream<List<String>> getTags() {
+    if (_userId == null) return Stream.value([]);
+    return _db
+        .collection('users')
+        .doc(_userId)
+        .collection('tags')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => doc.id).toList());
+  }
+
+  /// タグを追加 (存在しない場合のみ)
+  Future<void> addTag(String tagName) async {
+    if (_userId == null) throw Exception("User not logged in");
+    final docRef = _db
+        .collection('users')
+        .doc(_userId)
+        .collection('tags')
+        .doc(tagName);
+
+    final doc = await docRef.get();
+    if (!doc.exists) {
+      await docRef.set({'createdAt': FieldValue.serverTimestamp()});
+    }
+  }
+
+  /// タグを削除 (マスターリストからのみ削除)
+  Future<void> deleteTag(String tagName) async {
+    if (_userId == null) throw Exception("User not logged in");
+    await _db
+        .collection('users')
+        .doc(_userId)
+        .collection('tags')
+        .doc(tagName)
+        .delete();
   }
 }
