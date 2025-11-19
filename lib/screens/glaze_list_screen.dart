@@ -4,7 +4,7 @@ import 'package:glaze_manager/models/material.dart' as app;
 import 'package:glaze_manager/screens/glaze_edit_screen.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/screens/glaze_detail_screen.dart';
-import 'package:glaze_manager/screens/tag_management_screen.dart';
+import 'package:glaze_manager/widgets/tag_management_widget.dart';
 import 'package:provider/provider.dart';
 
 enum SortOption { name, createdAt }
@@ -209,7 +209,7 @@ class GlazeListScreenState extends State<GlazeListScreen> {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (context) =>
-                                      const TagManagementScreen(),
+                                      const TagManagementWidget(),
                                 ),
                               );
                             },
@@ -323,9 +323,7 @@ class GlazeListScreenState extends State<GlazeListScreen> {
                         final tags = snapshot.data ?? [];
                         return IconButton(
                           icon: Icon(
-                            _selectedTags.isEmpty
-                                ? Icons.filter_list
-                                : Icons.filter_list_alt,
+                            Icons.filter_alt,
                             color: _selectedTags.isEmpty
                                 ? null
                                 : Theme.of(context).colorScheme.primary,
@@ -351,7 +349,8 @@ class GlazeListScreenState extends State<GlazeListScreen> {
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: _selectedTags.length,
-                    separatorBuilder: (context, index) => const SizedBox(width: 8),
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 8),
                     itemBuilder: (context, index) {
                       final tag = _selectedTags[index];
                       return Chip(
@@ -407,7 +406,8 @@ class GlazeListScreenState extends State<GlazeListScreen> {
                           if (displayedGlazes.isEmpty) {
                             return Center(
                               child: Text(
-                                _searchQuery.isNotEmpty || _selectedTags.isNotEmpty
+                                _searchQuery.isNotEmpty ||
+                                        _selectedTags.isNotEmpty
                                     ? '検索条件に一致する釉薬が見つかりません。'
                                     : '釉薬が登録されていません。\n右下のボタンから追加してください。',
                                 textAlign: TextAlign.center,

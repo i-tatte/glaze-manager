@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:provider/provider.dart';
 
-class TagManagementScreen extends StatelessWidget {
-  const TagManagementScreen({super.key});
+class TagManagementWidget extends StatelessWidget {
+  const TagManagementWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
