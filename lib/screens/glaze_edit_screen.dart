@@ -28,6 +28,8 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
 
   // 選択可能な原料のリスト
   List<app.Material> _availableMaterials = [];
+  // 既存のタグリスト (オートコンプリート用)
+  List<String> _availableTags = [];
 
   List<String> _tags = [];
   bool _isLoading = false;
@@ -49,16 +51,17 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
     _registeredNameController.addListener(_markAsDirty);
     _descriptionController.addListener(_markAsDirty);
 
-    _loadMaterialsAndSetupRecipe();
+    _loadMaterialsAndTags();
     _tagInputController.addListener(_onTagInputChanged);
   }
 
-  Future<void> _loadMaterialsAndSetupRecipe() async {
+  Future<void> _loadMaterialsAndTags() async {
     final firestoreService = Provider.of<FirestoreService>(
       context,
       listen: false,
     );
     _availableMaterials = await firestoreService.getMaterials().first;
+    _availableTags = await firestoreService.getTags().first;
 
     if (widget.glaze != null) {
       // 編集モードの場合、既存のレシピを復元
@@ -75,7 +78,7 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
         );
       }
     }
-    setState(() {}); // 原料リストのロード完了をUIに反映
+    setState(() {}); // 原料リストとタグのロード完了をUIに反映
   }
 
   void _markAsDirty() {
@@ -145,6 +148,11 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
           tags: _tags,
           createdAt: widget.glaze?.createdAt ?? Timestamp.now(),
         );
+
+        // タグをマスターリストに追加 (存在しない場合のみ)
+        for (final tag in _tags) {
+          await firestoreService.addTag(tag);
+        }
 
         if (widget.glaze == null) {
           await firestoreService.addGlaze(glaze);
@@ -371,50 +379,82 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
   }
 
   Widget _buildTagInput() {
-    return GestureDetector(
-      onTap: () => _tagFocusNode.requestFocus(),
-      child: InputDecorator(
-        decoration: const InputDecoration(
-          labelText: 'タグ (スペース or カンマで確定)',
-          border: OutlineInputBorder(),
-        ),
-        child: Wrap(
-          spacing: 8.0,
-          runSpacing: 4.0,
-          children: [
-            ..._tags.map(
-              (tag) => Chip(
-                label: Text(tag),
-                onDeleted: () {
+    return InputDecorator(
+      decoration: const InputDecoration(
+        labelText: 'タグ (スペース or カンマで確定)',
+        border: OutlineInputBorder(),
+      ),
+      child: Wrap(
+        spacing: 8.0,
+        runSpacing: 4.0,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          ..._tags.map(
+            (tag) => Chip(
+              label: Text(tag),
+              onDeleted: () {
+                setState(() {
+                  _tags.remove(tag);
+                  _markAsDirty();
+                });
+              },
+            ),
+          ),
+          SizedBox(
+            width: 200, // 入力フィールドの幅
+            child: Autocomplete<String>(
+              optionsBuilder: (TextEditingValue textEditingValue) {
+                if (textEditingValue.text == '') {
+                  return const Iterable<String>.empty();
+                }
+                return _availableTags.where((String option) {
+                  return option.contains(textEditingValue.text) &&
+                      !_tags.contains(option);
+                });
+              },
+              onSelected: (String selection) {
+                if (!_tags.contains(selection)) {
                   setState(() {
-                    _tags.remove(tag);
+                    _tags.add(selection);
                     _markAsDirty();
                   });
-                },
-              ),
+                }
+                _tagInputController.clear();
+                _tagFocusNode.requestFocus();
+              },
+              fieldViewBuilder: (
+                BuildContext context,
+                TextEditingController fieldTextEditingController,
+                FocusNode fieldFocusNode,
+                VoidCallback onFieldSubmitted,
+              ) {
+                // 内部のコントローラーと外部のコントローラーを同期させる必要があるが、
+                // ここでは単純に内部のコントローラーを使用し、イベントリスナーで処理する
+                return TextField(
+                  controller: fieldTextEditingController,
+                  focusNode: fieldFocusNode,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 4.0),
+                    hintText: 'タグを入力...',
+                  ),
+                  onSubmitted: (value) {
+                    final newTag = value.trim();
+                    if (newTag.isNotEmpty && !_tags.contains(newTag)) {
+                      setState(() {
+                        _tags.add(newTag);
+                        _markAsDirty();
+                      });
+                    }
+                    fieldTextEditingController.clear();
+                    fieldFocusNode.requestFocus();
+                  },
+                );
+              },
             ),
-            SizedBox(
-              width: 150, // 入力フィールドの幅
-              child: TextField(
-                controller: _tagInputController,
-                focusNode: _tagFocusNode,
-                decoration: const InputDecoration(
-                  isDense: true,
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 4.0),
-                ),
-                onSubmitted: (value) {
-                  final newTag = value.trim();
-                  if (newTag.isNotEmpty && !_tags.contains(newTag)) {
-                    setState(() => _tags.add(newTag));
-                  }
-                  _tagInputController.clear();
-                  _tagFocusNode.requestFocus(); // Enter後もフォーカスを維持
-                },
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
