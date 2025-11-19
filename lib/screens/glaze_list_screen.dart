@@ -4,6 +4,7 @@ import 'package:glaze_manager/models/material.dart' as app;
 import 'package:glaze_manager/screens/glaze_edit_screen.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/screens/glaze_detail_screen.dart';
+import 'package:glaze_manager/widgets/tag_management_widget.dart';
 import 'package:provider/provider.dart';
 
 enum SortOption { name, createdAt }
@@ -22,9 +23,11 @@ class GlazeListScreenState extends State<GlazeListScreen> {
 
   late Stream<List<Glaze>> _glazesStream;
   late Stream<List<app.Material>> _materialsStream;
+  late Stream<List<String>> _tagsStream;
 
   SortOption _sortOption = SortOption.name;
   bool _isAscending = true;
+  List<String> _selectedTags = []; // フィルタリング用の選択されたタグ
 
   @override
   void initState() {
@@ -37,6 +40,7 @@ class GlazeListScreenState extends State<GlazeListScreen> {
     final firestoreService = context.read<FirestoreService>();
     _glazesStream = firestoreService.getGlazes();
     _materialsStream = firestoreService.getMaterials();
+    _tagsStream = firestoreService.getTags();
   }
 
   Future<void> handleRefresh() async {
@@ -66,10 +70,17 @@ class GlazeListScreenState extends State<GlazeListScreen> {
   ) {
     List<Glaze> filtered = allGlazes;
 
-    // フィルタリング
+    // タグフィルタリング (AND検索)
+    if (_selectedTags.isNotEmpty) {
+      filtered = filtered.where((glaze) {
+        return _selectedTags.every((tag) => glaze.tags.contains(tag));
+      }).toList();
+    }
+
+    // 検索クエリフィルタリング
     if (_searchQuery.isNotEmpty) {
       final lowerCaseQuery = _searchQuery.toLowerCase();
-      filtered = allGlazes.where((glaze) {
+      filtered = filtered.where((glaze) {
         // 釉薬名
         if (glaze.name.toLowerCase().contains(lowerCaseQuery)) {
           return true;
@@ -165,6 +176,111 @@ class GlazeListScreenState extends State<GlazeListScreen> {
     );
   }
 
+  void _showFilterModal(List<String> allTags) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return DraggableScrollableSheet(
+              initialChildSize: 0.6,
+              minChildSize: 0.4,
+              maxChildSize: 0.9,
+              expand: false,
+              builder: (context, scrollController) {
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'タグで絞り込み',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context); // モーダルを閉じる
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const TagManagementWidget(),
+                                ),
+                              );
+                            },
+                            child: const Text('タグ管理'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: allTags.isEmpty
+                          ? const Center(child: Text('タグが登録されていません'))
+                          : ListView.builder(
+                              controller: scrollController,
+                              itemCount: allTags.length,
+                              itemBuilder: (context, index) {
+                                final tag = allTags[index];
+                                final isSelected = _selectedTags.contains(tag);
+                                return CheckboxListTile(
+                                  title: Text(tag),
+                                  value: isSelected,
+                                  onChanged: (bool? value) {
+                                    setModalState(() {
+                                      if (value == true) {
+                                        _selectedTags.add(tag);
+                                      } else {
+                                        _selectedTags.remove(tag);
+                                      }
+                                    });
+                                    // 親のStateも更新してリストを再描画
+                                    setState(() {});
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                setModalState(() {
+                                  _selectedTags.clear();
+                                });
+                                setState(() {});
+                              },
+                              child: const Text('クリア'),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('完了'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -200,6 +316,23 @@ class GlazeListScreenState extends State<GlazeListScreen> {
                         ),
                       ),
                     ),
+                    // フィルタボタン
+                    StreamBuilder<List<String>>(
+                      stream: _tagsStream,
+                      builder: (context, snapshot) {
+                        final tags = snapshot.data ?? [];
+                        return IconButton(
+                          icon: Icon(
+                            Icons.filter_alt,
+                            color: _selectedTags.isEmpty
+                                ? null
+                                : Theme.of(context).colorScheme.primary,
+                          ),
+                          onPressed: () => _showFilterModal(tags),
+                          tooltip: 'フィルタ',
+                        );
+                      },
+                    ),
                     IconButton(
                       icon: const Icon(Icons.sort),
                       onPressed: _showSortOptions,
@@ -208,6 +341,31 @@ class GlazeListScreenState extends State<GlazeListScreen> {
                   ],
                 ),
               ),
+              // 選択中のタグを表示
+              if (_selectedTags.isNotEmpty)
+                SizedBox(
+                  height: 40,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _selectedTags.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final tag = _selectedTags[index];
+                      return Chip(
+                        label: Text(tag),
+                        onDeleted: () {
+                          setState(() {
+                            _selectedTags.remove(tag);
+                          });
+                        },
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                      );
+                    },
+                  ),
+                ),
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: handleRefresh,
@@ -248,8 +406,9 @@ class GlazeListScreenState extends State<GlazeListScreen> {
                           if (displayedGlazes.isEmpty) {
                             return Center(
                               child: Text(
-                                _searchQuery.isNotEmpty
-                                    ? '検索結果が見つかりません。'
+                                _searchQuery.isNotEmpty ||
+                                        _selectedTags.isNotEmpty
+                                    ? '検索条件に一致する釉薬が見つかりません。'
                                     : '釉薬が登録されていません。\n右下のボタンから追加してください。',
                                 textAlign: TextAlign.center,
                               ),

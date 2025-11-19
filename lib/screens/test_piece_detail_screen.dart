@@ -91,6 +91,8 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
               final FiringProfile? firingProfile = details['firingProfile'];
               final FiringAtmosphere? firingAtmosphere =
                   details['firingAtmosphere'];
+              final List<Glaze> additionalGlazes =
+                  details['additionalGlazes'] ?? [];
 
               if (glaze == null) {
                 return const Center(child: Text('関連する釉薬データが見つかりません。'));
@@ -108,6 +110,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
                       firingProfile,
                       firingAtmosphere,
                       constraints,
+                      additionalGlazes,
                     );
                   } else {
                     return _buildNarrowLayout(
@@ -116,6 +119,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
                       clay,
                       firingProfile,
                       firingAtmosphere,
+                      additionalGlazes,
                     );
                   }
                 },
@@ -152,12 +156,20 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
               .first
         : Future.value(null);
 
+    // 追加の釉薬を取得
+    final additionalGlazesFuture = Future.wait(
+      testPiece.additionalGlazeIds.map((id) => 
+        firestoreService.getGlazeStream(id).first
+      ),
+    );
+
     // 各データを並行して取得
     final results = await Future.wait([
       glazeFuture,
       clayFuture,
       profileFuture,
       atmosphereFuture,
+      additionalGlazesFuture,
     ]);
 
     return {
@@ -165,6 +177,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
       'clay': results[1] as Clay?,
       'firingProfile': results[2] as FiringProfile?,
       'firingAtmosphere': results[3] as FiringAtmosphere?,
+      'additionalGlazes': results[4] as List<Glaze>,
     };
   }
 
@@ -175,6 +188,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
     FiringProfile? firingProfile,
     FiringAtmosphere? firingAtmosphere,
     BoxConstraints constraints,
+    List<Glaze> additionalGlazes,
   ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -197,6 +211,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
             clay,
             firingProfile,
             firingAtmosphere,
+            additionalGlazes,
           ),
         ),
       ],
@@ -209,6 +224,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
     Clay? clay,
     FiringProfile? firingProfile,
     FiringAtmosphere? firingAtmosphere,
+    List<Glaze> additionalGlazes,
   ) {
     return ListView(
       children: [
@@ -222,6 +238,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
           clay,
           firingProfile,
           firingAtmosphere,
+          additionalGlazes,
         ),
       ],
     );
@@ -283,6 +300,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
     Clay? clay,
     FiringProfile? firingProfile,
     FiringAtmosphere? firingAtmosphere,
+    List<Glaze> additionalGlazes,
   ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -290,7 +308,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildInfoTile(
-            '釉薬名',
+            '釉薬名 (メイン)',
             glaze.name, // glazeはnullでないことが確認済み
             onTap: () {
               Navigator.of(context).push(
@@ -300,6 +318,29 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
               );
             },
           ),
+          if (additionalGlazes.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('追加の釉薬', style: Theme.of(context).textTheme.labelLarge),
+            ...additionalGlazes.map((g) => InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => GlazeDetailScreen(glaze: g),
+                  ),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Text(
+                  g.name,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            )),
+          ],
           _buildInfoTile('素地土名', clay?.name ?? '未設定'),
           _buildInfoTile('焼成雰囲気', firingAtmosphere?.name ?? '未設定'),
           const Divider(height: 32),
@@ -316,6 +357,16 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
               FiringChart(curveData: firingProfile.curveData!),
           ] else
             _buildInfoTile('焼成プロファイル', '未設定'),
+          
+          if (testPiece.note != null && testPiece.note!.isNotEmpty) ...[
+            const Divider(height: 32),
+            Text('備考', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Text(
+              testPiece.note!,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          ],
         ],
       ),
     );

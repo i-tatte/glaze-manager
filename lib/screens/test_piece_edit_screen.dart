@@ -32,9 +32,12 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   final _formKey = GlobalKey<FormState>();
 
   String? _selectedGlazeId;
+  List<String> _additionalGlazeIds = [];
   String? _selectedClayId;
   String? _selectedFiringProfileId;
   String? _selectedFiringAtmosphereId;
+  final _noteController = TextEditingController();
+
   List<FiringProfile> _availableFiringProfiles = [];
   List<FiringAtmosphere> _availableFiringAtmospheres = [];
   List<Clay> _availableClays = [];
@@ -54,12 +57,16 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   void initState() {
     super.initState();
     _selectedGlazeId = widget.testPiece?.glazeId;
+    _additionalGlazeIds =
+        widget.testPiece?.additionalGlazeIds.toList() ?? [];
     _selectedClayId = widget.testPiece?.clayId;
     _selectedFiringAtmosphereId = widget.testPiece?.firingAtmosphereId;
     _selectedFiringProfileId = widget.testPiece?.firingProfileId;
     _networkImageUrl = widget.testPiece?.imageUrl;
     _colorData = List<ColorSwatch>.from(widget.testPiece?.colorData ?? []);
+    _noteController.text = widget.testPiece?.note ?? '';
 
+    _noteController.addListener(_markAsDirty);
     _loadDropdownData();
   }
 
@@ -86,6 +93,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
 
   @override
   void dispose() {
+    _noteController.dispose();
     super.dispose();
   }
 
@@ -170,6 +178,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       final testPieceData = TestPiece(
         id: widget.testPiece?.id,
         glazeId: _selectedGlazeId!,
+        additionalGlazeIds: _additionalGlazeIds,
         clayId: _selectedClayId!,
         imageUrl: widget.testPiece?.imageUrl, // 既存のURLを維持
         imagePath: imagePath,
@@ -177,6 +186,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         firingAtmosphereId: _selectedFiringAtmosphereId,
         colorData: _colorData, // 編集された色データをセット
         firingProfileId: _selectedFiringProfileId,
+        note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
         createdAt: widget.testPiece?.createdAt ?? Timestamp.now(),
       );
 
@@ -425,7 +435,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         : null;
 
     return [
-      // 釉薬選択
+      // 釉薬選択 (Primary)
       DropdownSearch<Glaze>(
         items: (f, cs) => _availableGlazes,
         itemAsString: (Glaze g) => g.name,
@@ -453,12 +463,45 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
           ),
         ),
         decoratorProps: const DropDownDecoratorProps(
-          decoration: InputDecoration(labelText: "釉薬名"),
+          decoration: InputDecoration(labelText: "釉薬名 (メイン)"),
         ),
         validator: (Glaze? item) => item == null ? "釉薬を選択してください" : null,
         compareFn: (Glaze a, Glaze b) => a.id == b.id,
       ),
       const SizedBox(height: 16),
+      
+      // 追加の釉薬 (Additional)
+      DropdownSearch<Glaze>.multiSelection(
+        items: (f, cs) => _availableGlazes,
+        itemAsString: (Glaze g) => g.name,
+        selectedItems: _availableGlazes
+            .where((g) => _additionalGlazeIds.contains(g.id))
+            .toList(),
+        onChanged: (List<Glaze> data) {
+          _markAsDirty();
+          setState(() {
+            _additionalGlazeIds = data.map((g) => g.id!).toList();
+          });
+        },
+        popupProps: PopupPropsMultiSelection.menu(
+          showSearchBox: true,
+          searchFieldProps: TextFieldProps(
+            decoration: InputDecoration(
+              border: const OutlineInputBorder(),
+              contentPadding: const EdgeInsets.fromLTRB(12, 12, 8, 0),
+              labelText: "追加の釉薬を検索",
+              hintText: "釉薬名を入力...",
+            ),
+            autofocus: false,
+          ),
+        ),
+        decoratorProps: const DropDownDecoratorProps(
+          decoration: InputDecoration(labelText: "追加の釉薬 (重ね掛けなど)"),
+        ),
+        compareFn: (Glaze a, Glaze b) => a.id == b.id,
+      ),
+      const SizedBox(height: 16),
+
       // 素地土名選択
       DropdownSearch<Clay>(
         items: (f, cs) => _availableClays,
@@ -532,6 +575,17 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         },
         validator: null,
       ),
+      const SizedBox(height: 16),
+      // 備考
+      TextFormField(
+        controller: _noteController,
+        decoration: const InputDecoration(
+          labelText: '備考',
+          border: OutlineInputBorder(),
+        ),
+        maxLines: 3,
+      ),
+
       // グラフ表示エリア
       if (selectedProfile?.curveData != null &&
           selectedProfile!.curveData!.isNotEmpty) ...[
@@ -692,3 +746,4 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     }
   }
 }
+
