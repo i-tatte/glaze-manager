@@ -317,12 +317,15 @@ class FirestoreService {
         .doc(_userId)
         .collection('test_pieces')
         .where('relatedGlazeIds', arrayContains: glazeId)
-        .orderBy('createdAt', descending: true)
+        // .orderBy('createdAt', descending: true) // 複合インデックスが必要なためクライアント側でソート
         .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => TestPiece.fromFirestore(doc)).toList(),
-        );
+        .map((snapshot) {
+          final docs = snapshot.docs
+              .map((doc) => TestPiece.fromFirestore(doc))
+              .toList();
+          docs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return docs;
+        });
   }
 
   // 特定のテストピースを取得 (リアルタイム)
@@ -620,12 +623,10 @@ class FirestoreService {
         .doc(_userId)
         .collection('tags')
         .doc(tagName);
-    
+
     final doc = await docRef.get();
     if (!doc.exists) {
-      await docRef.set({
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      await docRef.set({'createdAt': FieldValue.serverTimestamp()});
     }
   }
 

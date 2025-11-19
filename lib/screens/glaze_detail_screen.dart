@@ -229,11 +229,16 @@ class _GlazeDetailScreenState extends State<GlazeDetailScreen> {
                               aspectRatio: 1,
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(8.0),
-                                child:
-                                    (testPiece.thumbnailUrl != null &&
-                                        testPiece.thumbnailUrl!.isNotEmpty)
-                                    ? Image.network(
-                                        testPiece.thumbnailUrl!,
+                                child: Builder(
+                                  builder: (context) {
+                                    final url =
+                                        (testPiece.thumbnailUrl != null &&
+                                            testPiece.thumbnailUrl!.isNotEmpty)
+                                        ? testPiece.thumbnailUrl
+                                        : testPiece.imageUrl;
+                                    if (url != null && url.isNotEmpty) {
+                                      return Image.network(
+                                        url,
                                         fit: BoxFit.cover,
                                         loadingBuilder:
                                             (context, child, loadingProgress) {
@@ -249,8 +254,14 @@ class _GlazeDetailScreenState extends State<GlazeDetailScreen> {
                                             (context, error, stackTrace) {
                                               return const Icon(Icons.error);
                                             },
-                                      )
-                                    : const Icon(Icons.image_not_supported),
+                                      );
+                                    } else {
+                                      return const Icon(
+                                        Icons.image_not_supported,
+                                      );
+                                    }
+                                  },
+                                ),
                               ),
                             ),
                           ],

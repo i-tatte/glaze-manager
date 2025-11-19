@@ -9,6 +9,7 @@ import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/settings_service.dart';
 import 'package:glaze_manager/widgets/test_piece_grid.dart';
+import 'package:glaze_manager/widgets/tag_management_widget.dart';
 import 'package:provider/provider.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -27,6 +28,7 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _isLoading = false;
   String _searchQuery = '';
   Color? _searchColor;
+  List<String> _selectedTags = [];
 
   // データ
   List<TestPiece> _allTestPieces = [];
@@ -35,6 +37,7 @@ class _SearchScreenState extends State<SearchScreen> {
   Map<String, FiringAtmosphere> _atmosphereMap = {};
   Map<String, FiringProfile> _profileMap = {};
   List<TestPiece> _searchResults = [];
+  List<String> _allTags = [];
 
   @override
   void initState() {
@@ -62,6 +65,7 @@ class _SearchScreenState extends State<SearchScreen> {
       firestoreService.getFiringAtmospheres().first,
       firestoreService.getFiringProfiles().first,
       firestoreService.getClays().first,
+      firestoreService.getTags().first,
     ]);
 
     final glazes = results[0] as List<Glaze>;
@@ -69,6 +73,7 @@ class _SearchScreenState extends State<SearchScreen> {
     final atmospheres = results[2] as List<FiringAtmosphere>;
     final profiles = results[3] as List<FiringProfile>;
     final clays = results[4] as List<Clay>;
+    final tags = results[5] as List<String>;
 
     if (mounted) {
       setState(() {
@@ -77,78 +82,116 @@ class _SearchScreenState extends State<SearchScreen> {
         _atmosphereMap = {for (var item in atmospheres) item.id!: item};
         _profileMap = {for (var item in profiles) item.id!: item};
         _allTestPieces = testPieces;
+        _allTags = tags;
         _isLoading = false;
       });
     }
   }
 
   void _onSearchChanged() {
-    if (_searchController.text.isEmpty && _isSearching) {
+    if (_searchController.text.isEmpty &&
+        _isSearching &&
+        _searchColor == null &&
+        _selectedTags.isEmpty) {
       setState(() {
         _isSearching = false;
         _searchResults.clear();
         _searchQuery = '';
-        _searchColor = null;
       });
     }
   }
 
-  void _performTextSearch(String query) {
-    if (query.isEmpty) {
-      _onSearchChanged();
-      return;
-    }
-
+  void _applyFilters() {
     setState(() {
       _isLoading = true;
       _isSearching = true;
-      _searchQuery = query;
-      _searchColor = null;
     });
 
-    final lowerQuery = query.toLowerCase();
+    List<TestPiece> filtered = _allTestPieces;
 
-    // クライアントサイドでのフィルタリング
-    _searchResults = _allTestPieces.where((tp) {
-      final glaze = _glazeMap[tp.glazeId];
-      if (glaze == null) return false;
+    // 1. 色検索 (優先)
+    if (_searchColor != null) {
+      final targetColorSwatch = ColorSwatch.fromColor(_searchColor!);
+      const double deltaEThreshold = 30.0;
+      final List<(TestPiece, double)> matchedPieces = [];
 
-      // 釉薬名での部分一致
-      bool glazeNameMatch = glaze.name.toLowerCase().contains(lowerQuery);
+      for (final testPiece in filtered) {
+        if (testPiece.colorData == null || testPiece.colorData!.isEmpty)
+          continue;
+        double minDeltaE = double.infinity;
+        for (final swatch in testPiece.colorData!) {
+          final deltaE = targetColorSwatch.deltaE(swatch);
+          if (deltaE < minDeltaE) {
+            minDeltaE = deltaE;
+          }
+        }
+        if (minDeltaE <= deltaEThreshold) {
+          matchedPieces.add((testPiece, minDeltaE));
+        }
+      }
+      matchedPieces.sort((a, b) => a.$2.compareTo(b.$2));
+      filtered = matchedPieces.map((e) => e.$1).toList();
+    }
 
-      // タグでの部分一致
-      bool tagMatch = glaze.tags.any(
-        (tag) => tag.toLowerCase().contains(lowerQuery),
-      );
+    // 2. テキスト検索
+    if (_searchQuery.isNotEmpty) {
+      final lowerQuery = _searchQuery.toLowerCase();
+      filtered = filtered.where((tp) {
+        final glaze = _glazeMap[tp.glazeId];
+        if (glaze == null) return false;
 
-      // 素地土名での部分一致
-      final clay = _clayMap[tp.clayId];
-      bool clayNameMatch =
-          clay?.name.toLowerCase().contains(lowerQuery) ?? false;
+        bool glazeNameMatch = glaze.name.toLowerCase().contains(lowerQuery);
+        bool tagMatch = glaze.tags.any(
+          (tag) => tag.toLowerCase().contains(lowerQuery),
+        );
+        final clay = _clayMap[tp.clayId];
+        bool clayNameMatch =
+            clay?.name.toLowerCase().contains(lowerQuery) ?? false;
+        final atmosphere = _atmosphereMap[tp.firingAtmosphereId];
+        bool atmosphereMatch =
+            atmosphere?.name.toLowerCase().contains(lowerQuery) ?? false;
+        final profile = _profileMap[tp.firingProfileId];
+        bool profileMatch =
+            profile?.name.toLowerCase().contains(lowerQuery) ?? false;
 
-      // 焼成雰囲気名での部分一致
-      final atmosphere = _atmosphereMap[tp.firingAtmosphereId];
-      bool atmosphereMatch =
-          atmosphere?.name.toLowerCase().contains(lowerQuery) ?? false;
+        return glazeNameMatch ||
+            tagMatch ||
+            clayNameMatch ||
+            atmosphereMatch ||
+            profileMatch;
+      }).toList();
+    }
 
-      // 焼成プロファイル名での部分一致
-      final profile = _profileMap[tp.firingProfileId];
-      bool profileMatch =
-          profile?.name.toLowerCase().contains(lowerQuery) ?? false;
+    // 3. タグフィルタ (AND検索)
+    if (_selectedTags.isNotEmpty) {
+      filtered = filtered.where((tp) {
+        final glaze = _glazeMap[tp.glazeId];
+        if (glaze == null) return false;
+        return _selectedTags.every((tag) => glaze.tags.contains(tag));
+      }).toList();
+    }
 
-      return glazeNameMatch ||
-          tagMatch ||
-          clayNameMatch ||
-          atmosphereMatch ||
-          profileMatch;
-    }).toList();
+    setState(() {
+      _searchResults = filtered;
+      _isLoading = false;
+      if (_searchQuery.isEmpty &&
+          _searchColor == null &&
+          _selectedTags.isEmpty) {
+        _isSearching = false;
+      }
+    });
+  }
 
-    setState(() => _isLoading = false);
+  void _performTextSearch(String query) {
+    setState(() {
+      _searchQuery = query;
+      _searchColor = null; // テキスト検索時は色検索をクリア
+    });
+    _applyFilters();
   }
 
   Future<void> _openColorPicker() async {
     Color selectedColor = _searchColor ?? Colors.grey;
-
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -178,69 +221,155 @@ class _SearchScreenState extends State<SearchScreen> {
     );
 
     if (confirmed == true) {
-      _performColorSearch(selectedColor);
+      setState(() {
+        _searchColor = selectedColor;
+        _searchQuery = ''; // 色検索時はテキスト検索をクリア
+      });
+      _applyFilters();
     }
-  }
-
-  void _performColorSearch(Color color) {
-    setState(() {
-      _isLoading = true;
-      _isSearching = true;
-      _searchQuery = ''; // テキスト検索クエリはクリア
-      _searchColor = color;
-    });
-
-    // 検索対象の色をLab値に変換
-    final targetColorSwatch = ColorSwatch.fromColor(color);
-    const double deltaEThreshold = 30.0; // 色差のしきい値
-
-    final List<(TestPiece, double)> matchedPieces = [];
-
-    for (final testPiece in _allTestPieces) {
-      if (testPiece.colorData == null || testPiece.colorData!.isEmpty) continue;
-
-      double minDeltaE = double.infinity;
-
-      // テストピース内の各色との色差を計算し、最小値を取得
-      for (final swatch in testPiece.colorData!) {
-        final deltaE = targetColorSwatch.deltaE(swatch);
-        if (deltaE < minDeltaE) {
-          minDeltaE = deltaE;
-        }
-      }
-
-      // しきい値以下の色差であれば、結果に追加
-      if (minDeltaE <= deltaEThreshold) {
-        matchedPieces.add((testPiece, minDeltaE));
-      }
-    }
-
-    // 色差が小さい順にソート
-    matchedPieces.sort((a, b) => a.$2.compareTo(b.$2));
-    _searchResults = matchedPieces.map((e) => e.$1).toList();
-
-    setState(() => _isLoading = false);
   }
 
   void _openTagSelector() {
-    // TODO: Implement tag selector and search logic
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('タグ検索は未実装です。')));
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return DraggableScrollableSheet(
+              initialChildSize: 0.6,
+              minChildSize: 0.4,
+              maxChildSize: 0.9,
+              expand: false,
+              builder: (context, scrollController) {
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'タグで絞り込み',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              Navigator.of(context)
+                                  .push(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const TagManagementWidget(),
+                                    ),
+                                  )
+                                  .then(
+                                    (_) => _loadInitialData(),
+                                  ); // タグ管理から戻ったらデータを再読み込み
+                            },
+                            child: const Text('タグ管理'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: _allTags.isEmpty
+                          ? const Center(child: Text('タグが登録されていません'))
+                          : ListView.builder(
+                              controller: scrollController,
+                              itemCount: _allTags.length,
+                              itemBuilder: (context, index) {
+                                final tag = _allTags[index];
+                                final isSelected = _selectedTags.contains(tag);
+                                return CheckboxListTile(
+                                  title: Text(tag),
+                                  value: isSelected,
+                                  onChanged: (bool? value) {
+                                    setModalState(() {
+                                      if (value == true) {
+                                        _selectedTags.add(tag);
+                                      } else {
+                                        _selectedTags.remove(tag);
+                                      }
+                                    });
+                                    // 親のStateも更新して即時反映
+                                    _applyFilters();
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                setModalState(() {
+                                  _selectedTags.clear();
+                                });
+                                _applyFilters();
+                              },
+                              child: const Text('クリア'),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('完了'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // SettingsServiceからグリッド列数を取得
     final crossAxisCount = context.watch<SettingsService>().gridCrossAxisCount;
 
     return Scaffold(
-      // AppBarはMainTabScreenで管理されるため、ここでは不要
       body: Column(
         children: [
-          // 検索バー
           _buildSearchBar(),
-          // メインコンテンツ
+          if (_selectedTags.isNotEmpty)
+            SizedBox(
+              height: 40,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _selectedTags.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final tag = _selectedTags[index];
+                  return Chip(
+                    label: Text(tag),
+                    onDeleted: () {
+                      setState(() {
+                        _selectedTags.remove(tag);
+                      });
+                      _applyFilters();
+                    },
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  );
+                },
+              ),
+            ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -273,16 +402,29 @@ class _SearchScreenState extends State<SearchScreen> {
               if (_isSearching)
                 IconButton(
                   icon: const Icon(Icons.clear),
-                  onPressed: () => _searchController.clear(),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {
+                      _searchQuery = '';
+                      _searchColor = null;
+                      _selectedTags.clear();
+                    });
+                    _applyFilters();
+                  },
                   tooltip: 'クリア',
                 ),
               IconButton(
-                icon: const Icon(Icons.color_lens_outlined),
+                icon: Icon(Icons.color_lens_outlined, color: _searchColor),
                 onPressed: _openColorPicker,
                 tooltip: '色で検索',
               ),
               IconButton(
-                icon: const Icon(Icons.label_outline),
+                icon: Icon(
+                  _selectedTags.isEmpty ? Icons.label_outline : Icons.label,
+                  color: _selectedTags.isNotEmpty
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                ),
                 onPressed: _openTagSelector,
                 tooltip: 'タグで検索',
               ),
@@ -307,14 +449,13 @@ class _SearchScreenState extends State<SearchScreen> {
         }
 
         final recentIds = snapshot.data!;
-        // IDの順序を保持したまま、対応するTestPieceオブジェクトのリストを作成
         final recentPieces = <TestPiece>[];
         for (final id in recentIds) {
           try {
             final piece = _allTestPieces.firstWhere((p) => p.id == id);
             recentPieces.add(piece);
           } catch (e) {
-            // _allTestPieces内にIDが見つからない場合は何もしない (無視する)
+            // ignore
           }
         }
 
@@ -374,7 +515,7 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
         Expanded(
           child: _searchResults.isEmpty
-              ? Center(child: Text('「$_searchQuery」に一致する結果はありません。'))
+              ? Center(child: Text('条件に一致する結果はありません。'))
               : TestPieceGrid(
                   testPieces: _searchResults,
                   glazeMap: _glazeMap,
