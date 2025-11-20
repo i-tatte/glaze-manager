@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:glaze_manager/models/material.dart' as app;
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:provider/provider.dart';
+import 'package:glaze_manager/widgets/common/unsaved_changes_pop_scope.dart';
+import 'package:glaze_manager/widgets/common/common_app_bar_actions.dart';
 
 class MaterialEditScreen extends StatefulWidget {
   final app.Material? material;
@@ -246,60 +248,17 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !_isDirty,
-      onPopInvoked: (didPop) async {
-        if (didPop) return; // canPop: true の場合
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('変更を破棄しますか？'),
-            content: const Text('入力中の内容は保存されません。'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('キャンセル'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('破棄', style: TextStyle(color: Colors.red)),
-              ),
-            ],
-          ),
-        );
-        if (confirmed == true && mounted) {
-          Navigator.of(context).pop();
-        }
-      },
+    return UnsavedChangesPopScope(
+      isDirty: _isDirty,
       child: Scaffold(
         appBar: AppBar(
           title: Text(widget.material == null ? '原料の新規作成' : '原料の編集'),
           actions: [
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(color: Colors.black),
-                ),
-              )
-            else
-              Row(
-                children: [
-                  if (widget.material != null)
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      tooltip: '削除',
-                      onPressed: _confirmDelete,
-                    ),
-                  IconButton(
-                    icon: const Icon(Icons.save),
-                    tooltip: '保存',
-                    onPressed: _saveMaterial,
-                  ),
-                ],
-              ),
+            CommonAppBarActions(
+              isLoading: _isLoading,
+              onDelete: widget.material != null ? _confirmDelete : null,
+              onSave: _saveMaterial,
+            ),
           ],
         ),
         body: Form(
