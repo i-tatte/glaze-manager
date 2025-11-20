@@ -7,6 +7,7 @@ import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/settings_service.dart';
 import 'package:glaze_manager/widgets/test_piece_grid.dart';
 import 'package:provider/provider.dart';
+import 'package:glaze_manager/widgets/common/empty_list_placeholder.dart';
 
 class TestPieceListScreen extends StatefulWidget {
   final PageStorageKey? pageStorageKey;
@@ -99,11 +100,8 @@ class TestPieceListScreenState extends State<TestPieceListScreen> {
                           }
                           if (!testPieceSnapshot.hasData ||
                               testPieceSnapshot.data!.isEmpty) {
-                            return const Center(
-                              child: Text(
-                                'テストピースが登録されていません。\n右下のボタンから追加してください。',
-                                textAlign: TextAlign.center,
-                              ),
+                            return const EmptyListPlaceholder(
+                              message: 'テストピースが登録されていません。\n右下のボタンから追加してください。',
                             );
                           }
 

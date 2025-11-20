@@ -6,6 +6,8 @@ import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/screens/glaze_detail_screen.dart';
 import 'package:glaze_manager/widgets/tag_management_widget.dart';
 import 'package:provider/provider.dart';
+import 'package:glaze_manager/widgets/common/common_search_bar.dart';
+import 'package:glaze_manager/widgets/common/empty_list_placeholder.dart';
 
 enum SortOption { name, createdAt }
 
@@ -293,27 +295,9 @@ class GlazeListScreenState extends State<GlazeListScreen> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: TextField(
+                      child: CommonSearchBar(
                         controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: '釉薬名, 登録名, タグ, 原料名で検索...',
-                          prefixIcon: const Icon(Icons.search),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12.0),
-                            borderSide: BorderSide.none,
-                          ),
-                          filled: true,
-                          fillColor: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest,
-                          contentPadding: EdgeInsets.zero,
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () => _searchController.clear(),
-                                )
-                              : null,
-                        ),
+                        hintText: '釉薬名, 登録名, タグ, 原料名で検索...',
                       ),
                     ),
                     // フィルタボタン
@@ -404,14 +388,12 @@ class GlazeListScreenState extends State<GlazeListScreen> {
                           );
 
                           if (displayedGlazes.isEmpty) {
-                            return Center(
-                              child: Text(
-                                _searchQuery.isNotEmpty ||
-                                        _selectedTags.isNotEmpty
-                                    ? '検索条件に一致する釉薬が見つかりません。'
-                                    : '釉薬が登録されていません。\n右下のボタンから追加してください。',
-                                textAlign: TextAlign.center,
-                              ),
+                            return EmptyListPlaceholder(
+                              message:
+                                  _searchQuery.isNotEmpty ||
+                                      _selectedTags.isNotEmpty
+                                  ? '検索条件に一致する釉薬が見つかりません。'
+                                  : '釉薬が登録されていません。\n右下のボタンから追加してください。',
                             );
                           }
 
