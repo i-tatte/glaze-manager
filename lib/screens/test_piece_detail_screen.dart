@@ -463,7 +463,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
     Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false, // 背景を透過させる
-        barrierColor: Colors.black.withOpacity(0.7), // 背景の半透明色
+        barrierColor: Colors.black.withValues(alpha: 0.7), // 背景の半透明色
         pageBuilder: (context, animation, secondaryAnimation) {
           return _FullScreenImageScreen(testPiece: testPiece);
         },

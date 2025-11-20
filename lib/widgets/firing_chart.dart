@@ -230,7 +230,7 @@ class FiringChart extends StatelessWidget {
                   VerticalRangeAnnotation(
                     x1: reductionTimeRange.start!,
                     x2: reductionTimeRange.end!,
-                    color: Colors.blue.withOpacity(0.2),
+                    color: Colors.blue.withValues(alpha: 0.2),
                   ),
               ],
               horizontalRangeAnnotations: [
