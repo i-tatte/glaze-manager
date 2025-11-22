@@ -1,22 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/screens/login_screen.dart';
 import 'package:glaze_manager/services/auth_service.dart';
 import 'package:mockito/mockito.dart';
 import 'package:provider/provider.dart';
 
-// main_tab_screen_test.dartで生成されたモックを再利用します
 import 'main_tab_screen_test.mocks.dart';
 
 void main() {
   late MockAuthService mockAuthService;
 
-  // 各テストの前にモックを初期化
   setUp(() {
     mockAuthService = MockAuthService();
+
+    // Mock MethodChannel for checkConnectivity
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('dev.fluttercommunity.plus/connectivity'),
+          (MethodCall methodCall) async {
+            if (methodCall.method == 'check') {
+              return ['wifi'];
+            }
+            return null;
+          },
+        );
   });
 
-  // テスト対象のウィジェットをラップするヘルパー関数
   Widget createTestableWidget(Widget child) {
     return Provider<AuthService>(
       create: (_) => mockAuthService,
@@ -30,10 +40,8 @@ void main() {
     ) async {
       await tester.pumpWidget(createTestableWidget(const LoginScreen()));
 
-      // 各ボタンが表示されていることを確認
       expect(find.widgetWithText(SizedBox, '匿名で始める'), findsOneWidget);
       expect(find.widgetWithText(SizedBox, 'Googleでサインイン'), findsOneWidget);
-      // ローディングインジケーターが表示されていないことを確認
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
 
@@ -42,21 +50,16 @@ void main() {
       (WidgetTester tester) async {
         await tester.pumpWidget(createTestableWidget(const LoginScreen()));
 
-        // 「匿名で始める」ボタンをタップ
-        await tester.tap(find.widgetWithText(SizedBox, '匿名で始める'));
+        await tester.tap(find.text('匿名で始める'));
         await tester.pumpAndSettle();
 
-        // 確認ダイアログが表示されていることを確認
         expect(find.byType(AlertDialog), findsOneWidget);
         expect(find.text('匿名ログインの注意点'), findsOneWidget);
 
-        // 「キャンセル」をタップ
         await tester.tap(find.text('キャンセル'));
         await tester.pumpAndSettle();
 
-        // ダイアログが閉じていることを確認
         expect(find.byType(AlertDialog), findsNothing);
-        // ログイン処理が呼ばれていないことを確認
         verifyNever(mockAuthService.signInAnonymously());
       },
     );
@@ -64,46 +67,36 @@ void main() {
     testWidgets('should call signInAnonymously when confirmed', (
       WidgetTester tester,
     ) async {
-      // signInAnonymouslyが完了しないようにFutureを返す
       when(
         mockAuthService.signInAnonymously(),
       ).thenAnswer((_) => Future.value());
 
       await tester.pumpWidget(createTestableWidget(const LoginScreen()));
 
-      // 「匿名で始める」ボタンをタップ
-      await tester.tap(find.widgetWithText(SizedBox, '匿名で始める'));
+      await tester.tap(find.text('匿名で始める'));
       await tester.pumpAndSettle();
 
-      // 「匿名で続ける」をタップ
       await tester.tap(find.text('匿名で続ける'));
-      await tester.pump(); // ローディング表示のためにpump
+      await tester.pump();
 
-      // ログイン処理が1回呼ばれたことを確認
       verify(mockAuthService.signInAnonymously()).called(1);
-
-      // 処理完了を待つ
       await tester.pumpAndSettle();
     });
 
     testWidgets(
       'should call signInWithGoogle when Google sign-in button is tapped',
       (WidgetTester tester) async {
-        // signInWithGoogleが完了しないようにFutureを返す
         when(
           mockAuthService.signInWithGoogle(),
         ).thenAnswer((_) => Future.value());
 
         await tester.pumpWidget(createTestableWidget(const LoginScreen()));
+        await tester.pumpAndSettle();
 
-        // 「Googleでサインイン」ボタンをタップ
-        await tester.tap(find.widgetWithText(SizedBox, 'Googleでサインイン'));
-        await tester.pump(); // ローディング表示のためにpump
+        await tester.tap(find.text('Googleでサインイン'));
+        await tester.pump();
 
-        // ログイン処理が1回呼ばれたことを確認
         verify(mockAuthService.signInWithGoogle()).called(1);
-
-        // 処理完了を待つ
         await tester.pumpAndSettle();
       },
     );
