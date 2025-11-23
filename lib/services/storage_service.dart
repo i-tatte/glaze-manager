@@ -3,8 +3,12 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 
 class StorageService {
-  final FirebaseStorage _storage = FirebaseStorage.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseStorage _storage;
+  final FirebaseAuth _auth;
+
+  StorageService({FirebaseStorage? storage, FirebaseAuth? auth})
+    : _storage = storage ?? FirebaseStorage.instance,
+      _auth = auth ?? FirebaseAuth.instance;
 
   String? get _userId => _auth.currentUser?.uid;
 
