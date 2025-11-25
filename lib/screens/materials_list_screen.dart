@@ -4,6 +4,8 @@ import 'package:glaze_manager/screens/material_edit_screen.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/screens/material_detail_screen.dart';
 import 'package:provider/provider.dart';
+import 'package:glaze_manager/widgets/common/common_search_bar.dart';
+import 'package:glaze_manager/widgets/common/empty_list_placeholder.dart';
 
 class MaterialsListScreen extends StatefulWidget {
   final PageStorageKey? pageStorageKey;
@@ -175,27 +177,9 @@ class MaterialsListScreenState extends State<MaterialsListScreen> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: TextField(
+                      child: CommonSearchBar(
                         controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: '原料名, 化学成分で検索...',
-                          prefixIcon: const Icon(Icons.search),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12.0),
-                            borderSide: BorderSide.none,
-                          ),
-                          filled: true,
-                          fillColor: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest,
-                          contentPadding: EdgeInsets.zero,
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () => _searchController.clear(),
-                                )
-                              : null,
-                        ),
+                        hintText: '原料名, 化学成分で検索...',
                       ),
                     ),
                     IconButton(
@@ -224,15 +208,13 @@ class MaterialsListScreenState extends State<MaterialsListScreen> {
                       final displayedMaterials = _filterMaterials(allMaterials);
 
                       if (displayedMaterials.isEmpty) {
-                        return Center(
-                          child: Text(
-                            _searchQuery.isNotEmpty ||
-                                    _selectedCategories.length !=
-                                        app.MaterialCategory.values.length
-                                ? '条件に一致する原料が見つかりません。'
-                                : '原料が登録されていません。\n右下のボタンから追加してください。',
-                            textAlign: TextAlign.center,
-                          ),
+                        return EmptyListPlaceholder(
+                          message:
+                              _searchQuery.isNotEmpty ||
+                                  _selectedCategories.length !=
+                                      app.MaterialCategory.values.length
+                              ? '条件に一致する原料が見つかりません。'
+                              : '原料が登録されていません。\n右下のボタンから追加してください。',
                         );
                       }
 

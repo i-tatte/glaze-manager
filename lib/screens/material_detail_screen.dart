@@ -93,7 +93,7 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
                             states,
                           ) {
                             if (index.isEven) {
-                              return Colors.grey.withOpacity(0.1);
+                              return Colors.grey.withValues(alpha: 0.1);
                             }
                             return null;
                           }),

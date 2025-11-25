@@ -75,9 +75,9 @@ class ColorSwatch {
   /// FlutterのColor (sRGB) からLab値を生成する
   factory ColorSwatch.fromColor(Color color) {
     // Step 1: sRGB to XYZ
-    double r = color.red / 255.0;
-    double g = color.green / 255.0;
-    double b = color.blue / 255.0;
+    double r = color.r;
+    double g = color.g;
+    double b = color.b;
 
     r = (r > 0.04045) ? pow((r + 0.055) / 1.055, 2.4).toDouble() : r / 12.92;
     g = (g > 0.04045) ? pow((g + 0.055) / 1.055, 2.4).toDouble() : g / 12.92;

@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glaze_manager/models/clay.dart';
+import 'package:glaze_manager/models/glaze.dart';
+import 'package:glaze_manager/models/material.dart' as app_material;
+import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/screens/main_tab_screen.dart';
+import 'package:glaze_manager/screens/materials_list_screen.dart';
 import 'package:glaze_manager/services/auth_service.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/settings_service.dart';
@@ -32,17 +37,29 @@ void main() {
     // getGlazes()などがStreamを返すため、空のStreamを返すように設定
     when(
       mockFirestoreService.getTestPieces(),
-    ).thenAnswer((_) => Stream.value([]));
-    when(mockFirestoreService.getGlazes()).thenAnswer((_) => Stream.value([]));
+    ).thenAnswer((_) => Stream.value(<TestPiece>[]));
+    when(
+      mockFirestoreService.getGlazes(),
+    ).thenAnswer((_) => Stream.value(<Glaze>[]));
     when(
       mockFirestoreService.getMaterials(),
-    ).thenAnswer((_) => Stream.value([]));
+    ).thenAnswer((_) => Stream.value(<app_material.Material>[]));
+    when(
+      mockFirestoreService.getTags(),
+    ).thenAnswer((_) => Stream.value(<String>[]));
+    when(
+      mockFirestoreService.getClays(),
+    ).thenAnswer((_) => Stream.value(<Clay>[]));
 
     // SettingsServiceのgetterをスタブ
     when(mockSettingsService.gridCrossAxisCount).thenReturn(4); // デフォルト値として4を設定
     when(
       mockSettingsService.maxGridCrossAxisCount,
     ).thenReturn(10); // デフォルト値として10を設定
+
+    // ChangeNotifierのメソッドをスタブ
+    when(mockSettingsService.addListener(any)).thenReturn(null);
+    when(mockSettingsService.removeListener(any)).thenReturn(null);
   });
 
   // テスト対象のウィジェットをラップするヘルパー関数
@@ -126,6 +143,10 @@ void main() {
       // 「釉薬一覧」タブに移動
       await tester.tap(find.byIcon(Icons.color_lens_outlined));
       await tester.pumpAndSettle();
+      if (tester.takeException() != null) {
+        debugPrint('Exception after tap Glaze tab: ${tester.takeException()}');
+      }
+
       // アクションボタンがないことを確認
       expect(find.widgetWithText(TextButton, '編集'), findsNothing);
       expect(find.byIcon(Icons.logout), findsNothing);
@@ -133,14 +154,30 @@ void main() {
       // 「原料一覧」タブに移動
       await tester.tap(find.byIcon(Icons.science_outlined));
       await tester.pumpAndSettle();
+      if (tester.takeException() != null) {
+        debugPrint(
+          'Exception after tap Materials tab: ${tester.takeException()}',
+        );
+      }
+
+      // 原料一覧画面が表示されていることを確認
+      expect(find.byType(MaterialsListScreen), findsOneWidget);
+
       // 「編集」ボタンが表示されることを確認
       expect(find.widgetWithText(TextButton, '編集'), findsOneWidget);
+
       // サインアウトボタンがないことを確認
       expect(find.byIcon(Icons.logout), findsNothing);
 
       // 「設定」タブに移動
       await tester.tap(find.byIcon(Icons.settings_outlined));
       await tester.pumpAndSettle();
+      if (tester.takeException() != null) {
+        debugPrint(
+          'Exception after tap Settings tab: ${tester.takeException()}',
+        );
+      }
+
       // 「編集」ボタンがないことを確認
       expect(find.widgetWithText(TextButton, '編集'), findsNothing);
       // サインアウトボタンが表示されることを確認

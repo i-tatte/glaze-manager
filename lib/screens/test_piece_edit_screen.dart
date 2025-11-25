@@ -18,6 +18,8 @@ import 'package:provider/provider.dart';
 import 'package:glaze_manager/widgets/firing_chart.dart';
 import 'package:uuid/uuid.dart';
 import 'package:path/path.dart' as p;
+import 'package:glaze_manager/widgets/common/unsaved_changes_pop_scope.dart';
+import 'package:glaze_manager/widgets/common/common_app_bar_actions.dart';
 
 class TestPieceEditScreen extends StatefulWidget {
   final TestPiece? testPiece;
@@ -296,41 +298,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !_isDirty,
-      onPopInvoked: _onPopInvoked,
-      child: _buildScaffold(),
-    );
-  }
-
-  /// 画面を離れる際に未保存の変更があるか確認する
-  Future<void> _onPopInvoked(bool didPop) async {
-    if (didPop) return;
-
-    if (_isDirty) {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('変更を破棄しますか？'),
-          content: const Text('入力中の内容は保存されません。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('キャンセル'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('破棄', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        ),
-      );
-      if (confirmed == true && mounted) {
-        Navigator.of(context).pop();
-      }
-    } else {
-      Navigator.of(context).pop();
-    }
+    return UnsavedChangesPopScope(isDirty: _isDirty, child: _buildScaffold());
   }
 
   Widget _buildScaffold() {
@@ -338,31 +306,11 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       appBar: AppBar(
         title: Text(widget.testPiece == null ? 'テストピースの新規作成' : 'テストピースの編集'),
         actions: [
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(color: Colors.black),
-              ),
-            )
-          else
-            Row(
-              children: [
-                if (widget.testPiece != null)
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                    tooltip: '削除',
-                    onPressed: _confirmDelete,
-                  ),
-                IconButton(
-                  icon: const Icon(Icons.save),
-                  tooltip: '保存',
-                  onPressed: _saveTestPiece,
-                ),
-              ],
-            ),
+          CommonAppBarActions(
+            isLoading: _isLoading,
+            onDelete: widget.testPiece != null ? _confirmDelete : null,
+            onSave: _saveTestPiece,
+          ),
         ],
       ),
       body: LayoutBuilder(
