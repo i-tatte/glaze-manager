@@ -202,7 +202,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
                 // isEditingNotifierの状態が変更されるたびにAppBarのボタンも再描画
                 ValueListenableBuilder<bool>(
                   valueListenable: _isMaterialsEditingNotifier,
-                  builder: (context, _, __) => Row(
+                  builder: (context, _, _) => Row(
                     children: MaterialsListScreen.buildActions(
                       context,
                       _isMaterialsEditingNotifier,

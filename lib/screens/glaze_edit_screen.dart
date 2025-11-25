@@ -5,6 +5,8 @@ import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:provider/provider.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:glaze_manager/widgets/common/unsaved_changes_pop_scope.dart';
+import 'package:glaze_manager/widgets/common/common_app_bar_actions.dart';
 
 class GlazeEditScreen extends StatefulWidget {
   final Glaze? glaze;
@@ -39,8 +41,9 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.glaze?.name ?? '');
-    _registeredNameController =
-        TextEditingController(text: widget.glaze?.registeredName ?? '');
+    _registeredNameController = TextEditingController(
+      text: widget.glaze?.registeredName ?? '',
+    );
     _descriptionController = TextEditingController(
       text: widget.glaze?.description ?? '',
     );
@@ -142,7 +145,8 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
           id: widget.glaze?.id,
           name: _nameController.text,
           registeredName: _registeredNameController.text.trim().isEmpty
-              ? null : _registeredNameController.text.trim(),
+              ? null
+              : _registeredNameController.text.trim(),
           recipe: recipeMap,
           description: _descriptionController.text.trim(),
           tags: _tags,
@@ -187,7 +191,9 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('削除の確認'),
-        content: Text('「${widget.glaze!.name}」を本当に削除しますか？\n関連するテストピースは削除されません。'),
+        content: Text(
+          '「${widget.glaze!.name}」を本当に削除しますか？\n関連するテストピースは削除されません。',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -211,60 +217,26 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
           navigator.popUntil((_) => count++ >= 2);
         }
       } catch (e) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !_isDirty,
-      onPopInvoked: (didPop) async {
-        if (didPop) return; // canPop: true の場合
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('変更を破棄しますか？'),
-            content: const Text('入力中の内容は保存されません。'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('キャンセル'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('破棄', style: TextStyle(color: Colors.red)),
-              ),
-            ],
-          ),
-        );
-        if (confirmed == true && mounted) {
-          Navigator.of(context).pop();
-        }
-      },
+    return UnsavedChangesPopScope(
+      isDirty: _isDirty,
       child: Scaffold(
         appBar: AppBar(
           title: Text(widget.glaze == null ? '釉薬の新規作成' : '釉薬の編集'),
           actions: [
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(color: Colors.black),
-                ),
-              )
-            else
-              Row(
-                children: [
-                  if (widget.glaze != null)
-                    IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), tooltip: '削除', onPressed: _confirmDelete),
-                  IconButton(icon: const Icon(Icons.save), tooltip: '保存', onPressed: _saveGlaze),
-                ],
-              ),
+            CommonAppBarActions(
+              isLoading: _isLoading,
+              onDelete: widget.glaze != null ? _confirmDelete : null,
+              onSave: _saveGlaze,
+            ),
           ],
         ),
         body: Form(
@@ -422,36 +394,37 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
                 _tagInputController.clear();
                 _tagFocusNode.requestFocus();
               },
-              fieldViewBuilder: (
-                BuildContext context,
-                TextEditingController fieldTextEditingController,
-                FocusNode fieldFocusNode,
-                VoidCallback onFieldSubmitted,
-              ) {
-                // 内部のコントローラーと外部のコントローラーを同期させる必要があるが、
-                // ここでは単純に内部のコントローラーを使用し、イベントリスナーで処理する
-                return TextField(
-                  controller: fieldTextEditingController,
-                  focusNode: fieldFocusNode,
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(vertical: 4.0),
-                    hintText: 'タグを入力...',
-                  ),
-                  onSubmitted: (value) {
-                    final newTag = value.trim();
-                    if (newTag.isNotEmpty && !_tags.contains(newTag)) {
-                      setState(() {
-                        _tags.add(newTag);
-                        _markAsDirty();
-                      });
-                    }
-                    fieldTextEditingController.clear();
-                    fieldFocusNode.requestFocus();
+              fieldViewBuilder:
+                  (
+                    BuildContext context,
+                    TextEditingController fieldTextEditingController,
+                    FocusNode fieldFocusNode,
+                    VoidCallback onFieldSubmitted,
+                  ) {
+                    // 内部のコントローラーと外部のコントローラーを同期させる必要があるが、
+                    // ここでは単純に内部のコントローラーを使用し、イベントリスナーで処理する
+                    return TextField(
+                      controller: fieldTextEditingController,
+                      focusNode: fieldFocusNode,
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(vertical: 4.0),
+                        hintText: 'タグを入力...',
+                      ),
+                      onSubmitted: (value) {
+                        final newTag = value.trim();
+                        if (newTag.isNotEmpty && !_tags.contains(newTag)) {
+                          setState(() {
+                            _tags.add(newTag);
+                            _markAsDirty();
+                          });
+                        }
+                        fieldTextEditingController.clear();
+                        fieldFocusNode.requestFocus();
+                      },
+                    );
                   },
-                );
-              },
             ),
           ),
         ],
