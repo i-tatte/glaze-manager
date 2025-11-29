@@ -1,3 +1,6 @@
+import 'dart:ui' as ui;
+import 'dart:typed_data';
+import 'package:flutter/rendering.dart' hide ColorSwatch;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart' hide ColorSwatch;
@@ -11,6 +14,7 @@ import 'package:glaze_manager/screens/glaze_detail_screen.dart';
 import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/widgets/firing_chart.dart';
+import 'package:glaze_manager/screens/search_screen.dart';
 import 'package:provider/provider.dart';
 
 class TestPieceDetailScreen extends StatefulWidget {
@@ -23,6 +27,9 @@ class TestPieceDetailScreen extends StatefulWidget {
 }
 
 class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
+  bool _isEyedropperActive = false;
+  final GlobalKey _imageKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -253,30 +260,75 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
           child: Hero(
             tag: 'testPieceImage_${testPiece.id}',
             child: Material(
-              child: InkWell(
-                onTap: testPiece.imageUrl != null
-                    ? () => _showFullScreenImage(context, testPiece)
-                    : null,
-                child: (testPiece.imageUrl != null)
-                    ? CachedNetworkImage(
-                        imageUrl: testPiece.imageUrl!,
-                        fit: BoxFit.contain,
-                        placeholder: (context, url) =>
-                            const Center(child: CircularProgressIndicator()),
-                        errorWidget: (context, url, error) => const Icon(
-                          Icons.broken_image_outlined,
-                          size: 50,
-                          color: Colors.grey,
-                        ),
-                      )
-                    : Container(
-                        color: Colors.grey[200],
-                        child: const Icon(
-                          Icons.photo,
-                          size: 60,
-                          color: Colors.grey,
-                        ),
+              child: Stack(
+                children: [
+                  GestureDetector(
+                    onTapUp: _isEyedropperActive ? _handleImageTap : null,
+                    onTap: !_isEyedropperActive && testPiece.imageUrl != null
+                        ? () => _showFullScreenImage(context, testPiece)
+                        : null,
+                    child: RepaintBoundary(
+                      key: _imageKey,
+                      child: (testPiece.imageUrl != null)
+                          ? CachedNetworkImage(
+                              imageUrl: testPiece.imageUrl!,
+                              fit: BoxFit.contain,
+                              placeholder: (context, url) => const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                              errorWidget: (context, url, error) => const Icon(
+                                Icons.broken_image_outlined,
+                                size: 50,
+                                color: Colors.grey,
+                              ),
+                            )
+                          : Container(
+                              color: Colors.grey[200],
+                              child: const Icon(
+                                Icons.photo,
+                                size: 60,
+                                color: Colors.grey,
+                              ),
+                            ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20),
                       ),
+                      child: IconButton(
+                        icon: Icon(
+                          _isEyedropperActive
+                              ? Icons.colorize
+                              : Icons.colorize_outlined,
+                          color: _isEyedropperActive
+                              ? Colors.white
+                              : Colors.grey[300],
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _isEyedropperActive = !_isEyedropperActive;
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                _isEyedropperActive
+                                    ? '画像をタップして色を選択してください'
+                                    : 'スポイトモードを終了しました',
+                              ),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                        tooltip: 'スポイトで検索',
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -381,13 +433,23 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
       spacing: 8.0,
       runSpacing: 8.0,
       children: significantColors.map((swatch) {
-        return Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            color: swatch.toColor(),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.black54, width: 1.0),
+        return InkWell(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) =>
+                    SearchScreen(initialColor: swatch.toColor()),
+              ),
+            );
+          },
+          child: Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: swatch.toColor(),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.black54, width: 1.0),
+            ),
           ),
         );
       }).toList(),
@@ -471,6 +533,45 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
           // フェードイン・アウトのアニメーション
           return FadeTransition(opacity: animation, child: child);
         },
+      ),
+    );
+  }
+
+  Future<void> _handleImageTap(TapUpDetails details) async {
+    final RenderRepaintBoundary boundary =
+        _imageKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+    final ui.Image image = await boundary.toImage();
+    final ByteData? byteData = await image.toByteData(
+      format: ui.ImageByteFormat.rawRgba,
+    );
+
+    if (byteData == null) return;
+
+    final double width = boundary.size.width;
+    final double height = boundary.size.height;
+
+    final int x = details.localPosition.dx.toInt();
+    final int y = details.localPosition.dy.toInt();
+
+    if (x < 0 || x >= width || y < 0 || y >= height) return;
+
+    final int offset = (y * image.width + x) * 4;
+    final int r = byteData.getUint8(offset);
+    final int g = byteData.getUint8(offset + 1);
+    final int b = byteData.getUint8(offset + 2);
+    final int a = byteData.getUint8(offset + 3);
+
+    final Color pickedColor = Color.fromARGB(a, r, g, b);
+
+    setState(() {
+      _isEyedropperActive = false;
+    });
+
+    if (!mounted) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => SearchScreen(initialColor: pickedColor),
       ),
     );
   }
