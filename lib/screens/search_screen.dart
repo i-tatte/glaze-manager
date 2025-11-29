@@ -14,7 +14,8 @@ import 'package:provider/provider.dart';
 
 class SearchScreen extends StatefulWidget {
   final PageStorageKey? pageStorageKey;
-  const SearchScreen({super.key, this.pageStorageKey});
+  final Color? initialColor;
+  const SearchScreen({super.key, this.pageStorageKey, this.initialColor});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -28,6 +29,7 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _isLoading = false;
   String _searchQuery = '';
   Color? _searchColor;
+  double _deltaEThreshold = 30.0;
   List<String> _selectedTags = [];
 
   // データ
@@ -42,6 +44,9 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialColor != null) {
+      _searchColor = widget.initialColor;
+    }
     _searchController.addListener(_onSearchChanged);
     _loadInitialData();
   }
@@ -83,8 +88,12 @@ class _SearchScreenState extends State<SearchScreen> {
         _profileMap = {for (var item in profiles) item.id!: item};
         _allTestPieces = testPieces;
         _allTags = tags;
+        _allTags = tags;
         _isLoading = false;
       });
+      if (widget.initialColor != null) {
+        _applyFilters();
+      }
     }
   }
 
@@ -109,15 +118,69 @@ class _SearchScreenState extends State<SearchScreen> {
 
     List<TestPiece> filtered = _allTestPieces;
 
-    // 1. 色検索 (優先)
+    // 1. テキスト検索 (Positive & Negative)
+    if (_searchQuery.isNotEmpty) {
+      final terms = _searchQuery
+          .split(RegExp(r'\s+'))
+          .where((t) => t.isNotEmpty);
+      final positiveTerms = terms
+          .where((t) => !t.startsWith('-'))
+          .map((t) => t.toLowerCase())
+          .toList();
+      final negativeTerms = terms
+          .where((t) => t.startsWith('-') && t.length > 1)
+          .map((t) => t.substring(1).toLowerCase())
+          .toList();
+
+      filtered = filtered.where((tp) {
+        final glaze = _glazeMap[tp.glazeId];
+        if (glaze == null) return false;
+
+        // 検索対象の文字列を結合して検索しやすくする
+        final clay = _clayMap[tp.clayId];
+        final atmosphere = _atmosphereMap[tp.firingAtmosphereId];
+        final profile = _profileMap[tp.firingProfileId];
+
+        final searchableText = [
+          glaze.name,
+          ...glaze.tags,
+          clay?.name ?? '',
+          atmosphere?.name ?? '',
+          profile?.name ?? '',
+        ].join(' ').toLowerCase();
+
+        // Positive Terms (AND)
+        bool matchesPositive =
+            positiveTerms.isEmpty ||
+            positiveTerms.every((term) => searchableText.contains(term));
+
+        // Negative Terms (AND NOT)
+        bool matchesNegative =
+            negativeTerms.isNotEmpty &&
+            negativeTerms.any((term) => searchableText.contains(term));
+
+        return matchesPositive && !matchesNegative;
+      }).toList();
+    }
+
+    // 2. タグフィルタ (AND検索)
+    if (_selectedTags.isNotEmpty) {
+      filtered = filtered.where((tp) {
+        final glaze = _glazeMap[tp.glazeId];
+        if (glaze == null) return false;
+        return _selectedTags.every((tag) => glaze.tags.contains(tag));
+      }).toList();
+    }
+
+    // 3. 色検索 & ソート
     if (_searchColor != null) {
       final targetColorSwatch = ColorSwatch.fromColor(_searchColor!);
-      const double deltaEThreshold = 30.0;
       final List<(TestPiece, double)> matchedPieces = [];
 
       for (final testPiece in filtered) {
         if (testPiece.colorData == null || testPiece.colorData!.isEmpty)
           continue;
+
         double minDeltaE = double.infinity;
         for (final swatch in testPiece.colorData!) {
           final deltaE = targetColorSwatch.deltaE(swatch);
@@ -125,50 +188,15 @@ class _SearchScreenState extends State<SearchScreen> {
             minDeltaE = deltaE;
           }
         }
-        if (minDeltaE <= deltaEThreshold) {
+
+        if (minDeltaE <= _deltaEThreshold) {
           matchedPieces.add((testPiece, minDeltaE));
         }
       }
+
+      // 色に近い順にソート
       matchedPieces.sort((a, b) => a.$2.compareTo(b.$2));
       filtered = matchedPieces.map((e) => e.$1).toList();
-    }
-
-    // 2. テキスト検索
-    if (_searchQuery.isNotEmpty) {
-      final lowerQuery = _searchQuery.toLowerCase();
-      filtered = filtered.where((tp) {
-        final glaze = _glazeMap[tp.glazeId];
-        if (glaze == null) return false;
-
-        bool glazeNameMatch = glaze.name.toLowerCase().contains(lowerQuery);
-        bool tagMatch = glaze.tags.any(
-          (tag) => tag.toLowerCase().contains(lowerQuery),
-        );
-        final clay = _clayMap[tp.clayId];
-        bool clayNameMatch =
-            clay?.name.toLowerCase().contains(lowerQuery) ?? false;
-        final atmosphere = _atmosphereMap[tp.firingAtmosphereId];
-        bool atmosphereMatch =
-            atmosphere?.name.toLowerCase().contains(lowerQuery) ?? false;
-        final profile = _profileMap[tp.firingProfileId];
-        bool profileMatch =
-            profile?.name.toLowerCase().contains(lowerQuery) ?? false;
-
-        return glazeNameMatch ||
-            tagMatch ||
-            clayNameMatch ||
-            atmosphereMatch ||
-            profileMatch;
-      }).toList();
-    }
-
-    // 3. タグフィルタ (AND検索)
-    if (_selectedTags.isNotEmpty) {
-      filtered = filtered.where((tp) {
-        final glaze = _glazeMap[tp.glazeId];
-        if (glaze == null) return false;
-        return _selectedTags.every((tag) => glaze.tags.contains(tag));
-      }).toList();
     }
 
     setState(() {
@@ -185,7 +213,6 @@ class _SearchScreenState extends State<SearchScreen> {
   void _performTextSearch(String query) {
     setState(() {
       _searchQuery = query;
-      _searchColor = null; // テキスト検索時は色検索をクリア
     });
     _applyFilters();
   }
@@ -223,7 +250,6 @@ class _SearchScreenState extends State<SearchScreen> {
     if (confirmed == true) {
       setState(() {
         _searchColor = selectedColor;
-        _searchQuery = ''; // 色検索時はテキスト検索をクリア
       });
       _applyFilters();
     }
@@ -346,28 +372,102 @@ class _SearchScreenState extends State<SearchScreen> {
       body: Column(
         children: [
           _buildSearchBar(),
-          if (_selectedTags.isNotEmpty)
-            SizedBox(
-              height: 40,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: _selectedTags.length,
-                separatorBuilder: (context, index) => const SizedBox(width: 8),
-                itemBuilder: (context, index) {
-                  final tag = _selectedTags[index];
-                  return Chip(
-                    label: Text(tag),
-                    onDeleted: () {
-                      setState(() {
-                        _selectedTags.remove(tag);
-                      });
-                      _applyFilters();
-                    },
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                  );
-                },
+          if (_selectedTags.isNotEmpty ||
+              _searchColor != null ||
+              _searchQuery.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: SizedBox(
+                width: double.infinity,
+                child: Wrap(
+                  spacing: 8.0,
+                  alignment: WrapAlignment.start,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (_searchQuery.isNotEmpty)
+                      ..._searchQuery
+                          .split(RegExp(r'[ \u3000]+'))
+                          .where((t) => t.isNotEmpty)
+                          .map((term) {
+                            return Chip(
+                              avatar: const Icon(Icons.text_fields, size: 18),
+                              label: Text(term),
+                              onDeleted: () {
+                                final terms = _searchQuery
+                                    .split(RegExp(r'[ \u3000]+'))
+                                    .where((t) => t.isNotEmpty)
+                                    .toList();
+                                terms.remove(term);
+                                final newQuery = terms.join(' ');
+                                _searchController.text = newQuery;
+                                _performTextSearch(newQuery);
+                              },
+                            );
+                          }),
+                    if (_searchColor != null)
+                      Chip(
+                        avatar: const Icon(Icons.palette, size: 18),
+                        label: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: _searchColor,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.grey),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Text('に近い'),
+                          ],
+                        ),
+                        onDeleted: () {
+                          setState(() {
+                            _searchColor = null;
+                          });
+                          _applyFilters();
+                        },
+                      ),
+                    ..._selectedTags.map((tag) {
+                      return Chip(
+                        avatar: const Icon(Icons.label, size: 18),
+                        label: Text(tag),
+                        onDeleted: () {
+                          setState(() {
+                            _selectedTags.remove(tag);
+                          });
+                          _applyFilters();
+                        },
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ),
+          if (_searchColor != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                children: [
+                  const Text('色差許容値 (ΔE):'),
+                  Expanded(
+                    child: Slider(
+                      value: _deltaEThreshold,
+                      min: 5.0,
+                      max: 50.0,
+                      label: _deltaEThreshold.round().toString(),
+                      onChanged: (value) {
+                        setState(() {
+                          _deltaEThreshold = value;
+                        });
+                        _applyFilters();
+                      },
+                    ),
+                  ),
+                  Text(_deltaEThreshold.round().toString()),
+                ],
               ),
             ),
           Expanded(
@@ -383,55 +483,75 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildSearchBar() {
+    final canPop = Navigator.canPop(context);
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child: TextField(
-        controller: _searchController,
-        decoration: InputDecoration(
-          hintText: '釉薬名、タグで検索...',
-          prefixIcon: const Icon(Icons.search),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.0),
-            borderSide: const BorderSide(width: 0, style: BorderStyle.none),
-          ),
-          filled: true,
-          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-          suffixIcon: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_isSearching)
-                IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() {
-                      _searchQuery = '';
-                      _searchColor = null;
-                      _selectedTags.clear();
-                    });
-                    _applyFilters();
-                  },
-                  tooltip: 'クリア',
+      child: Row(
+        children: [
+          if (canPop)
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: '釉薬名、タグで検索...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.0),
+                  borderSide: const BorderSide(
+                    width: 0,
+                    style: BorderStyle.none,
+                  ),
                 ),
-              IconButton(
-                icon: Icon(Icons.color_lens_outlined, color: _searchColor),
-                onPressed: _openColorPicker,
-                tooltip: '色で検索',
-              ),
-              IconButton(
-                icon: Icon(
-                  _selectedTags.isEmpty ? Icons.label_outline : Icons.label,
-                  color: _selectedTags.isNotEmpty
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
+                filled: true,
+                fillColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest,
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_isSearching)
+                      IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {
+                            _searchQuery = '';
+                          });
+                          _applyFilters();
+                        },
+                        tooltip: 'クリア',
+                      ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.color_lens_outlined,
+                        color: _searchColor,
+                      ),
+                      onPressed: _openColorPicker,
+                      tooltip: '色で検索',
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        _selectedTags.isEmpty
+                            ? Icons.label_outline
+                            : Icons.label,
+                        color: _selectedTags.isNotEmpty
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                      onPressed: _openTagSelector,
+                      tooltip: 'タグで検索',
+                    ),
+                  ],
                 ),
-                onPressed: _openTagSelector,
-                tooltip: 'タグで検索',
               ),
-            ],
+              onSubmitted: _performTextSearch,
+            ),
           ),
-        ),
-        onSubmitted: _performTextSearch,
+        ],
       ),
     );
   }
@@ -494,22 +614,7 @@ class _SearchScreenState extends State<SearchScreen> {
           padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0),
           child: Row(
             children: [
-              if (_searchColor != null) ...[
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: _searchColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.grey),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ],
-              Text(
-                _searchColor != null ? 'に近い色の検索結果' : '"$_searchQuery"の検索結果',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+              Text('検索結果', style: Theme.of(context).textTheme.titleLarge),
             ],
           ),
         ),
