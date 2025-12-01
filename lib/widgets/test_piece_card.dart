@@ -21,6 +21,7 @@ class TestPieceCard extends StatelessWidget {
     return Card(
       clipBehavior: Clip.antiAlias, // カードの角を丸くするために必要
       elevation: 2.0,
+      margin: EdgeInsets.zero, // GridViewでスペースを管理するため、Cardのマージンは0にする
       child: InkWell(
         onTap: () {
           Navigator.of(context).push(

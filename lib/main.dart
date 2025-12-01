@@ -10,6 +10,8 @@ import 'firebase_options.dart'; // flutterfire configure で生成されたフ�
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'package:glaze_manager/theme/app_theme.dart';
+
 void main() async {
   // Flutterのウィジェットバインディングを初期化
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,7 +43,9 @@ class AppProviders extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'Glaze Manager',
-        theme: ThemeData(primarySwatch: Colors.blue),
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        themeMode: ThemeMode.system,
         home: const AuthWrapper(), // 認証状態に応じて表示を切り替える
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
