@@ -369,115 +369,117 @@ class _SearchScreenState extends State<SearchScreen> {
     final crossAxisCount = context.watch<SettingsService>().gridCrossAxisCount;
 
     return Scaffold(
-      body: Column(
-        children: [
-          _buildSearchBar(),
-          if (_selectedTags.isNotEmpty ||
-              _searchColor != null ||
-              _searchQuery.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: SizedBox(
-                width: double.infinity,
-                child: Wrap(
-                  spacing: 8.0,
-                  alignment: WrapAlignment.start,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    if (_searchQuery.isNotEmpty)
-                      ..._searchQuery
-                          .split(RegExp(r'[ \u3000]+'))
-                          .where((t) => t.isNotEmpty)
-                          .map((term) {
-                            return Chip(
-                              avatar: const Icon(Icons.text_fields, size: 18),
-                              label: Text(term),
-                              onDeleted: () {
-                                final terms = _searchQuery
-                                    .split(RegExp(r'[ \u3000]+'))
-                                    .where((t) => t.isNotEmpty)
-                                    .toList();
-                                terms.remove(term);
-                                final newQuery = terms.join(' ');
-                                _searchController.text = newQuery;
-                                _performTextSearch(newQuery);
-                              },
-                            );
-                          }),
-                    if (_searchColor != null)
-                      Chip(
-                        avatar: const Icon(Icons.palette, size: 18),
-                        label: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                color: _searchColor,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.grey),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildSearchBar(),
+            if (_selectedTags.isNotEmpty ||
+                _searchColor != null ||
+                _searchQuery.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Wrap(
+                    spacing: 8.0,
+                    alignment: WrapAlignment.start,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (_searchQuery.isNotEmpty)
+                        ..._searchQuery
+                            .split(RegExp(r'[ \u3000]+'))
+                            .where((t) => t.isNotEmpty)
+                            .map((term) {
+                              return Chip(
+                                avatar: const Icon(Icons.text_fields, size: 18),
+                                label: Text(term),
+                                onDeleted: () {
+                                  final terms = _searchQuery
+                                      .split(RegExp(r'[ \u3000]+'))
+                                      .where((t) => t.isNotEmpty)
+                                      .toList();
+                                  terms.remove(term);
+                                  final newQuery = terms.join(' ');
+                                  _searchController.text = newQuery;
+                                  _performTextSearch(newQuery);
+                                },
+                              );
+                            }),
+                      if (_searchColor != null)
+                        Chip(
+                          avatar: const Icon(Icons.palette, size: 18),
+                          label: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: _searchColor,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.grey),
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Text('に近い'),
-                          ],
+                              const SizedBox(width: 4),
+                              const Text('に近い'),
+                            ],
+                          ),
+                          onDeleted: () {
+                            setState(() {
+                              _searchColor = null;
+                            });
+                            _applyFilters();
+                          },
                         ),
-                        onDeleted: () {
+                      ..._selectedTags.map((tag) {
+                        return Chip(
+                          avatar: const Icon(Icons.label, size: 18),
+                          label: Text(tag),
+                          onDeleted: () {
+                            setState(() {
+                              _selectedTags.remove(tag);
+                            });
+                            _applyFilters();
+                          },
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ),
+            if (_searchColor != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Row(
+                  children: [
+                    const Text('色差許容値 (ΔE):'),
+                    Expanded(
+                      child: Slider(
+                        value: _deltaEThreshold,
+                        min: 5.0,
+                        max: 50.0,
+                        label: _deltaEThreshold.round().toString(),
+                        onChanged: (value) {
                           setState(() {
-                            _searchColor = null;
+                            _deltaEThreshold = value;
                           });
                           _applyFilters();
                         },
                       ),
-                    ..._selectedTags.map((tag) {
-                      return Chip(
-                        avatar: const Icon(Icons.label, size: 18),
-                        label: Text(tag),
-                        onDeleted: () {
-                          setState(() {
-                            _selectedTags.remove(tag);
-                          });
-                          _applyFilters();
-                        },
-                      );
-                    }),
+                    ),
+                    Text(_deltaEThreshold.round().toString()),
                   ],
                 ),
               ),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _isSearching
+                  ? _buildSearchResults(crossAxisCount)
+                  : _buildRecentTestPieces(crossAxisCount),
             ),
-          if (_searchColor != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                children: [
-                  const Text('色差許容値 (ΔE):'),
-                  Expanded(
-                    child: Slider(
-                      value: _deltaEThreshold,
-                      min: 5.0,
-                      max: 50.0,
-                      label: _deltaEThreshold.round().toString(),
-                      onChanged: (value) {
-                        setState(() {
-                          _deltaEThreshold = value;
-                        });
-                        _applyFilters();
-                      },
-                    ),
-                  ),
-                  Text(_deltaEThreshold.round().toString()),
-                ],
-              ),
-            ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _isSearching
-                ? _buildSearchResults(crossAxisCount)
-                : _buildRecentTestPieces(crossAxisCount),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
