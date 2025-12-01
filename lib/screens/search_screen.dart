@@ -30,7 +30,7 @@ class _SearchScreenState extends State<SearchScreen> {
   String _searchQuery = '';
   Color? _searchColor;
   double _deltaEThreshold = 30.0;
-  List<String> _selectedTags = [];
+  final List<String> _selectedTags = [];
 
   // データ
   List<TestPiece> _allTestPieces = [];
@@ -178,8 +178,9 @@ class _SearchScreenState extends State<SearchScreen> {
       final List<(TestPiece, double)> matchedPieces = [];
 
       for (final testPiece in filtered) {
-        if (testPiece.colorData == null || testPiece.colorData!.isEmpty)
+        if (testPiece.colorData == null || testPiece.colorData!.isEmpty) {
           continue;
+        }
 
         double minDeltaE = double.infinity;
         for (final swatch in testPiece.colorData!) {
