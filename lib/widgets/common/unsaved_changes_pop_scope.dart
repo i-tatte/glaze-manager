@@ -16,7 +16,7 @@ class UnsavedChangesPopScope extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: !isDirty,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         final confirmed = await showDialog<bool>(
           context: context,

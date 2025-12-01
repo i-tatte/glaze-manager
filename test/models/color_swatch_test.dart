@@ -33,15 +33,15 @@ void main() {
       // Black
       final blackSwatch = ColorSwatch(l: 0, a: 0, b: 0, percentage: 0);
       final blackColor = blackSwatch.toColor();
-      expect(blackColor.red, 0);
-      expect(blackColor.green, 0);
-      expect(blackColor.blue, 0);
+      expect((blackColor.r * 255.0).round() & 0xff, 0);
+      expect((blackColor.g * 255.0).round() & 0xff, 0);
+      expect((blackColor.b * 255.0).round() & 0xff, 0);
 
       // White (approximate)
       final whiteSwatch = ColorSwatch(l: 100, a: 0, b: 0, percentage: 0);
       final whiteColor = whiteSwatch.toColor();
       // Conversion might not be exactly 255 due to rounding/formula, but should be close
-      expect(whiteColor.red, greaterThan(250));
+      expect((whiteColor.r * 255.0).round() & 0xff, greaterThan(250));
     });
 
     test('fromColor converts Color to Lab', () {
@@ -58,9 +58,18 @@ void main() {
       final restoredColor = swatch.toColor();
 
       // Allow for some small loss of precision during conversion
-      expect(restoredColor.red, closeTo(originalColor.red, 5));
-      expect(restoredColor.green, closeTo(originalColor.green, 5));
-      expect(restoredColor.blue, closeTo(originalColor.blue, 5));
+      expect(
+        (restoredColor.r * 255.0).round() & 0xff,
+        closeTo((originalColor.r * 255.0).round() & 0xff, 5),
+      );
+      expect(
+        (restoredColor.g * 255.0).round() & 0xff,
+        closeTo((originalColor.g * 255.0).round() & 0xff, 5),
+      );
+      expect(
+        (restoredColor.b * 255.0).round() & 0xff,
+        closeTo((originalColor.b * 255.0).round() & 0xff, 5),
+      );
     });
   });
 }
