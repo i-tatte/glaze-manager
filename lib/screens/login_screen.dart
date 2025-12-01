@@ -100,7 +100,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!connectivityResult.contains(ConnectivityResult.mobile) &&
         !connectivityResult.contains(ConnectivityResult.wifi) &&
         !connectivityResult.contains(ConnectivityResult.ethernet)) {
-      if (mounted) {
+      if (context.mounted) {
         await showDialog(
           context: context,
           builder: (context) => AlertDialog(
@@ -117,6 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       return;
     }
+    if (!context.mounted) return;
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => const EmailPasswordLoginScreen()));
@@ -144,6 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return; // 接続がない場合は処理を中断
     }
     // 匿名ログインの場合、警告ダイアログを表示
+    if (!mounted) return;
     if (method == AuthMethod.anonymous) {
       final confirmed = await showDialog<bool>(
         context: context,
@@ -165,6 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
       if (confirmed != true) return; // 匿名ログインをキャンセル
+      if (!mounted) return;
     }
     setState(() {
       _isLoading = true;

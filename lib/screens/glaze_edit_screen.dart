@@ -217,6 +217,7 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
           navigator.popUntil((_) => count++ >= 2);
         }
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));

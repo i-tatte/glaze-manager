@@ -324,7 +324,7 @@ class MaterialsListScreenState extends State<MaterialsListScreen> {
           );
           if (confirmed == true) {
             await firestoreService.deleteMaterial(material.id!);
-            if (mounted) {
+            if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('「${material.name}」を削除しました。')),
               );

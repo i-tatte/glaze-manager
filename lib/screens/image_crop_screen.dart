@@ -74,7 +74,7 @@ class _ImageCropScreenState extends State<ImageCropScreen> {
                       (croppedData as CropSuccess).croppedImage,
                     );
 
-                    if (mounted) {
+                    if (context.mounted) {
                       // ファイル名とバイトデータをMapで返す
                       Navigator.of(context).pop({
                         'fileName': widget.outputFileName,
@@ -82,7 +82,7 @@ class _ImageCropScreenState extends State<ImageCropScreen> {
                       });
                     }
                   } catch (e) {
-                    if (mounted) {
+                    if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('画像の保存に失敗しました: $e')),
                       );
