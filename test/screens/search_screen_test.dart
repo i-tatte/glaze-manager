@@ -162,7 +162,7 @@ void main() {
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
 
-      expect(find.text('"Target"の検索結果'), findsOneWidget);
+      expect(find.text('検索結果'), findsOneWidget);
       expect(find.text('Target Glaze'), findsOneWidget);
       expect(find.text('Other Glaze'), findsNothing);
     });
