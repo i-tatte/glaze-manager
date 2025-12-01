@@ -80,7 +80,7 @@ class _ClayEditScreenState extends State<ClayEditScreen> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: !_isDirty,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         final confirmed = await showDialog<bool>(
           context: context,

@@ -114,7 +114,7 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
       // isDirtyがfalseの場合でも手動でpopを呼ぶ必要がある。
       // そのロジックを_onPopInvokedにまとめる。
       canPop: !_isDirty,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         final confirmed = await showDialog<bool>(
           context: context,
