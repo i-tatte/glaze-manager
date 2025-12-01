@@ -133,7 +133,7 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
             ],
           ),
         );
-        if (confirmed == true && mounted) {
+        if (confirmed == true && context.mounted) {
           Navigator.of(context).pop();
         }
       },

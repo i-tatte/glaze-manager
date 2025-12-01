@@ -233,7 +233,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
                         ],
                       ),
                     );
-                    if (confirmed == true) {
+                    if (confirmed == true && context.mounted) {
                       await context.read<AuthService>().signOut();
                     }
                   },

@@ -107,6 +107,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       maxHeight: 1500, // 最大高さを指定
     );
     if (image != null) {
+      if (!mounted) return;
       // 画像選択後、トリミング画面に遷移
       // UUIDと元の拡張子を使って一意なファイル名を生成
       final uuid = const Uuid().v4();
@@ -289,9 +290,11 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
           navigator.popUntil((_) => count++ >= 2);
         }
       } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
+        }
       }
     }
   }

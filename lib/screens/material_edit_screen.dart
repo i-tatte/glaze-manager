@@ -104,6 +104,7 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
         }
         navigator.pop(); // 成功したら画面を閉じる
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
@@ -152,6 +153,7 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
           navigator.popUntil((_) => count++ >= 2);
         }
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));

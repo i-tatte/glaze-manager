@@ -99,7 +99,7 @@ class _ClayEditScreenState extends State<ClayEditScreen> {
             ],
           ),
         );
-        if (confirmed == true && mounted) {
+        if (confirmed == true && context.mounted) {
           Navigator.of(context).pop();
         }
       },

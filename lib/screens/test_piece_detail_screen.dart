@@ -39,6 +39,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
   void _updateViewHistory() {
     // initStateではcontext.readが直接使えないため、Future.microtaskで遅延実行
     Future.microtask(() {
+      if (!mounted) return;
       context.read<FirestoreService>().updateViewHistory(widget.testPiece.id!);
     });
   }
@@ -490,7 +491,8 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
   }) async {
     // ネットワーク接続を確認
     final connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult.contains(ConnectivityResult.none)) {
+    if (connectivityResult.contains(ConnectivityResult.none) &&
+        context.mounted) {
       // オフラインの場合、警告ダイアログを表示
       final confirmed = await showDialog<bool>(
         context: context,
@@ -513,7 +515,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
       if (confirmed != true) return;
     }
     // オンライン、または警告後に「続ける」が押された場合、編集画面に遷移
-    if (!mounted) return;
+    if (!context.mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => TestPieceEditScreen(testPiece: testPiece),
@@ -544,6 +546,8 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
     final ByteData? byteData = await image.toByteData(
       format: ui.ImageByteFormat.rawRgba,
     );
+
+    if (!mounted) return;
 
     if (byteData == null) return;
 

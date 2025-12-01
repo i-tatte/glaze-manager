@@ -98,7 +98,7 @@ class _FiringAtmosphereEditScreenState
             ],
           ),
         );
-        if (confirmed == true && mounted) {
+        if (confirmed == true && context.mounted) {
           Navigator.of(context).pop();
         }
       },

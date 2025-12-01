@@ -133,6 +133,7 @@ class _ClayListScreenState extends State<ClayListScreen> {
       try {
         await service.deleteClay(clay.id!);
       } catch (e) {
+        if (!context.mounted) return;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
