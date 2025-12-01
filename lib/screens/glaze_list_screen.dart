@@ -29,7 +29,7 @@ class GlazeListScreenState extends State<GlazeListScreen> {
 
   SortOption _sortOption = SortOption.name;
   bool _isAscending = true;
-  List<String> _selectedTags = []; // フィルタリング用の選択されたタグ
+  final List<String> _selectedTags = []; // フィルタリング用の選択されたタグ
 
   @override
   void initState() {

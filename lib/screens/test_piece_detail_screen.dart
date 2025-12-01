@@ -615,8 +615,8 @@ class _FullScreenImageScreenState extends State<_FullScreenImageScreen> {
       // ズームされていない場合は、ダブルタップした位置を中心に2倍にズーム
       final position = _doubleTapDetails!.localPosition;
       _transformationController.value = Matrix4.identity()
-        ..translate(-position.dx, -position.dy)
-        ..scale(2.0);
+        ..multiply(Matrix4.translationValues(-position.dx, -position.dy, 0.0))
+        ..multiply(Matrix4.diagonal3Values(2.0, 2.0, 1.0));
     }
   }
 
