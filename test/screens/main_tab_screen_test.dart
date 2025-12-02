@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/models/clay.dart';
+import 'package:glaze_manager/models/firing_atmosphere.dart';
+import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as app_material;
 import 'package:glaze_manager/models/test_piece.dart';
@@ -50,12 +52,19 @@ void main() {
     when(
       mockFirestoreService.getClays(),
     ).thenAnswer((_) => Stream.value(<Clay>[]));
+    when(
+      mockFirestoreService.getFiringAtmospheres(),
+    ).thenAnswer((_) => Stream.value(<FiringAtmosphere>[]));
+    when(
+      mockFirestoreService.getFiringProfiles(),
+    ).thenAnswer((_) => Stream.value(<FiringProfile>[]));
 
     // SettingsServiceのgetterをスタブ
     when(mockSettingsService.gridCrossAxisCount).thenReturn(4); // デフォルト値として4を設定
     when(
       mockSettingsService.maxGridCrossAxisCount,
     ).thenReturn(10); // デフォルト値として10を設定
+    when(mockSettingsService.themeMode).thenReturn(ThemeMode.system);
 
     // ChangeNotifierのメソッドをスタブ
     when(mockSettingsService.addListener(any)).thenReturn(null);

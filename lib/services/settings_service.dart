@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// アプリケーション全体の設定を管理するサービスクラス
@@ -28,13 +29,32 @@ class SettingsService with ChangeNotifier {
     _loadSettings();
   }
 
+  // テーマ設定
+  static const String _themeModeKey = 'themeMode';
+  static const ThemeMode _defaultThemeMode = ThemeMode.system;
+
+  ThemeMode _themeMode = _defaultThemeMode;
+  ThemeMode get themeMode => _themeMode;
+
   /// デバイスから設定値を非同期で読み込む
   Future<void> _loadSettings() async {
     _prefs = await SharedPreferences.getInstance();
+
+    // グリッド列数
     final savedCount =
         _prefs.getInt(_gridCrossAxisCountKey) ?? _defaultGridCrossAxisCount;
-    // 読み込んだ値が現在のプラットフォームの最大値を超えていないかチェックし、丸める
     _gridCrossAxisCount = savedCount.clamp(2, maxGridCrossAxisCount);
+
+    // テーマ設定
+    final savedThemeModeIndex = _prefs.getInt(_themeModeKey);
+    if (savedThemeModeIndex != null &&
+        savedThemeModeIndex >= 0 &&
+        savedThemeModeIndex < ThemeMode.values.length) {
+      _themeMode = ThemeMode.values[savedThemeModeIndex];
+    } else {
+      _themeMode = _defaultThemeMode;
+    }
+
     notifyListeners(); // ロード完了を通知
   }
 
@@ -44,5 +64,12 @@ class SettingsService with ChangeNotifier {
     _gridCrossAxisCount = count.clamp(2, maxGridCrossAxisCount);
     await _prefs.setInt(_gridCrossAxisCountKey, _gridCrossAxisCount);
     notifyListeners(); // 変更を通知
+  }
+
+  /// テーマモードを設定し、永続化する
+  Future<void> setThemeMode(ThemeMode mode) async {
+    _themeMode = mode;
+    await _prefs.setInt(_themeModeKey, mode.index);
+    notifyListeners();
   }
 }

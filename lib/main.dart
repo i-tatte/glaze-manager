@@ -10,6 +10,8 @@ import 'firebase_options.dart'; // flutterfire configure で生成されたフ�
 import 'package:provider/provider.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'package:glaze_manager/theme/app_theme.dart';
+
 void main() async {
   // Flutterのウィジェットバインディングを初期化
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,16 +41,22 @@ class AppProviders extends StatelessWidget {
         Provider<FirestoreService>(create: (_) => FirestoreService()),
         Provider<StorageService>(create: (_) => StorageService()),
       ],
-      child: MaterialApp(
-        title: 'Glaze Manager',
-        theme: ThemeData(primarySwatch: Colors.blue),
-        home: const AuthWrapper(), // 認証状態に応じて表示を切り替える
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [Locale('ja', 'JP')],
+      child: Consumer<SettingsService>(
+        builder: (context, settings, child) {
+          return MaterialApp(
+            title: 'Glaze Manager',
+            theme: AppTheme.light,
+            darkTheme: AppTheme.dark,
+            themeMode: settings.themeMode,
+            home: const AuthWrapper(),
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [Locale('ja', 'JP')],
+          );
+        },
       ),
     );
   }

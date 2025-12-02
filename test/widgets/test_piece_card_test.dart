@@ -3,8 +3,10 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
+import 'package:glaze_manager/theme/app_colors.dart';
 import 'package:glaze_manager/widgets/test_piece_card.dart';
 import 'package:mockito/mockito.dart';
 import 'package:provider/provider.dart';
@@ -217,6 +219,8 @@ void main() {
                 testPiece: testPiece,
                 glazeName: 'Test Glaze',
                 clayName: 'Test Clay',
+                firingAtmosphereName: 'Oxidation',
+                firingProfileName: 'Standard Profile',
               ),
             ),
           ),
@@ -234,5 +238,75 @@ void main() {
 
     // Check if navigation happened by looking for title
     expect(find.text('テストピース詳細'), findsOneWidget);
+  });
+
+  testWidgets('TestPieceCard displays correct color for oxidation', (
+    WidgetTester tester,
+  ) async {
+    final testPiece = TestPiece(
+      id: 'tp1',
+      glazeId: 'g1',
+      clayId: 'c1',
+      createdAt: Timestamp.now(),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 200,
+              height: 300,
+              child: TestPieceCard(
+                testPiece: testPiece,
+                glazeName: 'Test Glaze',
+                clayName: 'Test Clay',
+                firingAtmosphereName: 'Oxidation',
+                firingAtmosphereType: FiringAtmosphereType.oxidation,
+                firingProfileName: 'Standard Profile',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final card = tester.widget<Card>(find.byType(Card));
+    expect(card.color, AppColors.oxidationCardLight);
+  });
+
+  testWidgets('TestPieceCard displays correct color for reduction', (
+    WidgetTester tester,
+  ) async {
+    final testPiece = TestPiece(
+      id: 'tp1',
+      glazeId: 'g1',
+      clayId: 'c1',
+      createdAt: Timestamp.now(),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 200,
+              height: 300,
+              child: TestPieceCard(
+                testPiece: testPiece,
+                glazeName: 'Test Glaze',
+                clayName: 'Test Clay',
+                firingAtmosphereName: 'Reduction',
+                firingAtmosphereType: FiringAtmosphereType.reduction,
+                firingProfileName: 'Standard Profile',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final card = tester.widget<Card>(find.byType(Card));
+    expect(card.color, AppColors.reductionCardLight);
   });
 }
