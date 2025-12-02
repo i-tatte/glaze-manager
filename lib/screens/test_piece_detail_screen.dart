@@ -9,6 +9,7 @@ import 'package:glaze_manager/models/color_swatch.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
+import 'package:glaze_manager/models/material.dart' as m;
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/screens/glaze_detail_screen.dart';
 import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
@@ -101,6 +102,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
                   details['firingAtmosphere'];
               final List<Glaze> additionalGlazes =
                   details['additionalGlazes'] ?? [];
+              final List<m.Material> materials = details['materials'] ?? [];
 
               if (glaze == null) {
                 return const Center(child: Text('関連する釉薬データが見つかりません。'));
@@ -119,6 +121,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
                       firingAtmosphere,
                       constraints,
                       additionalGlazes,
+                      materials,
                     );
                   } else {
                     return _buildNarrowLayout(
@@ -128,6 +131,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
                       firingProfile,
                       firingAtmosphere,
                       additionalGlazes,
+                      materials,
                     );
                   }
                 },
@@ -171,6 +175,9 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
       ),
     );
 
+    // 原料一覧を取得
+    final materialsFuture = firestoreService.getMaterials().first;
+
     // 各データを並行して取得
     final results = await Future.wait([
       glazeFuture,
@@ -178,6 +185,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
       profileFuture,
       atmosphereFuture,
       additionalGlazesFuture,
+      materialsFuture,
     ]);
 
     return {
@@ -186,6 +194,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
       'firingProfile': results[2] as FiringProfile?,
       'firingAtmosphere': results[3] as FiringAtmosphere?,
       'additionalGlazes': results[4] as List<Glaze>,
+      'materials': results[5] as List<m.Material>,
     };
   }
 
@@ -197,6 +206,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
     FiringAtmosphere? firingAtmosphere,
     BoxConstraints constraints,
     List<Glaze> additionalGlazes,
+    List<m.Material> materials,
   ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -220,6 +230,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
             firingProfile,
             firingAtmosphere,
             additionalGlazes,
+            materials,
           ),
         ),
       ],
@@ -233,6 +244,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
     FiringProfile? firingProfile,
     FiringAtmosphere? firingAtmosphere,
     List<Glaze> additionalGlazes,
+    List<m.Material> materials,
   ) {
     return ListView(
       children: [
@@ -247,6 +259,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
           firingProfile,
           firingAtmosphere,
           additionalGlazes,
+          materials,
         ),
       ],
     );
@@ -354,12 +367,21 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
     FiringProfile? firingProfile,
     FiringAtmosphere? firingAtmosphere,
     List<Glaze> additionalGlazes,
+    List<m.Material> materials,
   ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // レシピを最優先で表示
+          if (glaze.recipe.isNotEmpty) ...[
+            Text('レシピ', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            _buildRecipeTable(glaze.recipe, materials),
+            const Divider(height: 32),
+          ],
+
           _buildInfoTile(
             '釉薬名 (メイン)',
             glaze.name, // glazeはnullでないことが確認済み
@@ -421,6 +443,40 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildRecipeTable(
+    Map<String, double> recipe,
+    List<m.Material> materials,
+  ) {
+    if (recipe.isEmpty) return const SizedBox.shrink();
+
+    final materialMap = {for (var m in materials) m.id!: m.name};
+    final sortedEntries = recipe.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value)); // 量の多い順
+
+    return Table(
+      border: TableBorder.all(color: Colors.grey.shade300),
+      columnWidths: const {0: FlexColumnWidth(2), 1: FlexColumnWidth(1)},
+      children: sortedEntries.map((entry) {
+        final materialName = materialMap[entry.key] ?? '不明な原料';
+        return TableRow(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(materialName),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                '${entry.value.toStringAsFixed(1)}%',
+                textAlign: TextAlign.right,
+              ),
+            ),
+          ],
+        );
+      }).toList(),
     );
   }
 

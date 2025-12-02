@@ -17,4 +17,11 @@ class AppColors {
   static const Color darkSecondary = Color(0xFF5D5852);
   static const Color darkTextPrimary = Color(0xFFE6E1DB);
   static const Color darkTextSecondary = Color(0xFFA89F91);
+
+  // Card Background Colors (Oxidation/Reduction)
+  static const Color oxidationCardLight = Color(0xFFFFF8E1); // Amber 50
+  static const Color reductionCardLight = Color(0xFFE3F2FD); // Blue 50
+
+  static const Color oxidationCardDark = Color(0xFF3E3B36); // Warm Dark
+  static const Color reductionCardDark = Color(0xFF363B3E); // Cool Dark
 }
