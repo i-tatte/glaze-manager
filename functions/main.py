@@ -13,7 +13,7 @@ initialize_app()
 # リージョンを設定 (Storageバケットと同じリージョン)
 options.set_global_options(region="us-central1")
 
-def analyze_glaze_color(image_path: str, k_init: int = 10, merge_threshold: float = 10.0) -> list[dict]:
+def analyze_glaze_color(image_path: str, k_init: int = 10, merge_threshold: float = 6.0) -> list[dict]:
     """
     画像から釉薬の主要な色構成を解析する。
     Over-segmentation & Merge手法により、多色釉薬にも対応する。
@@ -51,7 +51,7 @@ def analyze_glaze_color(image_path: str, k_init: int = 10, merge_threshold: floa
 
     # 5. 初期クラスタリング (K-Means)
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
-    _, labels, centers = cv2.kmeans(pixels, k_init, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS) # type: ignore
+    _, labels, centers = cv2.kmeans(pixels, k_init, None, criteria, 10, cv2.KMEANS_PP_CENTERS) # type: ignore
 
     # 6. 色の統合 (Agglomerative Merging)
     # 各クラスタの画素数を計算
@@ -69,7 +69,11 @@ def analyze_glaze_color(image_path: str, k_init: int = 10, merge_threshold: floa
         # 最も近い色のペアを探す
         for i in range(len(clusters)):
             for j in range(i + 1, len(clusters)):
-                dist = np.linalg.norm(clusters[i]['center'] - clusters[j]['center'])
+                dL = clusters[i]['center'][0] - clusters[j]['center'][0]
+                da = clusters[i]['center'][1] - clusters[j]['center'][1]
+                db = clusters[i]['center'][2] - clusters[j]['center'][2]
+                # 明度の違いを 0.5倍 (50%) に過小評価させる
+                dist = np.sqrt((dL * 0.5) ** 2 + da ** 2 + db ** 2)
                 if dist < min_dist:
                     min_dist = dist
                     merge_indices = (i, j)
@@ -78,14 +82,30 @@ def analyze_glaze_color(image_path: str, k_init: int = 10, merge_threshold: floa
         if min_dist >= merge_threshold or merge_indices is None:
             break
 
-        # 色の統合 (加重平均)
+        # 色の統合 (彩度を考慮した加重平均)
         i, j = merge_indices
         c1, c2 = clusters[i], clusters[j]
+
+        # 6.1. 彩度(Saturation)を計算: sqrt(a^2 + b^2)
+        # centerは [L, a, b] なので、[1]と[2]を使います
+        sat1 = np.sqrt(c1['center'][1]**2 + c1['center'][2]**2)
+        sat2 = np.sqrt(c2['center'][1]**2 + c2['center'][2]**2)
+
+        # 6.2. 重み(Weight)を計算: 面積 × (彩度 + 補正値)
+        # 補正値(epsilon=1.0)を入れて、無彩色同士のゼロ計算を防ぎます
+        epsilon = 1.0
+        w1 = c1['count'] * (sat1 + epsilon)
+        w2 = c2['count'] * (sat2 + epsilon)
+
+        # 6.3. 新しい重心を計算
+        # 単純な面積比ではなく、彩度重み(w)を使うことで白飛びによる色汚染を防ぎます
+        new_center = (c1['center'] * w1 + c2['center'] * w2) / (w1 + w2)
+        
+        # 6.4. 合計画素数は単純加算でOK
         total_count = c1['count'] + c2['count']
-        new_center = (c1['center'] * c1['count'] + c2['center'] * c2['count']) / total_count
         
         # クラスタリストを更新
-        clusters.pop(j) # 後ろのインデックスから削除
+        clusters.pop(j) # 後ろのインデックスから削除 (インデックスズレ防止)
         clusters.pop(i)
         clusters.append({'center': new_center, 'count': total_count})
 
