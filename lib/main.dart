@@ -41,18 +41,22 @@ class AppProviders extends StatelessWidget {
         Provider<FirestoreService>(create: (_) => FirestoreService()),
         Provider<StorageService>(create: (_) => StorageService()),
       ],
-      child: MaterialApp(
-        title: 'Glaze Manager',
-        theme: AppTheme.light,
-        darkTheme: AppTheme.dark,
-        themeMode: ThemeMode.system,
-        home: const AuthWrapper(), // 認証状態に応じて表示を切り替える
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [Locale('ja', 'JP')],
+      child: Consumer<SettingsService>(
+        builder: (context, settings, child) {
+          return MaterialApp(
+            title: 'Glaze Manager',
+            theme: AppTheme.light,
+            darkTheme: AppTheme.dark,
+            themeMode: settings.themeMode,
+            home: const AuthWrapper(),
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [Locale('ja', 'JP')],
+          );
+        },
       ),
     );
   }

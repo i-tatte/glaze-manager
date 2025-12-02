@@ -51,8 +51,11 @@ class TestPieceGrid extends StatelessWidget {
         final testPiece = testPieces[index];
         final glazeName = glazeMap[testPiece.glazeId]?.name ?? '不明な釉薬';
         final clayName = clayMap[testPiece.clayId]?.name ?? '不明な素地';
-        final firingAtmosphereName =
-            firingAtmosphereMap[testPiece.firingAtmosphereId]?.name ?? '不明な雰囲気';
+        final firingAtmosphere =
+            firingAtmosphereMap[testPiece.firingAtmosphereId];
+        final firingAtmosphereName = firingAtmosphere?.name ?? '不明な雰囲気';
+        final firingAtmosphereType =
+            firingAtmosphere?.type ?? FiringAtmosphereType.other;
         final firingProfileName =
             firingProfileMap[testPiece.firingProfileId]?.name ?? '不明なプロファイル';
 
@@ -61,6 +64,7 @@ class TestPieceGrid extends StatelessWidget {
           glazeName: glazeName,
           clayName: clayName,
           firingAtmosphereName: firingAtmosphereName,
+          firingAtmosphereType: firingAtmosphereType,
           firingProfileName: firingProfileName,
         );
       },

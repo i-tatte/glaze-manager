@@ -4,6 +4,7 @@ import 'package:glaze_manager/screens/firing_profile_list_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:glaze_manager/screens/clay_list_screen.dart';
 import 'package:glaze_manager/screens/firing_atmosphere_list_screen.dart';
+import 'package:glaze_manager/screens/help_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final PageStorageKey? pageStorageKey;
@@ -16,102 +17,124 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
-    // ConsumerウィジェットでSettingsServiceの変更を監視
     return Consumer<SettingsService>(
       builder: (context, settings, child) {
         return ListView(
           children: [
-            // 大項目: テストピース設定
-            ExpansionTile(
-              title: const Text('テストピース設定'),
-              initiallyExpanded: true, // 最初から開いておく
-              children: [
-                // 中項目: 表示設定
-                ExpansionTile(
-                  title: const Text('  表示設定'), // インデントで階層を表現
-                  initiallyExpanded: true,
-                  children: [
-                    // 設定項目: 1行当たりのテストピース表示数
-                    Padding(
-                      padding: const EdgeInsets.only(left: 32.0, right: 16.0),
-                      // ValueNotifierを使ってスライダー操作中のUI更新を効率化
-                      child: _GridCountSlider(
-                        key: ValueKey(settings.gridCrossAxisCount),
-                        initialValue: settings.gridCrossAxisCount,
-                        maxValue: settings.maxGridCrossAxisCount,
-                        onChanged: (newValue) {
-                          settings.setGridCrossAxisCount(newValue);
+            const _SectionHeader(title: '表示'),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                children: [
+                  _GridCountSlider(
+                    key: ValueKey(settings.gridCrossAxisCount),
+                    initialValue: settings.gridCrossAxisCount,
+                    maxValue: settings.maxGridCrossAxisCount,
+                    onChanged: (newValue) {
+                      settings.setGridCrossAxisCount(newValue);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('テーマ'),
+                      DropdownButton<ThemeMode>(
+                        value: settings.themeMode,
+                        onChanged: (ThemeMode? newMode) {
+                          if (newMode != null) {
+                            settings.setThemeMode(newMode);
+                          }
                         },
-                      ),
-                    ),
-                  ],
-                ),
-                // 中項目: 焼成設定
-                ExpansionTile(
-                  title: const Text('  焼成プロファイル設定'),
-                  initiallyExpanded: true,
-                  children: [
-                    ListTile(
-                      contentPadding: const EdgeInsets.only(
-                        left: 32.0,
-                        right: 16.0,
-                      ),
-                      title: const Text('焼成プロファイルの管理'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                const FiringProfileListScreen(),
+                        items: const [
+                          DropdownMenuItem(
+                            value: ThemeMode.system,
+                            child: Text('システム設定に従う'),
                           ),
-                        );
-                      },
-                    ),
-                    ListTile(
-                      contentPadding: const EdgeInsets.only(
-                        left: 32.0,
-                        right: 16.0,
-                      ),
-                      title: const Text('焼成雰囲気の管理'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                const FiringAtmosphereListScreen(),
+                          DropdownMenuItem(
+                            value: ThemeMode.light,
+                            child: Text('ライトモード'),
                           ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                // 中項目: データ管理
-                ExpansionTile(
-                  title: const Text('  データ管理'),
-                  initiallyExpanded: true,
-                  children: [
-                    ListTile(
-                      contentPadding: const EdgeInsets.only(
-                        left: 32.0,
-                        right: 16.0,
-                      ),
-                      title: const Text('素地土名の管理'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const ClayListScreen(),
+                          DropdownMenuItem(
+                            value: ThemeMode.dark,
+                            child: Text('ダークモード'),
                           ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
+            const _SectionHeader(title: 'データ管理'),
+            ListTile(
+              title: const Text('焼成プロファイルの管理'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const FiringProfileListScreen(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              title: const Text('焼成雰囲気の管理'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const FiringAtmosphereListScreen(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              title: const Text('素地土名の管理'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const ClayListScreen(),
+                  ),
+                );
+              },
+            ),
+            const Divider(),
+            const _SectionHeader(title: 'サポート'),
+            ListTile(
+              title: const Text('ヘルプ / FAQ'),
+              trailing: const Icon(Icons.help_outline),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const HelpScreen()),
+                );
+              },
             ),
           ],
         );
       },
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          color: Theme.of(context).colorScheme.primary,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 }

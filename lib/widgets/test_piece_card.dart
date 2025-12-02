@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/screens/test_piece_detail_screen.dart';
 import 'package:glaze_manager/theme/app_colors.dart';
@@ -10,6 +11,7 @@ class TestPieceCard extends StatelessWidget {
   final String glazeName;
   final String clayName;
   final String firingAtmosphereName;
+  final FiringAtmosphereType firingAtmosphereType;
   final String firingProfileName;
 
   const TestPieceCard({
@@ -18,6 +20,7 @@ class TestPieceCard extends StatelessWidget {
     required this.glazeName,
     required this.clayName,
     required this.firingAtmosphereName,
+    this.firingAtmosphereType = FiringAtmosphereType.other,
     required this.firingProfileName,
   });
 
@@ -27,18 +30,20 @@ class TestPieceCard extends StatelessWidget {
     Color? cardColor;
 
     // 焼成雰囲気による色分け
-    // "酸化" または "OF" を含む場合は酸化色
-    // "還元" または "RF" を含む場合は還元色
-    if (firingAtmosphereName.contains('酸化') ||
-        firingAtmosphereName.contains('OF')) {
-      cardColor = isDark
-          ? AppColors.oxidationCardDark
-          : AppColors.oxidationCardLight;
-    } else if (firingAtmosphereName.contains('還元') ||
-        firingAtmosphereName.contains('RF')) {
-      cardColor = isDark
-          ? AppColors.reductionCardDark
-          : AppColors.reductionCardLight;
+    switch (firingAtmosphereType) {
+      case FiringAtmosphereType.oxidation:
+        cardColor = isDark
+            ? AppColors.oxidationCardDark
+            : AppColors.oxidationCardLight;
+        break;
+      case FiringAtmosphereType.reduction:
+        cardColor = isDark
+            ? AppColors.reductionCardDark
+            : AppColors.reductionCardLight;
+        break;
+      case FiringAtmosphereType.other:
+        cardColor = null; // デフォルト色
+        break;
     }
 
     return Card(
