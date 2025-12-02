@@ -63,11 +63,28 @@ void main() {
       );
 
       await tester.enterText(find.byType(TextFormField), 'New Atmosphere');
+      await tester.tap(
+        find.byType(DropdownButtonFormField<FiringAtmosphereType>),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('酸化').last);
+      await tester.pumpAndSettle();
+
       await tester.tap(find.byIcon(Icons.save));
       await tester.pump();
       await tester.pumpAndSettle();
 
-      verify(mockFirestoreService.addFiringAtmosphere(any)).called(1);
+      verify(
+        mockFirestoreService.addFiringAtmosphere(
+          argThat(
+            predicate<FiringAtmosphere>(
+              (a) =>
+                  a.name == 'New Atmosphere' &&
+                  a.type == FiringAtmosphereType.oxidation,
+            ),
+          ),
+        ),
+      ).called(1);
     });
 
     testWidgets('should update existing atmosphere', (

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/theme/app_colors.dart';
 
@@ -7,6 +8,7 @@ class TestPieceListTile extends StatelessWidget {
   final String glazeName;
   final String clayName;
   final String firingAtmosphereName;
+  final FiringAtmosphereType firingAtmosphereType;
   final String firingProfileName;
   final VoidCallback? onTap;
 
@@ -16,6 +18,7 @@ class TestPieceListTile extends StatelessWidget {
     required this.glazeName,
     required this.clayName,
     required this.firingAtmosphereName,
+    this.firingAtmosphereType = FiringAtmosphereType.other,
     required this.firingProfileName,
     this.onTap,
   });
@@ -23,22 +26,21 @@ class TestPieceListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isOxidation =
-        firingAtmosphereName.contains('酸化') ||
-        firingAtmosphereName.toUpperCase().contains('OF');
-    final isReduction =
-        firingAtmosphereName.contains('還元') ||
-        firingAtmosphereName.toUpperCase().contains('RF');
-
     Color? cardColor;
-    if (isOxidation) {
-      cardColor = isDark
-          ? AppColors.oxidationCardDark
-          : AppColors.oxidationCardLight;
-    } else if (isReduction) {
-      cardColor = isDark
-          ? AppColors.reductionCardDark
-          : AppColors.reductionCardLight;
+    switch (firingAtmosphereType) {
+      case FiringAtmosphereType.oxidation:
+        cardColor = isDark
+            ? AppColors.oxidationCardDark
+            : AppColors.oxidationCardLight;
+        break;
+      case FiringAtmosphereType.reduction:
+        cardColor = isDark
+            ? AppColors.reductionCardDark
+            : AppColors.reductionCardLight;
+        break;
+      case FiringAtmosphereType.other:
+        cardColor = null;
+        break;
     }
 
     return Card(

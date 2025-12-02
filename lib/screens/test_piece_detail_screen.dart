@@ -13,6 +13,7 @@ import 'package:glaze_manager/models/material.dart' as m;
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/screens/glaze_detail_screen.dart';
 import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
+import 'package:glaze_manager/screens/mixing_calculator_screen.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/widgets/firing_chart.dart';
 import 'package:glaze_manager/screens/search_screen.dart';
@@ -376,7 +377,29 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
         children: [
           // レシピを最優先で表示
           if (glaze.recipe.isNotEmpty) ...[
-            Text('レシピ', style: Theme.of(context).textTheme.titleMedium),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('レシピ', style: Theme.of(context).textTheme.titleMedium),
+                TextButton.icon(
+                  onPressed: () {
+                    final materialMap = {
+                      for (var m in materials) m.id!: m.name,
+                    };
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => MixingCalculatorScreen(
+                          recipe: glaze.recipe,
+                          materialNames: materialMap,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.calculate),
+                  label: const Text('調合計算へ'),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             _buildRecipeTable(glaze.recipe, materials),
             const Divider(height: 32),
@@ -419,10 +442,27 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
             ),
           ],
           _buildInfoTile('素地土名', clay?.name ?? '未設定'),
-          _buildInfoTile('焼成雰囲気', firingAtmosphere?.name ?? '未設定'),
+          _buildInfoTile(
+            '焼成雰囲気',
+            firingAtmosphere?.name ?? '未設定',
+            tooltip: '焼成時の窯の雰囲気（酸化・還元など）です。',
+          ),
           const Divider(height: 32),
           if (firingProfile != null) ...[
-            Text('焼成プロファイル', style: Theme.of(context).textTheme.titleMedium),
+            Row(
+              children: [
+                Text(
+                  '焼成プロファイル',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(width: 8),
+                const Tooltip(
+                  message: '焼成時の温度変化の記録です。',
+                  triggerMode: TooltipTriggerMode.tap,
+                  child: Icon(Icons.info_outline, size: 20, color: Colors.grey),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             Text(
               firingProfile.name,
@@ -513,13 +553,34 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
     );
   }
 
-  Widget _buildInfoTile(String label, String value, {VoidCallback? onTap}) {
+  Widget _buildInfoTile(
+    String label,
+    String value, {
+    VoidCallback? onTap,
+    String? tooltip,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: Theme.of(context).textTheme.labelLarge),
+          Row(
+            children: [
+              Text(label, style: Theme.of(context).textTheme.labelLarge),
+              if (tooltip != null) ...[
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: tooltip,
+                  triggerMode: TooltipTriggerMode.tap,
+                  child: const Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ],
+          ),
           InkWell(
             onTap: onTap,
             child: Padding(

@@ -15,13 +15,33 @@ class AppColors {
   static const Color darkSurface = Color(0xFF2D2A26);
   static const Color darkPrimary = Color(0xFFD7CFC7);
   static const Color darkSecondary = Color(0xFF5D5852);
-  static const Color darkTextPrimary = Color(0xFFE6E1DB);
-  static const Color darkTextSecondary = Color(0xFFA89F91);
+  static const Color darkTextPrimary = Color(0xFFF2F0ED); // Brighter Beige
+  static const Color darkTextSecondary = Color(0xFFC7BFB5); // Lighter Warm Grey
 
   // Card Background Colors (Oxidation/Reduction)
-  static const Color oxidationCardLight = Color(0xFFFFF8E1); // Amber 50
-  static const Color reductionCardLight = Color(0xFFE3F2FD); // Blue 50
+  static const Color oxidationCardLight = Color.fromARGB(
+    255,
+    245,
+    232,
+    191,
+  ); // Amber 50
+  static const Color reductionCardLight = Color.fromARGB(
+    255,
+    194,
+    219,
+    236,
+  ); // Blue 50
 
-  static const Color oxidationCardDark = Color(0xFF3E3B36); // Warm Dark
-  static const Color reductionCardDark = Color(0xFF363B3E); // Cool Dark
+  static const Color oxidationCardDark = Color.fromARGB(
+    255,
+    44,
+    38,
+    27,
+  ); // Warm Dark
+  static const Color reductionCardDark = Color.fromARGB(
+    255,
+    41,
+    52,
+    59,
+  ); // Cool Dark
 }

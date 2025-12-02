@@ -17,6 +17,7 @@ class _FiringAtmosphereEditScreenState
     extends State<FiringAtmosphereEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
+  late FiringAtmosphereType _selectedType;
   bool _isLoading = false;
   bool _isDirty = false;
 
@@ -26,6 +27,7 @@ class _FiringAtmosphereEditScreenState
     _nameController = TextEditingController(
       text: widget.atmosphere?.name ?? '',
     );
+    _selectedType = widget.atmosphere?.type ?? FiringAtmosphereType.other;
     _nameController.addListener(() {
       if (!_isDirty) {
         setState(() => _isDirty = true);
@@ -52,6 +54,7 @@ class _FiringAtmosphereEditScreenState
       final atmosphere = FiringAtmosphere(
         id: widget.atmosphere?.id,
         name: _nameController.text,
+        type: _selectedType,
       );
 
       if (widget.atmosphere == null) {
@@ -128,6 +131,26 @@ class _FiringAtmosphereEditScreenState
                 decoration: const InputDecoration(labelText: '雰囲気名'),
                 validator: (value) =>
                     (value == null || value.isEmpty) ? '名前を入力してください' : null,
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<FiringAtmosphereType>(
+                // ignore: deprecated_member_use
+                value: _selectedType,
+                decoration: const InputDecoration(labelText: '雰囲気タイプ'),
+                items: FiringAtmosphereType.values.map((type) {
+                  return DropdownMenuItem(
+                    value: type,
+                    child: Text(type.displayName),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedType = value;
+                      _isDirty = true;
+                    });
+                  }
+                },
               ),
             ],
           ),
