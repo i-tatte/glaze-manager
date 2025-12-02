@@ -44,6 +44,11 @@ void main() {
     testWidgets('should display recent test pieces on load', (
       WidgetTester tester,
     ) async {
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       // Mock data
       final glazes = [
         Glaze(
@@ -72,12 +77,12 @@ void main() {
       when(
         mockFirestoreService.getTestPieces(),
       ).thenAnswer((_) => Stream.value(testPieces));
-      when(
-        mockFirestoreService.getFiringAtmospheres(),
-      ).thenAnswer((_) => Stream.value(<FiringAtmosphere>[]));
-      when(
-        mockFirestoreService.getFiringProfiles(),
-      ).thenAnswer((_) => Stream.value(<FiringProfile>[]));
+      when(mockFirestoreService.getFiringAtmospheres()).thenAnswer(
+        (_) => Stream.value([FiringAtmosphere(id: 'fa1', name: 'Oxidation')]),
+      );
+      when(mockFirestoreService.getFiringProfiles()).thenAnswer(
+        (_) => Stream.value([FiringProfile(id: 'fp1', name: 'Profile 1')]),
+      );
       when(
         mockFirestoreService.getClays(),
       ).thenAnswer((_) => Stream.value(clays));
@@ -96,6 +101,11 @@ void main() {
     });
 
     testWidgets('should perform text search', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       // Mock data
       final glazes = [
         Glaze(
@@ -138,12 +148,12 @@ void main() {
       when(
         mockFirestoreService.getTestPieces(),
       ).thenAnswer((_) => Stream.value(testPieces));
-      when(
-        mockFirestoreService.getFiringAtmospheres(),
-      ).thenAnswer((_) => Stream.value(<FiringAtmosphere>[]));
-      when(
-        mockFirestoreService.getFiringProfiles(),
-      ).thenAnswer((_) => Stream.value(<FiringProfile>[]));
+      when(mockFirestoreService.getFiringAtmospheres()).thenAnswer(
+        (_) => Stream.value([FiringAtmosphere(id: 'fa1', name: 'Oxidation')]),
+      );
+      when(mockFirestoreService.getFiringProfiles()).thenAnswer(
+        (_) => Stream.value([FiringProfile(id: 'fp1', name: 'Profile 1')]),
+      );
       when(
         mockFirestoreService.getClays(),
       ).thenAnswer((_) => Stream.value(clays));

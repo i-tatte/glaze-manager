@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart' hide ColorSwatch;
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:glaze_manager/models/clay.dart';
@@ -10,6 +12,9 @@ import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/settings_service.dart';
 import 'package:glaze_manager/widgets/test_piece_grid.dart';
 import 'package:glaze_manager/widgets/tag_management_widget.dart';
+import 'package:glaze_manager/widgets/test_piece_card.dart';
+import 'package:glaze_manager/widgets/test_piece_list_tile.dart';
+import 'package:glaze_manager/screens/test_piece_detail_screen.dart';
 import 'package:provider/provider.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -23,6 +28,7 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _recentItemsController = ScrollController();
 
   // 検索関連の状態
   bool _isSearching = false;
@@ -39,6 +45,7 @@ class _SearchScreenState extends State<SearchScreen> {
   Map<String, FiringAtmosphere> _atmosphereMap = {};
   Map<String, FiringProfile> _profileMap = {};
   List<TestPiece> _searchResults = [];
+  bool _isGridView = true;
   List<String> _allTags = [];
 
   @override
@@ -55,6 +62,7 @@ class _SearchScreenState extends State<SearchScreen> {
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _recentItemsController.dispose();
     super.dispose();
   }
 
@@ -582,28 +590,92 @@ class _SearchScreenState extends State<SearchScreen> {
           }
         }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 8.0,
+        if (recentPieces.isEmpty) {
+          return const Center(child: Text('最近見たテストピースはありません。'));
+        }
+
+        return Container(
+          color: Theme.of(
+            context,
+          ).colorScheme.surfaceContainerLow, // 僅かに背景色を変える
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 12.0,
+                ),
+                child: Text(
+                  '最近見たテストピース',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-              child: Text(
-                '最近見たテストピース',
-                style: Theme.of(context).textTheme.titleLarge,
+              SizedBox(
+                height: 230, // カルーセルの高さ
+                child: Listener(
+                  onPointerSignal: (pointerSignal) {
+                    if (pointerSignal is PointerScrollEvent) {
+                      final newOffset =
+                          _recentItemsController.offset +
+                          pointerSignal.scrollDelta.dy;
+                      if (newOffset >= 0 &&
+                          newOffset <=
+                              _recentItemsController.position.maxScrollExtent) {
+                        _recentItemsController.jumpTo(newOffset);
+                      }
+                    }
+                  },
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(context).copyWith(
+                      dragDevices: {
+                        ui.PointerDeviceKind.touch,
+                        ui.PointerDeviceKind.mouse,
+                      },
+                    ),
+                    child: ListView.builder(
+                      controller: _recentItemsController,
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                      itemCount: recentPieces.length,
+                      itemBuilder: (context, index) {
+                        final testPiece = recentPieces[index];
+                        final glazeName =
+                            _glazeMap[testPiece.glazeId]?.name ?? '不明な釉薬';
+                        final clayName =
+                            _clayMap[testPiece.clayId]?.name ?? '不明な素地';
+                        final firingAtmosphereName =
+                            _atmosphereMap[testPiece.firingAtmosphereId]
+                                ?.name ??
+                            '不明な雰囲気';
+                        final firingProfileName =
+                            _profileMap[testPiece.firingProfileId]?.name ??
+                            '不明なプロファイル';
+
+                        return SizedBox(
+                          width: 160, // カードの幅
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4.0,
+                            ),
+                            child: TestPieceCard(
+                              testPiece: testPiece,
+                              glazeName: glazeName,
+                              clayName: clayName,
+                              firingAtmosphereName: firingAtmosphereName,
+                              firingProfileName: firingProfileName,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
               ),
-            ),
-            Expanded(
-              child: TestPieceGrid(
-                testPieces: recentPieces,
-                glazeMap: _glazeMap,
-                clayMap: _clayMap,
-                crossAxisCount: crossAxisCount,
-              ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -616,19 +688,85 @@ class _SearchScreenState extends State<SearchScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('検索結果', style: Theme.of(context).textTheme.titleLarge),
+              IconButton(
+                icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view),
+                tooltip: _isGridView ? 'リスト表示に切り替え' : 'グリッド表示に切り替え',
+                onPressed: () {
+                  setState(() {
+                    _isGridView = !_isGridView;
+                  });
+                },
+              ),
             ],
           ),
         ),
         Expanded(
           child: _searchResults.isEmpty
-              ? Center(child: Text('条件に一致する結果はありません。'))
-              : TestPieceGrid(
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.search_off,
+                        size: 48,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        '条件に一致する結果はありません。',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '条件を変えてみてください',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                )
+              : _isGridView
+              ? TestPieceGrid(
                   testPieces: _searchResults,
                   glazeMap: _glazeMap,
                   clayMap: _clayMap,
+                  firingAtmosphereMap: _atmosphereMap,
+                  firingProfileMap: _profileMap,
                   crossAxisCount: crossAxisCount,
+                )
+              : ListView.builder(
+                  itemCount: _searchResults.length,
+                  itemBuilder: (context, index) {
+                    final testPiece = _searchResults[index];
+                    final glazeName =
+                        _glazeMap[testPiece.glazeId]?.name ?? '不明な釉薬';
+                    final clayName =
+                        _clayMap[testPiece.clayId]?.name ?? '不明な素地';
+                    final firingAtmosphereName =
+                        _atmosphereMap[testPiece.firingAtmosphereId]?.name ??
+                        '不明な雰囲気';
+                    final firingProfileName =
+                        _profileMap[testPiece.firingProfileId]?.name ??
+                        '不明なプロファイル';
+
+                    return TestPieceListTile(
+                      testPiece: testPiece,
+                      glazeName: glazeName,
+                      clayName: clayName,
+                      firingAtmosphereName: firingAtmosphereName,
+                      firingProfileName: firingProfileName,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                TestPieceDetailScreen(testPiece: testPiece),
+                          ),
+                        );
+                      },
+                    );
+                  },
                 ),
         ),
       ],

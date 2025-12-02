@@ -217,6 +217,8 @@ void main() {
                 testPiece: testPiece,
                 glazeName: 'Test Glaze',
                 clayName: 'Test Clay',
+                firingAtmosphereName: 'Oxidation',
+                firingProfileName: 'Standard Profile',
               ),
             ),
           ),

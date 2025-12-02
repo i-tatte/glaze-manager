@@ -6,6 +6,7 @@ import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
+import 'package:glaze_manager/models/material.dart' as m;
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/screens/test_piece_detail_screen.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
@@ -20,6 +21,7 @@ class ManualMockFirestoreService implements FirestoreService {
   Clay? clayToReturn;
   FiringProfile? firingProfileToReturn;
   FiringAtmosphere? firingAtmosphereToReturn;
+  List<m.Material>? materialsToReturn;
 
   @override
   Stream<TestPiece> getTestPieceStream(String id) => testPieceController.stream;
@@ -50,6 +52,14 @@ class ManualMockFirestoreService implements FirestoreService {
       return Stream.value(firingAtmosphereToReturn!);
     }
     return const Stream.empty();
+  }
+
+  @override
+  Stream<List<m.Material>> getMaterials() {
+    if (materialsToReturn != null) {
+      return Stream.value(materialsToReturn!);
+    }
+    return Stream.value(<m.Material>[]);
   }
 
   @override
@@ -98,7 +108,7 @@ void main() {
       final glaze = Glaze(
         id: 'g1',
         name: 'Test Glaze',
-        recipe: {},
+        recipe: {'m1': 50.0, 'm2': 50.0},
         tags: [],
         createdAt: Timestamp.now(),
       );
@@ -123,6 +133,22 @@ void main() {
       mockFirestoreService.clayToReturn = clay;
       mockFirestoreService.firingProfileToReturn = firingProfile;
       mockFirestoreService.firingAtmosphereToReturn = firingAtmosphere;
+      mockFirestoreService.materialsToReturn = [
+        m.Material(
+          id: 'm1',
+          name: 'Material 1',
+          order: 1,
+          components: {},
+          category: m.MaterialCategory.base,
+        ),
+        m.Material(
+          id: 'm2',
+          name: 'Material 2',
+          order: 2,
+          components: {},
+          category: m.MaterialCategory.base,
+        ),
+      ];
 
       await tester.pumpWidget(
         createTestableWidget(TestPieceDetailScreen(testPiece: testPiece)),
@@ -143,6 +169,7 @@ void main() {
       expect(find.text('Test Profile'), findsOneWidget);
       expect(find.text('Test Atmosphere'), findsOneWidget);
       expect(find.text('Test Note'), findsOneWidget);
+      expect(find.text('レシピ'), findsOneWidget); // Verify recipe header
     });
   });
 }
