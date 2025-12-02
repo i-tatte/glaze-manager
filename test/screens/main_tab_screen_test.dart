@@ -64,6 +64,7 @@ void main() {
     when(
       mockSettingsService.maxGridCrossAxisCount,
     ).thenReturn(10); // デフォルト値として10を設定
+    when(mockSettingsService.themeMode).thenReturn(ThemeMode.system);
 
     // ChangeNotifierのメソッドをスタブ
     when(mockSettingsService.addListener(any)).thenReturn(null);

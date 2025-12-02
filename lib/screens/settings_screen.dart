@@ -39,27 +39,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text('テーマ'),
-                      DropdownButton<ThemeMode>(
-                        value: settings.themeMode,
-                        onChanged: (ThemeMode? newMode) {
-                          if (newMode != null) {
-                            settings.setThemeMode(newMode);
-                          }
-                        },
-                        items: const [
-                          DropdownMenuItem(
-                            value: ThemeMode.system,
-                            child: Text('システム設定に従う'),
+                      SizedBox(
+                        width: 200, // 幅を制限してバランスを取る
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            isDense: true,
                           ),
-                          DropdownMenuItem(
-                            value: ThemeMode.light,
-                            child: Text('ライトモード'),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<ThemeMode>(
+                              value: settings.themeMode,
+                              isExpanded: true,
+                              onChanged: (ThemeMode? newMode) {
+                                if (newMode != null) {
+                                  settings.setThemeMode(newMode);
+                                }
+                              },
+                              items: const [
+                                DropdownMenuItem(
+                                  value: ThemeMode.system,
+                                  child: Text('システム設定に従う'),
+                                ),
+                                DropdownMenuItem(
+                                  value: ThemeMode.light,
+                                  child: Text('ライトモード'),
+                                ),
+                                DropdownMenuItem(
+                                  value: ThemeMode.dark,
+                                  child: Text('ダークモード'),
+                                ),
+                              ],
+                            ),
                           ),
-                          DropdownMenuItem(
-                            value: ThemeMode.dark,
-                            child: Text('ダークモード'),
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ),

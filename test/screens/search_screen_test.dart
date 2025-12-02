@@ -25,6 +25,7 @@ void main() {
 
     // SettingsService stubs
     when(mockSettingsService.gridCrossAxisCount).thenReturn(2);
+    when(mockSettingsService.themeMode).thenReturn(ThemeMode.system);
     when(mockSettingsService.addListener(any)).thenReturn(null);
     when(mockSettingsService.removeListener(any)).thenReturn(null);
   });

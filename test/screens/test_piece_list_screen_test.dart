@@ -24,6 +24,7 @@ void main() {
 
     // SettingsServiceのモック設定
     when(mockSettingsService.gridCrossAxisCount).thenReturn(2);
+    when(mockSettingsService.themeMode).thenReturn(ThemeMode.system);
     // ChangeNotifierのスタブ
     when(mockSettingsService.addListener(any)).thenReturn(null);
     when(mockSettingsService.removeListener(any)).thenReturn(null);

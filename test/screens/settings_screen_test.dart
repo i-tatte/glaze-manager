@@ -15,6 +15,7 @@ void main() {
     // Default stubs
     when(mockSettingsService.gridCrossAxisCount).thenReturn(2);
     when(mockSettingsService.maxGridCrossAxisCount).thenReturn(6);
+    when(mockSettingsService.themeMode).thenReturn(ThemeMode.system);
     when(mockSettingsService.addListener(any)).thenReturn(null);
     when(mockSettingsService.removeListener(any)).thenReturn(null);
   });
@@ -33,10 +34,9 @@ void main() {
       await tester.pumpWidget(createTestableWidget(const SettingsScreen()));
       await tester.pumpAndSettle();
 
-      expect(find.text('テストピース設定'), findsOneWidget);
-      expect(find.text('  表示設定'), findsOneWidget);
-      expect(find.text('  焼成プロファイル設定'), findsOneWidget);
-      expect(find.text('  データ管理'), findsOneWidget);
+      expect(find.text('表示'), findsOneWidget);
+      expect(find.text('データ管理'), findsOneWidget);
+      expect(find.text('サポート'), findsOneWidget);
     });
 
     testWidgets('should display grid count slider', (
