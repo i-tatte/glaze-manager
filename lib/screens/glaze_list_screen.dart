@@ -401,61 +401,76 @@ class GlazeListScreenState extends State<GlazeListScreen> {
                             itemCount: displayedGlazes.length,
                             itemBuilder: (context, index) {
                               final glaze = displayedGlazes[index];
-                              return ListTile(
-                                title: Row(
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        glaze.name,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    if (glaze.tags.isNotEmpty) ...[
-                                      const SizedBox(width: 8),
+                              return Card(
+                                child: ListTile(
+                                  title: Row(
+                                    children: [
                                       Flexible(
-                                        child: Wrap(
-                                          spacing: 4.0,
-                                          runSpacing: 4.0,
-                                          children: glaze.tags
-                                              .map(
-                                                (tag) => Chip(
-                                                  label: Text(
-                                                    tag,
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                    ),
-                                                  ),
-                                                  backgroundColor: Theme.of(
-                                                    context,
-                                                  ).colorScheme.primary,
-                                                  visualDensity:
-                                                      VisualDensity.compact,
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 4.0,
-                                                      ),
-                                                ),
-                                              )
-                                              .toList(),
+                                        child: Text(
+                                          glaze.name,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.titleMedium,
                                         ),
                                       ),
+                                      if (glaze.tags.isNotEmpty) ...[
+                                        const SizedBox(width: 8),
+                                        Flexible(
+                                          child: Wrap(
+                                            spacing: 4.0,
+                                            runSpacing: 4.0,
+                                            children: glaze.tags
+                                                .map(
+                                                  (tag) => Chip(
+                                                    label: Text(
+                                                      tag,
+                                                      style: TextStyle(
+                                                        color: Theme.of(
+                                                          context,
+                                                        ).colorScheme.onPrimary,
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                    backgroundColor: Theme.of(
+                                                      context,
+                                                    ).colorScheme.primary,
+                                                    visualDensity:
+                                                        VisualDensity.compact,
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 4.0,
+                                                        ),
+                                                    side: BorderSide.none,
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            16,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                )
+                                                .toList(),
+                                          ),
+                                        ),
+                                      ],
                                     ],
-                                  ],
+                                  ),
+                                  subtitle: Text(
+                                    '${glaze.registeredName != null ? '[${glaze.registeredName}] ' : ''}${glaze.description ?? ''}',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  trailing: const Icon(Icons.chevron_right),
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            GlazeDetailScreen(glaze: glaze),
+                                      ),
+                                    );
+                                  },
                                 ),
-                                subtitle: Text(
-                                  '${glaze.registeredName != null ? '[${glaze.registeredName}] ' : ''}${glaze.description ?? ''}',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          GlazeDetailScreen(glaze: glaze),
-                                    ),
-                                  );
-                                },
                               );
                             },
                           );

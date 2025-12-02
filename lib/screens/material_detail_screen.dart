@@ -47,7 +47,12 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
                 Chip(
                   label: Text(material.category.displayName),
                   labelStyle: const TextStyle(color: Colors.white),
-                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  backgroundColor:
+                      material.category == app.MaterialCategory.pigment
+                      ? Colors.pink
+                      : material.category == app.MaterialCategory.additive
+                      ? Colors.blue
+                      : Colors.green,
                   padding: const EdgeInsets.symmetric(horizontal: 3.0),
                   visualDensity: VisualDensity.compact,
                 ),

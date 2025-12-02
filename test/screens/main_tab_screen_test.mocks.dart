@@ -5,9 +5,10 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _i3;
 import 'dart:typed_data' as _i14;
-import 'dart:ui' as _i16;
+import 'dart:ui' as _i17;
 
 import 'package:firebase_auth/firebase_auth.dart' as _i4;
+import 'package:flutter/material.dart' as _i16;
 import 'package:glaze_manager/models/clay.dart' as _i12;
 import 'package:glaze_manager/models/firing_atmosphere.dart' as _i11;
 import 'package:glaze_manager/models/firing_profile.dart' as _i10;
@@ -553,6 +554,14 @@ class MockSettingsService extends _i1.Mock implements _i15.SettingsService {
           as int);
 
   @override
+  _i16.ThemeMode get themeMode =>
+      (super.noSuchMethod(
+            Invocation.getter(#themeMode),
+            returnValue: _i16.ThemeMode.system,
+          )
+          as _i16.ThemeMode);
+
+  @override
   bool get hasListeners =>
       (super.noSuchMethod(Invocation.getter(#hasListeners), returnValue: false)
           as bool);
@@ -567,13 +576,22 @@ class MockSettingsService extends _i1.Mock implements _i15.SettingsService {
           as _i3.Future<void>);
 
   @override
-  void addListener(_i16.VoidCallback? listener) => super.noSuchMethod(
+  _i3.Future<void> setThemeMode(_i16.ThemeMode? mode) =>
+      (super.noSuchMethod(
+            Invocation.method(#setThemeMode, [mode]),
+            returnValue: _i3.Future<void>.value(),
+            returnValueForMissingStub: _i3.Future<void>.value(),
+          )
+          as _i3.Future<void>);
+
+  @override
+  void addListener(_i17.VoidCallback? listener) => super.noSuchMethod(
     Invocation.method(#addListener, [listener]),
     returnValueForMissingStub: null,
   );
 
   @override
-  void removeListener(_i16.VoidCallback? listener) => super.noSuchMethod(
+  void removeListener(_i17.VoidCallback? listener) => super.noSuchMethod(
     Invocation.method(#removeListener, [listener]),
     returnValueForMissingStub: null,
   );

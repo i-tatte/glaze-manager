@@ -209,6 +209,8 @@ void main() {
             testPieces: testPieces,
             glazeMap: glazeMap,
             clayMap: clayMap,
+            firingAtmosphereMap: const {},
+            firingProfileMap: const {},
             crossAxisCount: 2,
           ),
         ),
@@ -233,6 +235,8 @@ void main() {
             testPieces: [],
             glazeMap: {},
             clayMap: {},
+            firingAtmosphereMap: {},
+            firingProfileMap: {},
             crossAxisCount: 2,
             onRefresh: () async {
               refreshed = true;

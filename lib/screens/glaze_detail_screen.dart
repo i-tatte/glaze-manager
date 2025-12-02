@@ -4,6 +4,7 @@ import 'package:glaze_manager/models/material.dart' as app;
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/screens/glaze_edit_screen.dart';
 import 'package:glaze_manager/screens/material_detail_screen.dart';
+import 'package:glaze_manager/screens/mixing_calculator_screen.dart';
 import 'package:glaze_manager/screens/test_piece_detail_screen.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:provider/provider.dart';
@@ -123,7 +124,35 @@ class _GlazeDetailScreenState extends State<GlazeDetailScreen> {
           _buildInfoTile(context, '備考', glaze.description!),
           const Divider(height: 32),
         ],
-        Text('調合レシピ', style: Theme.of(context).textTheme.titleMedium),
+        Row(
+          children: [
+            Text('調合レシピ', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(width: 8),
+            const Tooltip(
+              message: '原料の配合比率です。タップして詳細を確認できます。',
+              triggerMode: TooltipTriggerMode.tap,
+              child: Icon(Icons.info_outline, size: 20, color: Colors.grey),
+            ),
+          ],
+        ),
+        if (glaze.recipe.isNotEmpty)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => MixingCalculatorScreen(
+                      recipe: glaze.recipe,
+                      materialNames: materialMap.cast<String, String>(),
+                    ),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.calculate),
+              label: const Text('調合計算へ'),
+            ),
+          ),
         const SizedBox(height: 8),
         if (glaze.recipe.isEmpty)
           const Text('レシピが登録されていません。')
