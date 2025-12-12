@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class MixingCalculatorScreen extends StatefulWidget {
-  final Map<String, double> recipe; // Material ID -> Percentage
+  final Map<String, double> recipe; // Material ID -> Grams (Parts)
   final Map<String, String> materialNames; // Material ID -> Name
 
   const MixingCalculatorScreen({
@@ -18,6 +18,7 @@ class MixingCalculatorScreen extends StatefulWidget {
 class _MixingCalculatorScreenState extends State<MixingCalculatorScreen> {
   // Current total weight in grams
   double _totalWeight = 1000.0;
+  late double _totalParts;
 
   // Controllers for each material input to manage text state
   late Map<String, TextEditingController> _controllers;
@@ -26,6 +27,10 @@ class _MixingCalculatorScreenState extends State<MixingCalculatorScreen> {
   @override
   void initState() {
     super.initState();
+    _totalParts = widget.recipe.values.fold(0.0, (sum, val) => sum + val);
+    if (_totalParts == 0) _totalParts = 1.0;
+    _totalWeight = _totalParts * 10.0;
+
     _totalController = TextEditingController(
       text: _totalWeight.toStringAsFixed(1),
     );
@@ -33,7 +38,7 @@ class _MixingCalculatorScreenState extends State<MixingCalculatorScreen> {
 
     // Initialize controllers for each material
     for (var entry in widget.recipe.entries) {
-      final weight = (_totalWeight * entry.value) / 100.0;
+      final weight = (_totalWeight * entry.value) / _totalParts;
       _controllers[entry.key] = TextEditingController(
         text: weight.toStringAsFixed(1),
       );
@@ -57,7 +62,7 @@ class _MixingCalculatorScreenState extends State<MixingCalculatorScreen> {
       _totalWeight = newTotal;
       // Update all material inputs
       for (var entry in widget.recipe.entries) {
-        final weight = (_totalWeight * entry.value) / 100.0;
+        final weight = (_totalWeight * entry.value) / _totalParts;
         _controllers[entry.key]?.text = weight.toStringAsFixed(1);
       }
     });
@@ -67,12 +72,12 @@ class _MixingCalculatorScreenState extends State<MixingCalculatorScreen> {
     final newWeight = double.tryParse(value);
     if (newWeight == null) return;
 
-    final percentage = widget.recipe[materialId];
-    if (percentage == null || percentage == 0) return;
+    final part = widget.recipe[materialId];
+    if (part == null || part == 0) return;
 
-    // Calculate new total based on this material's weight and percentage
-    // weight = (total * percentage) / 100  =>  total = (weight * 100) / percentage
-    final newTotal = (newWeight * 100.0) / percentage;
+    // Calculate new total based on this material's weight and part
+    // weight = (total * part) / totalParts  =>  total = (weight * totalParts) / part
+    final newTotal = (newWeight * _totalParts) / part;
 
     setState(() {
       _totalWeight = newTotal;
@@ -82,7 +87,7 @@ class _MixingCalculatorScreenState extends State<MixingCalculatorScreen> {
       for (var entry in widget.recipe.entries) {
         if (entry.key == materialId) continue; // Skip the one being edited
 
-        final weight = (_totalWeight * entry.value) / 100.0;
+        final weight = (_totalWeight * entry.value) / _totalParts;
         _controllers[entry.key]?.text = weight.toStringAsFixed(1);
       }
     });
@@ -137,8 +142,9 @@ class _MixingCalculatorScreenState extends State<MixingCalculatorScreen> {
               itemBuilder: (context, index) {
                 final entry = widget.recipe.entries.elementAt(index);
                 final materialId = entry.key;
-                final percentage = entry.value;
+                final part = entry.value;
                 final name = widget.materialNames[materialId] ?? '不明な材料';
+                final percentage = (part / _totalParts) * 100;
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
@@ -152,7 +158,7 @@ class _MixingCalculatorScreenState extends State<MixingCalculatorScreen> {
                           children: [
                             Text(name, style: const TextStyle(fontSize: 16)),
                             Text(
-                              '${percentage.toStringAsFixed(1)}%',
+                              '${part.toStringAsFixed(1)}g / ${percentage.toStringAsFixed(1)}%',
                               style: TextStyle(
                                 color: Theme.of(context).colorScheme.secondary,
                                 fontSize: 14,
