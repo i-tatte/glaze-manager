@@ -510,7 +510,7 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Text(
-                '${entry.value.toStringAsFixed(1)}%',
+                '${entry.value.toStringAsFixed(1)}g',
                 textAlign: TextAlign.right,
               ),
             ),
