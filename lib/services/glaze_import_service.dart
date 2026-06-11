@@ -88,7 +88,7 @@ class GlazeImporter {
       List<String> newlyAddedPigments = [];
 
       // 3. 既存の釉薬名リストを取得
-      final existingGlazes = await firestoreService.getGlazes().first;
+      final existingGlazes = await firestoreService.getGlazesOnce();
       final existingGlazeNames = existingGlazes.map((g) => g.name).toSet();
 
       // 4. 【1パス目】全行をパースして中間データに変換
@@ -175,7 +175,7 @@ class GlazeImporter {
       newlyAddedPigments = await firestoreService.findOrCreatePigments(
         allPigmentNames.toList(),
       );
-      final allMaterials = await firestoreService.getMaterials().first;
+      final allMaterials = await firestoreService.getMaterialsOnce();
       final materialIdMap = {for (var mat in allMaterials) mat.name: mat.id!};
 
       // 6. 【2パス目】名前をIDに解決して釉薬データを作成

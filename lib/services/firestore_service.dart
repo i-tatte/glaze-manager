@@ -6,663 +6,235 @@ import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
+import 'package:glaze_manager/repositories/clay_repository.dart';
+import 'package:glaze_manager/repositories/firing_atmosphere_repository.dart';
+import 'package:glaze_manager/repositories/firing_profile_repository.dart';
+import 'package:glaze_manager/repositories/glaze_repository.dart';
+import 'package:glaze_manager/repositories/material_repository.dart';
+import 'package:glaze_manager/repositories/tag_repository.dart';
+import 'package:glaze_manager/repositories/test_piece_repository.dart';
+import 'package:glaze_manager/repositories/view_history_repository.dart';
 
+/// Firestoreアクセスのファサード。
+///
+/// 実体はエンティティごとのリポジトリ (`lib/repositories/`) に分割されており、
+/// 本クラスは既存の呼び出し側 (画面・テスト) との互換のために
+/// 従来のメソッド名で各リポジトリへ委譲する。
+/// 新規コードは個別リポジトリを直接使用してよい。
 class FirestoreService {
-  final FirebaseFirestore _db;
-  final FirebaseAuth _auth;
+  final MaterialRepository materials;
+  final GlazeRepository glazes;
+  final TestPieceRepository testPieces;
+  final ClayRepository clays;
+  final FiringProfileRepository firingProfiles;
+  final FiringAtmosphereRepository firingAtmospheres;
+  final TagRepository tags;
+  final ViewHistoryRepository viewHistory;
 
   FirestoreService({FirebaseFirestore? db, FirebaseAuth? auth})
-    : _db = db ?? FirebaseFirestore.instance,
-      _auth = auth ?? FirebaseAuth.instance;
+    : materials = MaterialRepository(db: db, auth: auth),
+      glazes = GlazeRepository(db: db, auth: auth),
+      testPieces = TestPieceRepository(db: db, auth: auth),
+      clays = ClayRepository(db: db, auth: auth),
+      firingProfiles = FiringProfileRepository(db: db, auth: auth),
+      firingAtmospheres = FiringAtmosphereRepository(db: db, auth: auth),
+      tags = TagRepository(db: db, auth: auth),
+      viewHistory = ViewHistoryRepository(db: db, auth: auth);
 
-  // 現在のユーザーIDを取得
-  String? get _userId => _auth.currentUser?.uid;
+  // --- Material Methods ---
 
-  // 原料を追加
-  Future<void> addMaterial(Material material) async {
-    if (_userId == null) throw Exception("User not logged in");
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('materials')
-        .add(material.toFirestore());
-  }
+  /// 原料を追加
+  Future<void> addMaterial(Material material) => materials.add(material);
 
-  // 原料一覧を取得 (リアルタイム)
-  Stream<List<Material>> getMaterials() {
-    if (_userId == null) return Stream.value([]);
-    return _db
-        .collection('users')
-        .doc(_userId)
-        .collection('materials')
-        .orderBy('order') // orderフィールドで並び替え
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => Material.fromFirestore(doc)).toList(),
-        );
-  }
+  /// 原料一覧を取得 (リアルタイム)
+  Stream<List<Material>> getMaterials() => materials.watchAll();
 
-  // 特定の原料を取得 (リアルタイム)
-  Stream<Material> getMaterialStream(String id) {
-    if (_userId == null) return Stream.error("User not logged in");
-    return _db
-        .collection('users')
-        .doc(_userId)
-        .collection('materials')
-        .doc(id)
-        .snapshots()
-        .map((snapshot) => Material.fromFirestore(snapshot));
-  }
+  /// 原料一覧を1回だけ取得
+  Future<List<Material>> getMaterialsOnce() => materials.getAll();
 
-  // 原料名からIDを取得
-  Future<String?> getMaterialIdByName(String name) async {
-    if (_userId == null) throw Exception("User not logged in");
-    final querySnapshot = await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('materials')
-        .where('name', isEqualTo: name)
-        .limit(1)
-        .get();
-    if (querySnapshot.docs.isNotEmpty) {
-      return querySnapshot.docs.first.id;
-    }
-    return null;
-  }
+  /// 特定の原料を取得 (リアルタイム)
+  Stream<Material> getMaterialStream(String id) => materials.watchById(id);
 
-  // 原料を更新
-  Future<void> updateMaterial(Material material) async {
-    if (_userId == null) throw Exception("User not logged in");
-    if (material.id == null) {
-      throw Exception("Material ID is required for update");
-    }
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('materials')
-        .doc(material.id)
-        .update(material.toFirestore());
-  }
+  /// 原料名からIDを取得
+  Future<String?> getMaterialIdByName(String name) =>
+      materials.getIdByName(name);
 
-  // 原料を削除
-  Future<void> deleteMaterial(String materialId) async {
-    if (_userId == null) throw Exception("User not logged in");
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('materials')
-        .doc(materialId)
-        .delete();
-  }
+  /// 原料を更新
+  Future<void> updateMaterial(Material material) =>
+      materials.updateById(material.id, material);
 
-  // 複数の原料の並び順を更新
-  Future<void> updateMaterialOrder(List<Material> materials) async {
-    if (_userId == null) throw Exception("User not logged in");
+  /// 原料を削除
+  Future<void> deleteMaterial(String materialId) =>
+      materials.deleteById(materialId);
 
-    final batch = _db.batch();
-    for (int i = 0; i < materials.length; i++) {
-      final material = materials[i];
-      final docRef = _db
-          .collection('users')
-          .doc(_userId)
-          .collection('materials')
-          .doc(material.id);
-      batch.update(docRef, {'order': i});
-    }
-    await batch.commit();
-  }
-
-  // --- Glaze Methods ---
-
-  // 釉薬を追加
-  Future<void> addGlaze(Glaze glaze) async {
-    if (_userId == null) throw Exception("User not logged in");
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('glazes')
-        .add(glaze.toFirestore());
-  }
-
-  // 複数の釉薬を一括で追加 (バッチ処理)
-  Future<void> addGlazesBatch(List<Glaze> glazes) async {
-    if (_userId == null) throw Exception("User not logged in");
-
-    final batch = _db.batch();
-    final collectionRef = _db
-        .collection('users')
-        .doc(_userId)
-        .collection('glazes');
-
-    for (final glaze in glazes) {
-      final docRef = collectionRef.doc(); // 新しいドキュメントIDを自動生成
-      batch.set(docRef, glaze.toFirestore());
-    }
-    await batch.commit();
-  }
+  /// 複数の原料の並び順を更新
+  Future<void> updateMaterialOrder(List<Material> list) =>
+      materials.updateOrder(list);
 
   /// 複数の原料を名前で検索し、存在しない場合は新規作成する
-  Future<List<String>> findOrCreateMaterials(List<String> materialNames) async {
-    if (_userId == null) throw Exception("User not logged in");
-    if (materialNames.isEmpty) return [];
+  Future<List<String>> findOrCreateMaterials(List<String> materialNames) =>
+      materials.findOrCreate(materialNames, category: MaterialCategory.base);
 
-    final newMaterialNames = <String>[];
-    final existingMaterials = await getMaterials().first;
-    final existingMaterialNames = existingMaterials.map((m) => m.name).toSet();
-
-    for (final name in materialNames) {
-      if (!existingMaterialNames.contains(name)) {
-        newMaterialNames.add(name);
-      }
-    }
-
-    if (newMaterialNames.isNotEmpty) {
-      final batch = _db.batch();
-      final collectionRef = _db
-          .collection('users')
-          .doc(_userId)
-          .collection('materials');
-
-      for (final name in newMaterialNames) {
-        final newMaterial = Material(
-          name: name,
-          components: {},
-          order: DateTime.now().millisecondsSinceEpoch,
-          category: MaterialCategory.base,
-        );
-        batch.set(collectionRef.doc(), newMaterial.toFirestore());
-      }
-      await batch.commit();
-    }
-    return newMaterialNames;
-  }
-
-  /// 名前で顔料を検索し、存在しない場合はカテゴリ「顔料」で新規作成する。
-  /// IDを返す
+  /// 名前で顔料を検索し、存在しない場合はカテゴリ「顔料」で新規作成する。IDを返す
   Future<String> findOrCreatePigmentID(String pigmentName) async {
-    if (_userId == null) throw Exception("User not logged in");
     if (pigmentName.isEmpty) return '';
-
-    final existingMaterials = await getMaterials().first;
-    final existingMaterialNames = existingMaterials.map((m) => m.name).toSet();
-
-    if (!existingMaterialNames.contains(pigmentName)) {
-      final newMaterial = Material(
-        name: pigmentName,
-        components: {},
-        order: DateTime.now().millisecondsSinceEpoch,
-        category: MaterialCategory.pigment, // カテゴリを顔料に設定
-      );
-      await addMaterial(newMaterial);
-    }
-    return await getMaterialIdByName(pigmentName) ?? '';
+    await materials.findOrCreate([
+      pigmentName,
+    ], category: MaterialCategory.pigment);
+    return await materials.getIdByName(pigmentName) ?? '';
   }
 
   /// 複数の顔料を名前で検索し、存在しない場合はカテゴリ「顔料」で新規作成する
-  Future<List<String>> findOrCreatePigments(List<String> pigmentNames) async {
-    if (_userId == null) throw Exception("User not logged in");
-    if (pigmentNames.isEmpty) return [];
+  Future<List<String>> findOrCreatePigments(List<String> pigmentNames) =>
+      materials.findOrCreate(pigmentNames, category: MaterialCategory.pigment);
 
-    final uniquePigmentNames = pigmentNames.toSet().toList();
-    final newPigmentNames = <String>[];
-    final existingMaterials = await getMaterials().first;
-    final existingMaterialNames = existingMaterials.map((m) => m.name).toSet();
+  // --- Glaze Methods ---
 
-    for (final name in uniquePigmentNames) {
-      if (!existingMaterialNames.contains(name)) {
-        newPigmentNames.add(name);
-      }
-    }
+  /// 釉薬を追加
+  Future<void> addGlaze(Glaze glaze) => glazes.add(glaze);
 
-    if (newPigmentNames.isNotEmpty) {
-      final batch = _db.batch();
-      final collectionRef = _db
-          .collection('users')
-          .doc(_userId)
-          .collection('materials');
+  /// 複数の釉薬を一括で追加 (バッチ処理)
+  Future<void> addGlazesBatch(List<Glaze> list) => glazes.addBatch(list);
 
-      for (final name in newPigmentNames) {
-        final newMaterial = Material(
-          name: name,
-          components: {},
-          order:
-              DateTime.now().millisecondsSinceEpoch +
-              newPigmentNames.indexOf(name),
-          category: MaterialCategory.pigment, // カテゴリを顔料に設定
-        );
-        batch.set(collectionRef.doc(), newMaterial.toFirestore());
-      }
-      await batch.commit();
-    }
-    return newPigmentNames;
-  }
+  /// 釉薬一覧を取得 (リアルタイム)
+  Stream<List<Glaze>> getGlazes() => glazes.watchAll();
 
-  // 釉薬一覧を取得 (リアルタイム)
-  Stream<List<Glaze>> getGlazes() {
-    if (_userId == null) return Stream.value([]);
-    return _db
-        .collection('users')
-        .doc(_userId)
-        .collection('glazes')
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => Glaze.fromFirestore(doc)).toList(),
-        );
-  }
+  /// 釉薬一覧を1回だけ取得
+  Future<List<Glaze>> getGlazesOnce() => glazes.getAll();
 
-  Stream<Glaze> getGlazeStream(String id) {
-    if (_userId == null) return Stream.error("User not logged in");
-    return _db
-        .collection('users')
-        .doc(_userId)
-        .collection('glazes')
-        .doc(id)
-        .snapshots()
-        .map((snapshot) => Glaze.fromFirestore(snapshot));
-  }
+  /// 特定の釉薬を取得 (リアルタイム)
+  Stream<Glaze> getGlazeStream(String id) => glazes.watchById(id);
 
-  // 釉薬を更新
-  Future<void> updateGlaze(Glaze glaze) async {
-    if (_userId == null) throw Exception("User not logged in");
-    if (glaze.id == null) throw Exception("Glaze ID is required for update");
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('glazes')
-        .doc(glaze.id)
-        .update(glaze.toFirestore());
-  }
+  /// 釉薬を更新
+  Future<void> updateGlaze(Glaze glaze) => glazes.updateById(glaze.id, glaze);
 
-  // 釉薬を削除
-  Future<void> deleteGlaze(String glazeId) async {
-    if (_userId == null) throw Exception("User not logged in");
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('glazes')
-        .doc(glazeId)
-        .delete();
-  }
+  /// 釉薬を削除
+  Future<void> deleteGlaze(String glazeId) => glazes.deleteById(glazeId);
 
   // --- TestPiece Methods ---
 
-  // テストピースを追加
-  Future<void> addTestPiece(TestPiece testPiece) async {
-    if (_userId == null) throw Exception("User not logged in");
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('test_pieces')
-        .add(testPiece.toFirestore());
-  }
+  /// テストピースを追加
+  Future<void> addTestPiece(TestPiece testPiece) => testPieces.add(testPiece);
 
-  // テストピース一覧を取得 (リアルタイム)
-  Stream<List<TestPiece>> getTestPieces() {
-    if (_userId == null) return Stream.value([]);
-    return _db
-        .collection('users')
-        .doc(_userId)
-        .collection('test_pieces')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => TestPiece.fromFirestore(doc)).toList(),
-        );
-  }
+  /// テストピース一覧を取得 (リアルタイム)
+  Stream<List<TestPiece>> getTestPieces() => testPieces.watchAll();
 
-  // 特定の釉薬に関連するテストピース一覧を取得 (リアルタイム)
-  Stream<List<TestPiece>> getTestPiecesForGlaze(String glazeId) {
-    if (_userId == null) return Stream.value([]);
-    return _db
-        .collection('users')
-        .doc(_userId)
-        .collection('test_pieces')
-        .where('relatedGlazeIds', arrayContains: glazeId)
-        // .orderBy('createdAt', descending: true) // 複合インデックスが必要なためクライアント側でソート
-        .snapshots()
-        .map((snapshot) {
-          final docs = snapshot.docs
-              .map((doc) => TestPiece.fromFirestore(doc))
-              .toList();
-          docs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          return docs;
-        });
-  }
+  /// テストピース一覧を1回だけ取得
+  Future<List<TestPiece>> getTestPiecesOnce() => testPieces.getAll();
 
-  // 特定のテストピースを取得 (リアルタイム)
-  Stream<TestPiece> getTestPieceStream(String id) {
-    if (_userId == null) return Stream.error("User not logged in");
-    return _db
-        .collection('users')
-        .doc(_userId)
-        .collection('test_pieces')
-        .doc(id)
-        .snapshots()
-        .map((snapshot) => TestPiece.fromFirestore(snapshot));
-  }
+  /// 特定の釉薬に関連するテストピース一覧を取得 (リアルタイム)
+  Stream<List<TestPiece>> getTestPiecesForGlaze(String glazeId) =>
+      testPieces.watchForGlaze(glazeId);
 
-  // テストピースを更新
-  Future<void> updateTestPiece(TestPiece testPiece) async {
-    if (_userId == null) throw Exception("User not logged in");
-    if (testPiece.id == null) {
-      throw Exception("TestPiece ID is required for update");
-    }
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('test_pieces')
-        .doc(testPiece.id)
-        .update(testPiece.toFirestore());
-  }
+  /// 特定のテストピースを取得 (リアルタイム)
+  Stream<TestPiece> getTestPieceStream(String id) => testPieces.watchById(id);
 
-  // テストピースを削除
-  Future<void> deleteTestPiece(String testPieceId) async {
-    if (_userId == null) throw Exception("User not logged in");
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('test_pieces')
-        .doc(testPieceId)
-        .delete();
-  }
+  /// テストピースを更新
+  Future<void> updateTestPiece(TestPiece testPiece) =>
+      testPieces.updateById(testPiece.id, testPiece);
+
+  /// テストピースを削除
+  Future<void> deleteTestPiece(String testPieceId) =>
+      testPieces.deleteById(testPieceId);
 
   // --- ViewHistory Methods ---
 
   /// テストピースの閲覧履歴を更新または作成する
-  Future<void> updateViewHistory(String testPieceId) async {
-    if (_userId == null) return; // ログインしていない場合は何もしない
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('view_history')
-        .doc(testPieceId)
-        .set({'viewedAt': FieldValue.serverTimestamp()});
-  }
+  Future<void> updateViewHistory(String testPieceId) =>
+      viewHistory.record(testPieceId);
 
   /// 最近見たテストピースのIDリストを取得する
-  Stream<List<String>> getRecentTestPieceIds({int limit = 20}) {
-    if (_userId == null) return Stream.value([]);
-    return _db
-        .collection('users')
-        .doc(_userId)
-        .collection('view_history')
-        .orderBy('viewedAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => doc.id).toList());
-  }
+  Stream<List<String>> getRecentTestPieceIds({int limit = 20}) =>
+      viewHistory.watchRecentIds(limit: limit);
 
   // --- FiringProfile Methods ---
 
   /// 焼成プロファイルを追加
-  Future<void> addFiringProfile(FiringProfile profile) async {
-    if (_userId == null) throw Exception("User not logged in");
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('firing_profiles')
-        .add(profile.toFirestore());
-  }
+  Future<void> addFiringProfile(FiringProfile profile) =>
+      firingProfiles.add(profile);
 
   /// 焼成プロファイル一覧を取得 (リアルタイム)
-  Stream<List<FiringProfile>> getFiringProfiles() {
-    if (_userId == null) return Stream.value([]);
-    return _db
-        .collection('users')
-        .doc(_userId)
-        .collection('firing_profiles')
-        .orderBy('name') // 名前で並び替え
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => FiringProfile.fromFirestore(doc))
-              .toList(),
-        );
-  }
+  Stream<List<FiringProfile>> getFiringProfiles() => firingProfiles.watchAll();
+
+  /// 焼成プロファイル一覧を1回だけ取得
+  Future<List<FiringProfile>> getFiringProfilesOnce() =>
+      firingProfiles.getAll();
 
   /// 特定の焼成プロファイルを取得 (リアルタイム)
-  Stream<FiringProfile> getFiringProfileStream(String id) {
-    if (_userId == null) return Stream.error("User not logged in");
-    return _db
-        .collection('users')
-        .doc(_userId)
-        .collection('firing_profiles')
-        .doc(id)
-        .snapshots()
-        .map((snapshot) => FiringProfile.fromFirestore(snapshot));
-  }
+  Stream<FiringProfile> getFiringProfileStream(String id) =>
+      firingProfiles.watchById(id);
 
   /// 焼成プロファイルを更新
-  Future<void> updateFiringProfile(FiringProfile profile) async {
-    if (_userId == null) throw Exception("User not logged in");
-    if (profile.id == null) {
-      throw Exception("FiringProfile ID is required for update");
-    }
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('firing_profiles')
-        .doc(profile.id)
-        .update(profile.toFirestore());
-  }
+  Future<void> updateFiringProfile(FiringProfile profile) =>
+      firingProfiles.updateById(profile.id, profile);
 
   /// 焼成プロファイルを削除
-  Future<void> deleteFiringProfile(String profileId) async {
-    if (_userId == null) throw Exception("User not logged in");
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('firing_profiles')
-        .doc(profileId)
-        .delete();
-  }
+  Future<void> deleteFiringProfile(String profileId) =>
+      firingProfiles.deleteById(profileId);
 
   // --- FiringAtmosphere Methods ---
 
   /// 焼成雰囲気を追加
-  Future<void> addFiringAtmosphere(FiringAtmosphere atmosphere) async {
-    if (_userId == null) throw Exception("User not logged in");
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('firing_atmospheres')
-        .add(atmosphere.toFirestore());
-  }
+  Future<void> addFiringAtmosphere(FiringAtmosphere atmosphere) =>
+      firingAtmospheres.add(atmosphere);
 
   /// 焼成雰囲気一覧を取得 (リアルタイム)
-  Stream<List<FiringAtmosphere>> getFiringAtmospheres() {
-    if (_userId == null) return Stream.value([]);
-    return _db
-        .collection('users')
-        .doc(_userId)
-        .collection('firing_atmospheres')
-        .orderBy('name') // 名前で並び替え
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => FiringAtmosphere.fromFirestore(doc))
-              .toList(),
-        );
-  }
+  Stream<List<FiringAtmosphere>> getFiringAtmospheres() =>
+      firingAtmospheres.watchAll();
+
+  /// 焼成雰囲気一覧を1回だけ取得
+  Future<List<FiringAtmosphere>> getFiringAtmospheresOnce() =>
+      firingAtmospheres.getAll();
 
   /// 特定の焼成雰囲気を取得 (リアルタイム)
-  Stream<FiringAtmosphere> getFiringAtmosphereStream(String id) {
-    if (_userId == null) return Stream.error("User not logged in");
-    return _db
-        .collection('users')
-        .doc(_userId)
-        .collection('firing_atmospheres')
-        .doc(id)
-        .snapshots()
-        .map((snapshot) => FiringAtmosphere.fromFirestore(snapshot));
-  }
+  Stream<FiringAtmosphere> getFiringAtmosphereStream(String id) =>
+      firingAtmospheres.watchById(id);
 
   /// 焼成雰囲気を更新
-  Future<void> updateFiringAtmosphere(FiringAtmosphere atmosphere) async {
-    if (_userId == null) throw Exception("User not logged in");
-    if (atmosphere.id == null) {
-      throw Exception("FiringAtmosphere ID is required for update");
-    }
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('firing_atmospheres')
-        .doc(atmosphere.id)
-        .update(atmosphere.toFirestore());
-  }
+  Future<void> updateFiringAtmosphere(FiringAtmosphere atmosphere) =>
+      firingAtmospheres.updateById(atmosphere.id, atmosphere);
 
   /// 焼成雰囲気を削除
-  Future<void> deleteFiringAtmosphere(String atmosphereId) async {
-    if (_userId == null) throw Exception("User not logged in");
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('firing_atmospheres')
-        .doc(atmosphereId)
-        .delete();
-  }
+  Future<void> deleteFiringAtmosphere(String atmosphereId) =>
+      firingAtmospheres.deleteById(atmosphereId);
 
   // --- Clay Methods ---
 
   /// 素地土名を追加
-  Future<void> addClay(Clay clay) async {
-    if (_userId == null) throw Exception("User not logged in");
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('clays')
-        .add(clay.toFirestore());
-  }
+  Future<void> addClay(Clay clay) => clays.add(clay);
 
   /// 素地土名一覧を取得 (リアルタイム)
-  Stream<List<Clay>> getClays() {
-    if (_userId == null) return Stream.value([]);
-    return _db
-        .collection('users')
-        .doc(_userId)
-        .collection('clays')
-        .orderBy('order') // orderフィールドで並び替え
-        .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => Clay.fromFirestore(doc)).toList(),
-        );
-  }
+  Stream<List<Clay>> getClays() => clays.watchAll();
+
+  /// 素地土名一覧を1回だけ取得
+  Future<List<Clay>> getClaysOnce() => clays.getAll();
 
   /// 特定の素地土名を取得 (リアルタイム)
-  Stream<Clay> getClayStream(String id) {
-    if (_userId == null) return Stream.error("User not logged in");
-    return _db
-        .collection('users')
-        .doc(_userId)
-        .collection('clays')
-        .doc(id)
-        .snapshots()
-        .map((snapshot) => Clay.fromFirestore(snapshot));
-  }
+  Stream<Clay> getClayStream(String id) => clays.watchById(id);
 
   /// 素地土名を更新
-  Future<void> updateClay(Clay clay) async {
-    if (_userId == null) throw Exception("User not logged in");
-    if (clay.id == null) {
-      throw Exception("Clay ID is required for update");
-    }
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('clays')
-        .doc(clay.id)
-        .update(clay.toFirestore());
-  }
+  Future<void> updateClay(Clay clay) => clays.updateById(clay.id, clay);
 
   /// 素地土名を削除
-  Future<void> deleteClay(String clayId) async {
-    if (_userId == null) throw Exception("User not logged in");
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('clays')
-        .doc(clayId)
-        .delete();
-  }
+  Future<void> deleteClay(String clayId) => clays.deleteById(clayId);
 
   /// 複数の素地土名の並び順を更新
-  Future<void> updateClayOrder(List<Clay> clays) async {
-    if (_userId == null) throw Exception("User not logged in");
+  Future<void> updateClayOrder(List<Clay> list) => clays.updateOrder(list);
 
-    final batch = _db.batch();
-    for (int i = 0; i < clays.length; i++) {
-      final clay = clays[i];
-      final docRef = _db
-          .collection('users')
-          .doc(_userId)
-          .collection('clays')
-          .doc(clay.id);
-      batch.update(docRef, {'order': i});
-    }
-    await batch.commit();
-  }
   // --- Tag Methods ---
 
   /// タグ一覧を取得 (リアルタイム)
-  Stream<List<String>> getTags() {
-    if (_userId == null) return Stream.value([]);
-    return _db
-        .collection('users')
-        .doc(_userId)
-        .collection('tags')
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => doc.id).toList());
-  }
+  Stream<List<String>> getTags() => tags.watchAll();
+
+  /// タグ一覧を1回だけ取得
+  Future<List<String>> getTagsOnce() => tags.getAll();
 
   /// タグを追加 (存在しない場合のみ)
-  Future<void> addTag(String tagName) async {
-    if (_userId == null) throw Exception("User not logged in");
-    final docRef = _db
-        .collection('users')
-        .doc(_userId)
-        .collection('tags')
-        .doc(tagName);
-
-    final doc = await docRef.get();
-    if (!doc.exists) {
-      await docRef.set({'createdAt': FieldValue.serverTimestamp()});
-    }
-  }
+  Future<void> addTag(String tagName) => tags.add(tagName);
 
   /// 複数のタグをまとめて追加 (存在しないものだけ作成)
-  Future<void> addTags(List<String> tagNames) async {
-    if (_userId == null) throw Exception("User not logged in");
-    if (tagNames.isEmpty) return;
-
-    final collectionRef = _db.collection('users').doc(_userId).collection('tags');
-    final existing = await getTags().first;
-    final existingSet = existing.toSet();
-
-    final batch = _db.batch();
-    var hasNew = false;
-    for (final name in tagNames.toSet()) {
-      if (existingSet.contains(name)) continue;
-      batch.set(collectionRef.doc(name), {
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      hasNew = true;
-    }
-    if (hasNew) await batch.commit();
-  }
+  Future<void> addTags(List<String> tagNames) => tags.addAll(tagNames);
 
   /// タグを削除 (マスターリストからのみ削除)
-  Future<void> deleteTag(String tagName) async {
-    if (_userId == null) throw Exception("User not logged in");
-    await _db
-        .collection('users')
-        .doc(_userId)
-        .collection('tags')
-        .doc(tagName)
-        .delete();
-  }
+  Future<void> deleteTag(String tagName) => tags.delete(tagName);
 }
