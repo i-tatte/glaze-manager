@@ -200,7 +200,7 @@
 |---|---|---|
 | 1-1 | ~~Firestore / Storage ルールのリポジトリ管理化~~（2026-06-12 完了）。残: Emulator ルールテスト追加 | C-2 |
 | 1-2 | `firestore.indexes.json` 追加、`getTestPiecesForGlaze` をサーバーソートに戻す | M-8 |
-| 1-3 | `FirestoreService` を `withConverter` ベースの汎用リポジトリ + エンティティ別リポジトリに分割。一回読み用の `get()` API を追加し `snapshots().first` を排除 | M-2 |
+| 1-3 | `FirestoreService` をエンティティ別リポジトリに分割 — **概ね完了 (2026-06-12)**: 汎用基底 `UserScopedRepository<T>` + 8 リポジトリ (`lib/repositories/`) を新設し、`FirestoreService` は互換ファサード化（既存画面・テスト無変更）。一回読み用 `getAll()`/`getXxxOnce()` を追加しインポート処理の `snapshots().first` を排除。リポジトリ単体テスト9件追加。残: 画面側の `.first` 置き換え（フェーズ3のVM移行と同時に実施） | M-2 |
 | 1-4 | `findOrCreate` 系をマップ事前構築 + バッチ作成に書き換え、インポートの N+1 を解消 — **一部完了 (2026-06-12)**: インポートを2パス化（全行パース → 顔料一括作成 → ID 解決1回）、タグ保存も `addTags` バッチ化。残: 同名原料の重複防止 | H-3 |
 | 1-5 | モデルの List/Map フィールドを不変化（`List.unmodifiable`）し、エイリアシング起因の事故を予防 | M-6 |
 
