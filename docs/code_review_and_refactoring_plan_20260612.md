@@ -184,13 +184,13 @@
 
 ### フェーズ 0: 健全化（基盤の信頼回復）— 規模: 小
 
-| # | 作業 | 対応する指摘 |
-|---|---|---|
-| 0-1 | `build_runner` でモック再生成、`flutter test` 全通過 | H-1 |
-| 0-2 | `build_runner` / `mockito` を `dev_dependencies` へ移動 | M-8 |
-| 0-3 | `flutter analyze` 再実行 → 非推奨 API・lint を一掃、`analyze_output.txt` 削除 | H-6, Low |
-| 0-4 | `ColorAlpha` extension 削除、SDK の `withValues` に統一 | H-5 |
-| 0-5 | GitHub Actions で analyze + test の CI を構築 | H-1 |
+| # | 作業 | 対応する指摘 | 状態 |
+|---|---|---|---|
+| 0-1 | `build_runner` でモック再生成、`flutter test` 全通過 | H-1 | **完了 (2026-06-12)** 124 テスト全パス |
+| 0-2 | `build_runner` / `mockito` を `dev_dependencies` へ移動 | M-8 | **完了 (2026-06-12)** |
+| 0-3 | `flutter analyze` 再実行 → 非推奨 API・lint を一掃、`analyze_output.txt` 削除 | H-6, Low | **ほぼ完了**: 再実行の結果 No issues（過去コミットで修正済みと判明）。`analyze_output.txt` の削除のみ残 |
+| 0-4 | `ColorAlpha` extension 削除、SDK の `withValues` に統一 | H-5 | **完了 (2026-06-12)** 全呼び出し箇所が SDK 版を使用していることを確認のうえ削除 |
+| 0-5 | GitHub Actions で analyze + test の CI を構築 | H-1 | **ファイル作成済み** (`.github/workflows/ci.yaml`)。コミット & push で有効化 |
 
 **完了条件**: CI グリーン。これ以降のフェーズはすべて CI の保護下で行う。
 
@@ -201,14 +201,14 @@
 | 1-1 | ~~Firestore / Storage ルールのリポジトリ管理化~~（2026-06-12 完了）。残: Emulator ルールテスト追加 | C-2 |
 | 1-2 | `firestore.indexes.json` 追加、`getTestPiecesForGlaze` をサーバーソートに戻す | M-8 |
 | 1-3 | `FirestoreService` を `withConverter` ベースの汎用リポジトリ + エンティティ別リポジトリに分割。一回読み用の `get()` API を追加し `snapshots().first` を排除 | M-2 |
-| 1-4 | `findOrCreate` 系をマップ事前構築 + バッチ作成に書き換え、インポートの N+1 を解消 | H-3 |
+| 1-4 | `findOrCreate` 系をマップ事前構築 + バッチ作成に書き換え、インポートの N+1 を解消 — **一部完了 (2026-06-12)**: インポートを2パス化（全行パース → 顔料一括作成 → ID 解決1回）、タグ保存も `addTags` バッチ化。残: 同名原料の重複防止 | H-3 |
 | 1-5 | モデルの List/Map フィールドを不変化（`List.unmodifiable`）し、エイリアシング起因の事故を予防 | M-6 |
 
 ### フェーズ 2: 保存フローの堅牢化（画像パイプライン）— 規模: 中
 
 | # | 作業 | 対応する指摘 |
 |---|---|---|
-| 2-1 | 保存順序を「ドキュメント作成（await）→ アップロード開始」に変更（最小修正） | C-1 |
+| 2-1 | 保存順序を「ドキュメント作成（await）→ アップロード開始」に変更（最小修正） — **完了 (2026-06-12)**。あわせて colorData のリスト参照共有も明示的なコピー/空リスト渡しに修正 | C-1, M-6 |
 | 2-2 | 画像パスに docId を含める形式へ移行し、Functions をパスから docId 直接解決に変更（クエリ排除）。旧パス形式との互換処理を入れる | C-1 |
 | 2-3 | アップロード失敗の可視化: 例外を上へ伝播、UI に失敗状態と再試行を表示 | C-3 |
 | 2-4 | 画像差し替え時に旧画像・旧サムネイルを削除（Functions 側で旧ファイル削除する方式も可） | M-6 |

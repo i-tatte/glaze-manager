@@ -153,10 +153,8 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
           createdAt: widget.glaze?.createdAt ?? Timestamp.now(),
         );
 
-        // タグをマスターリストに追加 (存在しない場合のみ)
-        for (final tag in _tags) {
-          await firestoreService.addTag(tag);
-        }
+        // タグをマスターリストに追加 (存在しない場合のみ・一括)
+        await firestoreService.addTags(_tags);
 
         if (widget.glaze == null) {
           await firestoreService.addGlaze(glaze);

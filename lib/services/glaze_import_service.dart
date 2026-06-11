@@ -19,6 +19,23 @@ class ImportResult {
   });
 }
 
+/// Excelの1行分をパースした中間データ (原料・顔料は名前のまま保持)
+class _ParsedGlazeRow {
+  final String name;
+  final String? registeredName;
+  final String? description;
+  final Map<String, double> amountsByMaterialName;
+  final Map<String, double> amountsByPigmentName;
+
+  _ParsedGlazeRow({
+    required this.name,
+    this.registeredName,
+    this.description,
+    required this.amountsByMaterialName,
+    required this.amountsByPigmentName,
+  });
+}
+
 /// 釉薬のインポート機能を提供するクラス
 class GlazeImporter {
   final FirestoreService firestoreService;
@@ -70,15 +87,15 @@ class GlazeImporter {
       );
       List<String> newlyAddedPigments = [];
 
-      // 3. 既存の釉薬名リストと、全原料の名前->IDマップを作成
+      // 3. 既存の釉薬名リストを取得
       final existingGlazes = await firestoreService.getGlazes().first;
       final existingGlazeNames = existingGlazes.map((g) => g.name).toSet();
-      final allMaterials = await firestoreService.getMaterials().first;
-      final materialIdMap = {for (var mat in allMaterials) mat.name: mat.id!};
 
-      // 4. 釉薬データを作成
-      final List<Glaze> importedGlazes = [];
+      // 4. 【1パス目】全行をパースして中間データに変換
+      //    (Firestoreへの問い合わせを行わず、原料・顔料は名前のまま保持する)
+      final parsedRows = <_ParsedGlazeRow>[];
       final List<String> skippedGlazes = [];
+      final allPigmentNames = <String>{};
 
       for (int i = 1; i < sheet.maxRows; i++) {
         final row = sheet.row(i);
@@ -102,22 +119,22 @@ class GlazeImporter {
             ? row[headerRow.length - 1]!.value.toString().trim()
             : '';
 
-        final recipe = <String, double>{};
+        final amountsByMaterialName = <String, double>{};
         for (int j = 2; j < headerRow.length - 3; j++) {
           if (j >= headerRow.length) continue;
           final materialName = headerRow[j]?.value.toString().trim() ?? '';
-          final materialId = materialIdMap[materialName];
-          if (materialId == null) continue;
+          if (materialName.isEmpty) continue;
 
           final amount = row.length > j
               ? double.tryParse(row[j]?.value.toString() ?? '')
               : null;
 
           if (amount != null && amount > 0) {
-            recipe[materialId] = amount;
+            amountsByMaterialName[materialName] = amount;
           }
         }
 
+        final amountsByPigmentName = <String, double>{};
         final pigmentCellIndex = headerRow.length - 3;
         if (row.length > pigmentCellIndex && row[pigmentCellIndex] != null) {
           final pigmentData = row[pigmentCellIndex]!.value.toString().trim();
@@ -135,26 +152,53 @@ class GlazeImporter {
               final amount = double.tryParse(match.group(2)!);
 
               if (pigmentName.isNotEmpty && amount != null && amount > 0) {
-                var pigmentId = await firestoreService.findOrCreatePigmentID(
-                  pigmentName,
-                );
-                recipe[pigmentId] = amount;
-                if (!newlyAddedPigments.contains(pigmentName)) {
-                  newlyAddedPigments.add(pigmentName);
-                }
+                amountsByPigmentName[pigmentName] = amount;
+                allPigmentNames.add(pigmentName);
               }
             }
           }
         }
 
+        parsedRows.add(
+          _ParsedGlazeRow(
+            name: glazeName,
+            registeredName: regName.isNotEmpty ? regName : null,
+            description: description.isNotEmpty ? description : null,
+            amountsByMaterialName: amountsByMaterialName,
+            amountsByPigmentName: amountsByPigmentName,
+          ),
+        );
+      }
+
+      // 5. 未登録の顔料を一括作成し、最新の原料 名前->ID マップを1回だけ構築
+      //    (従来は顔料エントリごとに全原料の取得+検索を繰り返していた)
+      newlyAddedPigments = await firestoreService.findOrCreatePigments(
+        allPigmentNames.toList(),
+      );
+      final allMaterials = await firestoreService.getMaterials().first;
+      final materialIdMap = {for (var mat in allMaterials) mat.name: mat.id!};
+
+      // 6. 【2パス目】名前をIDに解決して釉薬データを作成
+      final List<Glaze> importedGlazes = [];
+      for (final parsed in parsedRows) {
+        final recipe = <String, double>{};
+        parsed.amountsByMaterialName.forEach((name, amount) {
+          final id = materialIdMap[name];
+          if (id != null) recipe[id] = amount;
+        });
+        parsed.amountsByPigmentName.forEach((name, amount) {
+          final id = materialIdMap[name];
+          if (id != null) recipe[id] = amount;
+        });
+
         if (recipe.isNotEmpty) {
           importedGlazes.add(
             Glaze(
-              name: glazeName,
-              registeredName: regName.isNotEmpty ? regName : null,
+              name: parsed.name,
+              registeredName: parsed.registeredName,
               recipe: recipe,
               tags: ['インポート'],
-              description: description.isNotEmpty ? description : null,
+              description: parsed.description,
               createdAt: Timestamp.now(),
             ),
           );
