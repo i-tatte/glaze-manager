@@ -116,6 +116,13 @@ class FirestoreService {
   /// テストピースを追加
   Future<void> addTestPiece(TestPiece testPiece) => testPieces.add(testPiece);
 
+  /// テストピースの新規ドキュメントIDを発行する (書き込みはまだ行わない)
+  String createTestPieceId() => testPieces.newDocumentId();
+
+  /// 指定IDでテストピースを作成する (createTestPieceIdとセットで使用)
+  Future<void> setTestPiece(String id, TestPiece testPiece) =>
+      testPieces.setById(id, testPiece);
+
   /// テストピース一覧を取得 (リアルタイム)
   Stream<List<TestPiece>> getTestPieces() => testPieces.watchAll();
 

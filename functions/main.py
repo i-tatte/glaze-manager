@@ -145,7 +145,15 @@ def process_uploaded_image(event: storage_fn.CloudEvent): # type: ignore exporte
         return
 
     file_dir, file_name = os.path.split(file_path)
-    user_id = file_path.split("/")[1]
+    segments = file_path.split("/")
+    user_id = segments[1]
+
+    # パス形式の判定:
+    #   新形式: users/{uid}/test_pieces/images/{docId}/{file} (6セグメント)
+    #     → docId で直接ドキュメントを特定できる (検索クエリ不要・競合なし)
+    #   旧形式: users/{uid}/test_pieces/images/{file} (5セグメント)
+    #     → 従来どおり imagePath でクエリ検索する
+    doc_id = segments[4] if len(segments) == 6 else None
 
     # 2. 一時ファイルに画像をダウンロード
     bucket = storage.bucket(bucket_name)
@@ -172,19 +180,34 @@ def process_uploaded_image(event: storage_fn.CloudEvent): # type: ignore exporte
         print(f"Color analysis result: {color_analysis_result}")
 
         # 4. サムネイルをStorageにアップロード
-        thumb_upload_path = os.path.join("users", user_id, "test_pieces", "thumbnails", thumb_file_name)
+        #    新形式の場合はサムネイルも docId フォルダ配下に置く
+        if doc_id is not None:
+            thumb_upload_path = "/".join(
+                ["users", user_id, "test_pieces", "thumbnails", doc_id, thumb_file_name]
+            )
+        else:
+            thumb_upload_path = "/".join(
+                ["users", user_id, "test_pieces", "thumbnails", thumb_file_name]
+            )
         thumb_blob = bucket.blob(thumb_upload_path)
         thumb_blob.upload_from_filename(temp_thumb_path, content_type="image/jpeg")
         print(f"Thumbnail uploaded to {thumb_upload_path}")
 
-        # 5. Firestoreの該当ドキュメントを更新
-        #    元の画像のURLを元にドキュメントを検索する
+        # 5. Firestoreの該当ドキュメントを特定する
         db = firestore.client()
-
         test_pieces_ref = db.collection("users").document(user_id).collection("test_pieces")
-        query = test_pieces_ref.where("imagePath", "==", file_path).limit(1).stream()
 
-        doc_snapshot = next(query, None)
+        doc_snapshot = None
+        if doc_id is not None:
+            # 新形式: パスに含まれる docId で直接取得
+            snapshot = test_pieces_ref.document(doc_id).get()
+            if snapshot.exists:
+                doc_snapshot = snapshot
+
+        if doc_snapshot is None:
+            # 旧形式 (または docId 直接取得に失敗した場合): imagePath で検索
+            query = test_pieces_ref.where("imagePath", "==", file_path).limit(1).stream()
+            doc_snapshot = next(query, None)
 
         if doc_snapshot is None:
             print(f"No matching test piece found for imagePath: {file_path}")
@@ -214,5 +237,20 @@ def process_uploaded_image(event: storage_fn.CloudEvent): # type: ignore exporte
         })
 
         print(f"Firestore document {doc_snapshot.id} updated with image and thumbnail URLs.")
+
+        # 8. 旧世代ファイルの掃除 (新形式のみ)
+        #    画像差し替え時、docId フォルダ内に残った過去の画像・サムネイルを削除する
+        if doc_id is not None:
+            keep_paths = {file_path, thumb_upload_path}
+            for subdir in ("images", "thumbnails"):
+                prefix = f"users/{user_id}/test_pieces/{subdir}/{doc_id}/"
+                for blob in bucket.list_blobs(prefix=prefix):
+                    if blob.name in keep_paths:
+                        continue
+                    try:
+                        blob.delete()
+                        print(f"Deleted stale file: {blob.name}")
+                    except Exception as e:
+                        print(f"Failed to delete stale file {blob.name}: {e}")
 
     return
