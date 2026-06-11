@@ -634,6 +634,27 @@ class FirestoreService {
     }
   }
 
+  /// 複数のタグをまとめて追加 (存在しないものだけ作成)
+  Future<void> addTags(List<String> tagNames) async {
+    if (_userId == null) throw Exception("User not logged in");
+    if (tagNames.isEmpty) return;
+
+    final collectionRef = _db.collection('users').doc(_userId).collection('tags');
+    final existing = await getTags().first;
+    final existingSet = existing.toSet();
+
+    final batch = _db.batch();
+    var hasNew = false;
+    for (final name in tagNames.toSet()) {
+      if (existingSet.contains(name)) continue;
+      batch.set(collectionRef.doc(name), {
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      hasNew = true;
+    }
+    if (hasNew) await batch.commit();
+  }
+
   /// タグを削除 (マスターリストからのみ削除)
   Future<void> deleteTag(String tagName) async {
     if (_userId == null) throw Exception("User not logged in");

@@ -163,13 +163,17 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         listen: false,
       );
 
-      // --- パフォーマンス改善のためのロジック変更 ---
-      // 1. 先にFirestoreにドキュメントを保存し、すぐに画面遷移させる
-      // 2. 画像のアップロードは待たずにバックグラウンドで実行する
+      // 保存順序の制約:
+      // Cloud Function (process_uploaded_image) はアップロード完了をトリガに
+      // imagePath でドキュメントを1回だけ検索するため、アップロードより先に
+      // Firestoreドキュメントが存在していなければならない。
+      // → 必ず「Firestore書き込み完了 → アップロード開始」の順で実行する。
+
+      final hasNewImage = _newImageFileName != null && _newImageBytes != null;
 
       String? imagePath;
       // 新規画像がある場合、アップロード先のパスを事前に決定
-      if (_newImageFileName != null) {
+      if (hasNewImage) {
         imagePath = storageService.getUploadPath(name: _newImageFileName!);
       } else {
         imagePath = widget.testPiece?.imagePath;
@@ -186,7 +190,8 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         imagePath: imagePath,
         thumbnailUrl: widget.testPiece?.thumbnailUrl, // 既存のURLを維持
         firingAtmosphereId: _selectedFiringAtmosphereId,
-        colorData: _colorData, // 編集された色データをセット
+        // 新規画像がある場合はCloud Functionの色解析結果で上書きされるため空にする
+        colorData: hasNewImage ? [] : List<ColorSwatch>.of(_colorData),
         firingProfileId: _selectedFiringProfileId,
         note: _noteController.text.trim().isEmpty
             ? null
@@ -194,33 +199,26 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         createdAt: widget.testPiece?.createdAt ?? Timestamp.now(),
       );
 
-      // 新規画像がある場合のみ、アップロード処理を待たずに開始
-      if (_newImageFileName != null && _newImageBytes != null) {
+      // Firestoreへの書き込みを先に完了させる
+      if (widget.testPiece == null) {
+        await firestoreService.addTestPiece(testPieceData);
+      } else {
+        await firestoreService.updateTestPiece(testPieceData);
+      }
+
+      // ドキュメントが存在する状態になってからアップロードを開始する
+      // (完了は待たずバックグラウンドで実行し、すぐに画面を戻す)
+      if (hasNewImage) {
         storageService.uploadTestPieceImage(
           name: _newImageFileName!,
           bytes: _newImageBytes!,
           mimeType: 'image/jpeg',
         );
-        // 新しい画像をアップロードした場合、Cloud Functionによる色解析を期待するため、
-        // クライアント側の色データをクリアする
-        setState(() => _colorData.clear());
       }
 
-      // Firestoreへの書き込み処理
-      if (widget.testPiece == null) {
-        // 新規作成
-        await firestoreService.addTestPiece(testPieceData);
-        if (mounted) {
-          _isDirty = false;
-          navigator.pop(); // すぐに一覧に戻る
-        }
-      } else {
-        // 更新
-        await firestoreService.updateTestPiece(testPieceData);
-        if (mounted) {
-          _isDirty = false;
-          navigator.pop(); // すぐに詳細画面に戻る
-        }
+      if (mounted) {
+        _isDirty = false;
+        navigator.pop(); // 一覧または詳細画面に戻る
       }
     } catch (e) {
       if (mounted) {

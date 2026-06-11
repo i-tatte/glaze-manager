@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main, release]
+  pull_request:
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.35.7
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify generated mocks are up to date
+        run: |
+          dart run build_runner build --delete-conflicting-outputs
+          git diff --exit-code -- '*.mocks.dart' || (echo '::error::Generated mocks are stale. Run build_runner and commit the result.' && exit 1)
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test

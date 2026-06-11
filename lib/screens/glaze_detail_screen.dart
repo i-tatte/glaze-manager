@@ -344,14 +344,3 @@ class _GlazeDetailScreenState extends State<GlazeDetailScreen> {
     );
   }
 }
-
-extension ColorAlpha on Color {
-  Color withValues({int? alpha, int? red, int? green, int? blue}) {
-    return Color.fromARGB(
-      alpha ?? (a * 255.0).round() & 0xff,
-      red ?? (r * 255.0).round() & 0xff,
-      green ?? (g * 255.0).round() & 0xff,
-      blue ?? (b * 255.0).round() & 0xff,
-    );
-  }
-}

@@ -474,6 +474,15 @@ class MockFirestoreService extends _i1.Mock implements _i5.FirestoreService {
           as _i3.Future<void>);
 
   @override
+  _i3.Future<void> addTags(List<String>? tagNames) =>
+      (super.noSuchMethod(
+            Invocation.method(#addTags, [tagNames]),
+            returnValue: _i3.Future<void>.value(),
+            returnValueForMissingStub: _i3.Future<void>.value(),
+          )
+          as _i3.Future<void>);
+
+  @override
   _i3.Future<void> deleteTag(String? tagName) =>
       (super.noSuchMethod(
             Invocation.method(#deleteTag, [tagName]),
