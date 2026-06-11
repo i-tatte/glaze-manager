@@ -8,6 +8,7 @@ import 'package:glaze_manager/services/storage_service.dart';
 import 'package:glaze_manager/services/settings_service.dart';
 import 'firebase_options.dart'; // flutterfire configure で生成されたファイル
 import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'package:glaze_manager/theme/app_theme.dart';
@@ -24,7 +25,8 @@ void main() async {
     persistenceEnabled: true,
   );
 
-  runApp(const AppProviders());
+  // Riverpod (新データ層) と provider (既存サービス) は移行期間中併用する
+  runApp(const ProviderScope(child: AppProviders()));
 }
 
 class AppProviders extends StatelessWidget {

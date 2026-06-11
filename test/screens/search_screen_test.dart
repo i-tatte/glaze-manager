@@ -1,5 +1,8 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
@@ -31,14 +34,22 @@ void main() {
   });
 
   Widget createTestableWidget(Widget child) {
-    return MultiProvider(
-      providers: [
-        Provider<FirestoreService>(create: (_) => mockFirestoreService),
-        ChangeNotifierProvider<SettingsService>.value(
-          value: mockSettingsService,
+    return ProviderScope(
+      overrides: [
+        firestoreServiceProvider.overrideWithValue(mockFirestoreService),
+        authStateChangesProvider.overrideWith(
+          (ref) => Stream<User?>.value(null),
         ),
       ],
-      child: MaterialApp(home: child),
+      child: MultiProvider(
+        providers: [
+          Provider<FirestoreService>(create: (_) => mockFirestoreService),
+          ChangeNotifierProvider<SettingsService>.value(
+            value: mockSettingsService,
+          ),
+        ],
+        child: MaterialApp(home: child),
+      ),
     );
   }
 

@@ -2,13 +2,15 @@ import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart' hide ColorSwatch;
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show ConsumerStatefulWidget, ConsumerState, AsyncValueX;
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/color_swatch.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
-import 'package:glaze_manager/models/material.dart' as m;
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/settings_service.dart';
 import 'package:glaze_manager/widgets/test_piece_grid.dart';
@@ -18,16 +20,16 @@ import 'package:glaze_manager/widgets/test_piece_list_tile.dart';
 import 'package:glaze_manager/screens/test_piece_detail_screen.dart';
 import 'package:provider/provider.dart';
 
-class SearchScreen extends StatefulWidget {
+class SearchScreen extends ConsumerStatefulWidget {
   final PageStorageKey? pageStorageKey;
   final Color? initialColor;
   const SearchScreen({super.key, this.pageStorageKey, this.initialColor});
 
   @override
-  State<SearchScreen> createState() => _SearchScreenState();
+  ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends State<SearchScreen> {
+class _SearchScreenState extends ConsumerState<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _recentItemsController = ScrollController();
 
@@ -39,16 +41,22 @@ class _SearchScreenState extends State<SearchScreen> {
   double _deltaEThreshold = 30.0;
   final List<String> _selectedTags = [];
 
-  // データ
-  List<TestPiece> _allTestPieces = [];
-  Map<String, Glaze> _glazeMap = {};
-  Map<String, Clay> _clayMap = {};
-  Map<String, FiringAtmosphere> _atmosphereMap = {};
-  Map<String, FiringProfile> _profileMap = {};
-  Map<String, String> _materialMap = {}; // ID -> Name
   List<TestPiece> _searchResults = [];
   bool _isGridView = true;
-  List<String> _allTags = [];
+  bool _appliedInitialColor = false;
+
+  // データはアプリスコープのプロバイダから都度参照する
+  // (画面ローカルにスナップショットを持たないので、他画面での追加・編集が即反映される)
+  List<TestPiece> get _allTestPieces =>
+      ref.read(testPiecesProvider).valueOrNull ?? [];
+  Map<String, Glaze> get _glazeMap => ref.read(glazeMapProvider);
+  Map<String, Clay> get _clayMap => ref.read(clayMapProvider);
+  Map<String, FiringAtmosphere> get _atmosphereMap =>
+      ref.read(firingAtmosphereMapProvider);
+  Map<String, FiringProfile> get _profileMap =>
+      ref.read(firingProfileMapProvider);
+  Map<String, String> get _materialMap => ref.read(materialNameMapProvider);
+  List<String> get _allTags => ref.read(tagsProvider).valueOrNull ?? [];
 
   @override
   void initState() {
@@ -57,7 +65,6 @@ class _SearchScreenState extends State<SearchScreen> {
       _searchColor = widget.initialColor;
     }
     _searchController.addListener(_onSearchChanged);
-    _loadInitialData();
   }
 
   @override
@@ -66,47 +73,6 @@ class _SearchScreenState extends State<SearchScreen> {
     _searchController.dispose();
     _recentItemsController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadInitialData() async {
-    if (!mounted) return;
-    setState(() => _isLoading = true);
-
-    final firestoreService = context.read<FirestoreService>();
-    // 全ての釉薬とテストピースを一度だけ取得
-    final results = await Future.wait([
-      firestoreService.getGlazes().first,
-      firestoreService.getTestPieces().first,
-      firestoreService.getFiringAtmospheres().first,
-      firestoreService.getFiringProfiles().first,
-      firestoreService.getClays().first,
-      firestoreService.getTags().first,
-      firestoreService.getMaterials().first,
-    ]);
-
-    final glazes = results[0] as List<Glaze>;
-    final testPieces = results[1] as List<TestPiece>;
-    final atmospheres = results[2] as List<FiringAtmosphere>;
-    final profiles = results[3] as List<FiringProfile>;
-    final clays = results[4] as List<Clay>;
-    final tags = results[5] as List<String>;
-    final materials = results[6] as List<m.Material>;
-
-    if (mounted) {
-      setState(() {
-        _glazeMap = {for (var item in glazes) item.id!: item};
-        _clayMap = {for (var item in clays) item.id!: item};
-        _atmosphereMap = {for (var item in atmospheres) item.id!: item};
-        _profileMap = {for (var item in profiles) item.id!: item};
-        _materialMap = {for (var item in materials) item.id!: item.name};
-        _allTestPieces = testPieces;
-        _allTags = tags;
-        _isLoading = false;
-      });
-      if (widget.initialColor != null) {
-        _applyFilters();
-      }
-    }
   }
 
   void _onSearchChanged() {
@@ -326,16 +292,14 @@ class _SearchScreenState extends State<SearchScreen> {
                           TextButton(
                             onPressed: () {
                               Navigator.pop(context);
-                              Navigator.of(context)
-                                  .push(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const TagManagementWidget(),
-                                    ),
-                                  )
-                                  .then(
-                                    (_) => _loadInitialData(),
-                                  ); // タグ管理から戻ったらデータを再読み込み
+                              // タグはプロバイダ経由でリアルタイム反映されるため
+                              // 戻ってきた後の再読み込みは不要
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const TagManagementWidget(),
+                                ),
+                              );
                             },
                             child: const Text('タグ管理'),
                           ),
@@ -408,6 +372,29 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final crossAxisCount = context.watch<SettingsService>().gridCrossAxisCount;
+    final testPiecesAsync = ref.watch(testPiecesProvider);
+
+    // データ更新で再ビルドさせるための監視。
+    // (コールバック内からは getter 経由の ref.read で最新値を参照する)
+    ref.watch(glazesProvider);
+    ref.watch(claysProvider);
+    ref.watch(firingAtmospheresProvider);
+    ref.watch(firingProfilesProvider);
+    ref.watch(materialsProvider);
+    ref.watch(tagsProvider);
+
+    // データが更新されたら検索結果も追従させる
+    ref.listen(testPiecesProvider, (previous, next) {
+      if (!next.hasValue) return;
+      if (widget.initialColor != null && !_appliedInitialColor) {
+        _appliedInitialColor = true;
+        _applyFilters();
+      } else if (_isSearching) {
+        _applyFilters();
+      }
+    });
+
+    final isDataLoading = testPiecesAsync.isLoading;
 
     return Scaffold(
       body: SafeArea(
@@ -534,7 +521,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
               ),
             Expanded(
-              child: _isLoading
+              child: (_isLoading || isDataLoading)
                   ? const Center(child: CircularProgressIndicator())
                   : _isSearching
                   ? _buildSearchResults(crossAxisCount)
