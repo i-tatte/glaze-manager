@@ -218,9 +218,9 @@
 
 | # | 作業 | 対応する指摘 |
 |---|---|---|
-| 3-1 | アプリスコープの「データストア」導入: 主要 6 コレクションを 1 箇所で購読し、各画面はそこから読む。実装は **Riverpod**（→ 決定事項 D-3。`StreamProvider` でコレクション購読、派生状態は `Provider`/`Notifier`） | M-1, H-4 |
-| 3-2 | `test_piece_list_screen` の 5 重 StreamBuilder をデータストア参照に置換 | M-1 |
-| 3-3 | `search_screen` をデータストア参照に置換し、陳腐化を解消 | H-4 |
+| 3-1 | アプリスコープの「データストア」導入 — **完了 (2026-06-12)**: `lib/providers/data_providers.dart` に主要 7 コレクションの `StreamProvider` + 派生マップを集約。認証状態の watch によりユーザー切替時に購読を自動で張り直す。flutter_riverpod は SDK 制約により ^2.6.1 を採用（3.x はリポジトリの SDK 更新後に移行）。既存 provider パッケージとは移行期間中併用 | M-1, H-4 |
+| 3-2 | `test_piece_list_screen` の 5 重 StreamBuilder をデータストア参照に置換 — **完了 (2026-06-12)**: ConsumerStatefulWidget 化、`handleRefresh` は provider の invalidate で実装（MainTabScreen の GlobalKey 連携は互換維持） | M-1 |
+| 3-3 | `search_screen` をデータストア参照に置換し、陳腐化を解消 — **完了 (2026-06-12)**: 起動時スナップショット (`_loadInitialData`) を廃止し、プロバイダ参照 + `ref.listen` による検索結果の追従に変更。他画面での追加・編集が検索タブに即反映される | H-4 |
 | 3-4 | 画面ごとの ViewModel（フィルタ・ソート・dirty 管理をウィジェットから分離）を、変更頻度の高い画面（検索・釉薬編集・テストピース編集）から順に導入 | M-1 |
 | 3-5 | `MainTabScreen` のタブ定義をデータ駆動化（タブ位置ハードコード排除、GlobalKey キャスト排除） | M-3 |
 
