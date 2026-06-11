@@ -20,6 +20,15 @@ class TestPieceRepository extends UserScopedRepository<TestPiece> {
     CollectionReference<Map<String, dynamic>> ref,
   ) => ref.orderBy('createdAt', descending: true);
 
+  /// 新規ドキュメントIDを発行する (書き込みはまだ行わない)。
+  /// 画像アップロードパスにIDを含めるため、保存前にIDを確定させる用途。
+  String newDocumentId() => collection.doc().id;
+
+  /// 指定IDでドキュメントを作成する (newDocumentIdとセットで使用)
+  Future<void> setById(String id, TestPiece piece) async {
+    await collection.doc(id).set(toFirestore(piece));
+  }
+
   /// 特定の釉薬を使用するテストピース一覧を監視する (メイン・追加釉薬の両方を含む)
   Stream<List<TestPiece>> watchForGlaze(String glazeId) {
     if (userId == null) return Stream.value([]);

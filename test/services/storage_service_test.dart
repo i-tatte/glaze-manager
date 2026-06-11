@@ -83,12 +83,13 @@ void main() {
       when(mockStorage.ref(any)).thenReturn(fakeRef);
 
       await storageService.uploadTestPieceImage(
+        testPieceId: 'tp123',
         name: 'test.jpg',
         bytes: Uint8List(0),
       );
 
       verify(
-        mockStorage.ref('users/test_uid/test_pieces/images/test.jpg'),
+        mockStorage.ref('users/test_uid/test_pieces/images/tp123/test.jpg'),
       ).called(1);
       expect(fakeRef.putDataCalled, true);
     });

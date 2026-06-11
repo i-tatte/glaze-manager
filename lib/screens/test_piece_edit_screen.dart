@@ -153,6 +153,8 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     setState(() => _isLoading = true);
 
     final navigator = Navigator.of(context);
+    // 画面pop後もSnackBarを出せるよう、ルートのMessengerを先に取得しておく
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
     try {
       final firestoreService = Provider.of<FirestoreService>(
         context,
@@ -171,10 +173,16 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
 
       final hasNewImage = _newImageFileName != null && _newImageBytes != null;
 
+      // 新規作成時もアップロードパスにドキュメントIDを含めるため、先にIDを確定する
+      final docId = widget.testPiece?.id ?? firestoreService.createTestPieceId();
+
       String? imagePath;
       // 新規画像がある場合、アップロード先のパスを事前に決定
       if (hasNewImage) {
-        imagePath = storageService.getUploadPath(name: _newImageFileName!);
+        imagePath = storageService.getUploadPath(
+          testPieceId: docId,
+          name: _newImageFileName!,
+        );
       } else {
         imagePath = widget.testPiece?.imagePath;
       }
@@ -182,7 +190,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
       // 更新または作成するTestPieceオブジェクトを準備
       // この時点ではimageUrlとthumbnailUrlは未定
       final testPieceData = TestPiece(
-        id: widget.testPiece?.id,
+        id: docId,
         glazeId: _selectedGlazeId!,
         additionalGlazeIds: _additionalGlazeIds,
         clayId: _selectedClayId!,
@@ -201,19 +209,29 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
 
       // Firestoreへの書き込みを先に完了させる
       if (widget.testPiece == null) {
-        await firestoreService.addTestPiece(testPieceData);
+        await firestoreService.setTestPiece(docId, testPieceData);
       } else {
         await firestoreService.updateTestPiece(testPieceData);
       }
 
       // ドキュメントが存在する状態になってからアップロードを開始する
-      // (完了は待たずバックグラウンドで実行し、すぐに画面を戻す)
+      // (完了は待たずバックグラウンドで実行し、すぐに画面を戻す。
+      //  失敗時はルートのSnackBarで通知する)
       if (hasNewImage) {
-        storageService.uploadTestPieceImage(
-          name: _newImageFileName!,
-          bytes: _newImageBytes!,
-          mimeType: 'image/jpeg',
-        );
+        storageService
+            .uploadTestPieceImage(
+              testPieceId: docId,
+              name: _newImageFileName!,
+              bytes: _newImageBytes!,
+              mimeType: 'image/jpeg',
+            )
+            .catchError((Object e) {
+              scaffoldMessenger.showSnackBar(
+                SnackBar(
+                  content: Text('画像のアップロードに失敗しました。通信環境を確認して再度保存してください: $e'),
+                ),
+              );
+            });
       }
 
       if (mounted) {
@@ -262,7 +280,10 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
         final storageService = context.read<StorageService>();
 
         // Storageから画像とサムネイルを削除 (並行処理)
-        final deleteFutures = <Future>[];
+        // 新形式 (docIdフォルダ) はフォルダごと、旧形式はURL指定で削除する
+        final deleteFutures = <Future>[
+          storageService.deleteAllTestPieceFiles(widget.testPiece!.id!),
+        ];
         if (widget.testPiece!.imageUrl != null) {
           deleteFutures.add(
             storageService.deleteTestPieceImage(widget.testPiece!.imageUrl!),
@@ -275,9 +296,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
             ),
           );
         }
-        if (deleteFutures.isNotEmpty) {
-          await Future.wait(deleteFutures);
-        }
+        await Future.wait(deleteFutures);
 
         // Firestoreからドキュメントを削除
         await firestoreService.deleteTestPiece(widget.testPiece!.id!);

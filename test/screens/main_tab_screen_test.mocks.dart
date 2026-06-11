@@ -419,6 +419,26 @@ class MockFirestoreService extends _i1.Mock implements _i13.FirestoreService {
           as _i11.Future<void>);
 
   @override
+  String createTestPieceId() =>
+      (super.noSuchMethod(
+            Invocation.method(#createTestPieceId, []),
+            returnValue: _i15.dummyValue<String>(
+              this,
+              Invocation.method(#createTestPieceId, []),
+            ),
+          )
+          as String);
+
+  @override
+  _i11.Future<void> setTestPiece(String? id, _i17.TestPiece? testPiece) =>
+      (super.noSuchMethod(
+            Invocation.method(#setTestPiece, [id, testPiece]),
+            returnValue: _i11.Future<void>.value(),
+            returnValueForMissingStub: _i11.Future<void>.value(),
+          )
+          as _i11.Future<void>);
+
+  @override
   _i11.Stream<List<_i17.TestPiece>> getTestPieces() =>
       (super.noSuchMethod(
             Invocation.method(#getTestPieces, []),
@@ -706,24 +726,32 @@ class MockStorageService extends _i1.Mock implements _i21.StorageService {
   }
 
   @override
-  String getUploadPath({required String? name}) =>
+  String getUploadPath({required String? testPieceId, required String? name}) =>
       (super.noSuchMethod(
-            Invocation.method(#getUploadPath, [], {#name: name}),
+            Invocation.method(#getUploadPath, [], {
+              #testPieceId: testPieceId,
+              #name: name,
+            }),
             returnValue: _i15.dummyValue<String>(
               this,
-              Invocation.method(#getUploadPath, [], {#name: name}),
+              Invocation.method(#getUploadPath, [], {
+                #testPieceId: testPieceId,
+                #name: name,
+              }),
             ),
           )
           as String);
 
   @override
   _i11.Future<void> uploadTestPieceImage({
+    required String? testPieceId,
     required String? name,
     required _i22.Uint8List? bytes,
     String? mimeType,
   }) =>
       (super.noSuchMethod(
             Invocation.method(#uploadTestPieceImage, [], {
+              #testPieceId: testPieceId,
               #name: name,
               #bytes: bytes,
               #mimeType: mimeType,
@@ -737,6 +765,15 @@ class MockStorageService extends _i1.Mock implements _i21.StorageService {
   _i11.Future<void> deleteTestPieceImage(String? imageUrl) =>
       (super.noSuchMethod(
             Invocation.method(#deleteTestPieceImage, [imageUrl]),
+            returnValue: _i11.Future<void>.value(),
+            returnValueForMissingStub: _i11.Future<void>.value(),
+          )
+          as _i11.Future<void>);
+
+  @override
+  _i11.Future<void> deleteAllTestPieceFiles(String? testPieceId) =>
+      (super.noSuchMethod(
+            Invocation.method(#deleteAllTestPieceFiles, [testPieceId]),
             returnValue: _i11.Future<void>.value(),
             returnValueForMissingStub: _i11.Future<void>.value(),
           )
