@@ -119,12 +119,12 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
       try {
         final firestoreService = ref.read(firestoreServiceProvider);
 
-        // レシピMapを作成
-        final recipeMap = {
+        // レシピMapを作成 (バリデーション済み: 原料選択あり + 正の数値のみ)
+        final recipeMap = <String, double>{
           for (var row in _recipeRows)
-            if (row.selectedMaterialId != null)
-              row.selectedMaterialId!:
-                  double.tryParse(row.amountController.text) ?? 0.0,
+            if (row.selectedMaterialId != null &&
+                (double.tryParse(row.amountController.text) ?? 0) > 0)
+              row.selectedMaterialId!: double.parse(row.amountController.text),
         };
 
         final glaze = Glaze(
@@ -332,6 +332,11 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
                 decoration: InputDecoration(labelText: "原料"),
               ),
               compareFn: (app.Material a, app.Material b) => a.id == b.id,
+              // 配合量が入力されているのに原料が未選択の行を検出する
+              validator: (app.Material? item) =>
+                  (item == null && row.amountController.text.trim().isNotEmpty)
+                  ? '原料を選択してください'
+                  : null,
             ),
           ),
           const SizedBox(width: 8),
@@ -343,6 +348,15 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
+              // 原料が選択されている行は正の数値が必須
+              validator: (value) {
+                if (row.selectedMaterialId == null) return null;
+                final amount = double.tryParse(value ?? '');
+                if (amount == null || amount <= 0) {
+                  return '正の数値を入力';
+                }
+                return null;
+              },
             ),
           ),
           IconButton(

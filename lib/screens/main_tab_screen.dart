@@ -145,42 +145,112 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
       firestoreService: ref.read(firestoreServiceProvider),
     );
 
-    await importer.importFromExcel(
-      onStart: () => setState(() => _isImporting = true),
-      onDone: () {
-        if (mounted) setState(() => _isImporting = false);
-      },
-      onSuccess: (result) {
-        String message = '${result.importedCount}件の釉薬をインポートしました。';
-        if (result.skippedCount > 0) {
-          message += '\n（${result.skippedCount}件は重複のためスキップ）';
-        }
-        scaffoldMessenger.showSnackBar(SnackBar(content: Text(message)));
+    setState(() => _isImporting = true);
+    try {
+      // 1. ファイル選択 → パース (この時点では何も書き込まれない)
+      final preview = await importer.pickAndParse();
+      if (preview == null) return; // ファイル選択キャンセル
+      if (!mounted) return;
 
-        if (result.newlyAddedMaterials.isNotEmpty && mounted) {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('原料の自動登録'),
-              content: Text(
-                '以下の未登録原料を自動登録しました:\n\n${result.newlyAddedMaterials.join(', ')}\n\n必要であれば原料一覧画面から化学成分を登録してください。',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('OK'),
-                ),
+      // 2. 取り込み内容のプレビューを表示して確認を取る
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('インポート内容の確認'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('インポートする釉薬: ${preview.importCount}件'),
+                if (preview.rows.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      preview.rows.map((r) => r.name).take(10).join(', ') +
+                          (preview.importCount > 10 ? ' …' : ''),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                if (preview.skippedGlazes.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text('スキップ (名前が重複): ${preview.skippedGlazes.length}件'),
+                  Text(
+                    preview.skippedGlazes.take(10).join(', ') +
+                        (preview.skippedGlazes.length > 10 ? ' …' : ''),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+                if (preview.newMaterialNames.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text('新規作成される原料: ${preview.newMaterialNames.length}件'),
+                  Text(
+                    preview.newMaterialNames.join(', '),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+                if (preview.newPigmentNames.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text('新規作成される顔料: ${preview.newPigmentNames.length}件'),
+                  Text(
+                    preview.newPigmentNames.join(', '),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ],
             ),
-          );
-        }
-      },
-      onError: (error) {
-        scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text('インポートに失敗しました: $error')),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('インポート実行'),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true) return;
+
+      // 3. 確定 (Firestoreへ書き込み)
+      final result = await importer.commit(preview);
+
+      String message = '${result.importedCount}件の釉薬をインポートしました。';
+      if (result.skippedCount > 0) {
+        message += '\n（${result.skippedCount}件は重複のためスキップ）';
+      }
+      scaffoldMessenger.showSnackBar(SnackBar(content: Text(message)));
+
+      if (result.newlyAddedMaterials.isNotEmpty && mounted) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('原料の自動登録'),
+            content: Text(
+              '以下の未登録原料を自動登録しました:\n\n${result.newlyAddedMaterials.join(', ')}\n\n必要であれば原料一覧画面から化学成分を登録してください。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
         );
-      },
-    );
+      }
+    } on FormatException catch (e) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('インポートに失敗しました: ${e.message}')),
+      );
+    } catch (e) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('インポートに失敗しました: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isImporting = false);
+    }
   }
 
   /// 選択中のタブに応じたAppBarアクションを返す
