@@ -198,8 +198,8 @@
 
 | # | 作業 | 対応する指摘 |
 |---|---|---|
-| 1-1 | ~~Firestore / Storage ルールのリポジトリ管理化~~（2026-06-12 完了）。残: Emulator ルールテスト追加 | C-2 |
-| 1-2 | `firestore.indexes.json` 追加、`getTestPiecesForGlaze` をサーバーソートに戻す | M-8 |
+| 1-1 | Firestore / Storage ルールのリポジトリ管理化 + Emulator ルールテスト — **完了 (2026-06-12)**: `rules_test/` (Node + @firebase/rules-unit-testing) に Firestore 5件・Storage 4件のテストを作成し、Emulator 上で 9/9 パスを確認。CI にも `rules-test` ジョブを追加（`--project demo-glaze-manager` のオフライン実行）。ローカル実行: `firebase emulators:exec --only firestore,storage --project demo-glaze-manager "npm --prefix rules_test test"` | C-2 |
+| 1-2 | `firestore.indexes.json` 追加、`getTestPiecesForGlaze` をサーバーソートに戻す — **実装完了 (2026-06-12)**。**`firebase deploy --only firestore:indexes` のデプロイが必要**（デプロイ前に新ビルドを起動すると釉薬詳細のテストピース一覧がインデックスエラーになる） | M-8 |
 | 1-3 | `FirestoreService` をエンティティ別リポジトリに分割 — **概ね完了 (2026-06-12)**: 汎用基底 `UserScopedRepository<T>` + 8 リポジトリ (`lib/repositories/`) を新設し、`FirestoreService` は互換ファサード化（既存画面・テスト無変更）。一回読み用 `getAll()`/`getXxxOnce()` を追加しインポート処理の `snapshots().first` を排除。リポジトリ単体テスト9件追加。残: 画面側の `.first` 置き換え（フェーズ3のVM移行と同時に実施） | M-2 |
 | 1-4 | `findOrCreate` 系をマップ事前構築 + バッチ作成に書き換え、インポートの N+1 を解消 — **一部完了 (2026-06-12)**: インポートを2パス化（全行パース → 顔料一括作成 → ID 解決1回）、タグ保存も `addTags` バッチ化。残: 同名原料の重複防止 | H-3 |
 | 1-5 | モデルの List/Map フィールドを不変化（`List.unmodifiable`）し、エイリアシング起因の事故を予防 | M-6 |
@@ -222,7 +222,7 @@
 | 3-2 | `test_piece_list_screen` の 5 重 StreamBuilder をデータストア参照に置換 — **完了 (2026-06-12)**: ConsumerStatefulWidget 化、`handleRefresh` は provider の invalidate で実装（MainTabScreen の GlobalKey 連携は互換維持） | M-1 |
 | 3-3 | `search_screen` をデータストア参照に置換し、陳腐化を解消 — **完了 (2026-06-12)**: 起動時スナップショット (`_loadInitialData`) を廃止し、プロバイダ参照 + `ref.listen` による検索結果の追従に変更。他画面での追加・編集が検索タブに即反映される | H-4 |
 | 3-4 | 主要画面のプロバイダ移行 — **完了 (2026-06-12)**: 全画面・全ウィジェットの FirestoreService / StorageService アクセスを Riverpod に統一（釉薬・原料・テストピースの一覧/詳細/編集、素地土・焼成プロファイル・焼成雰囲気の一覧/編集、タグ管理、検索、main_tab）。`main.dart` から `Provider<FirestoreService>` / `Provider<StorageService>` を撤去。provider パッケージに残るのは `SettingsService`（ChangeNotifier）と `AuthService` のみ。フィルタ・ソートロジックの ViewModel 分離は未着手（必要性が出た画面から個別に） | M-1 |
-| 3-5 | `MainTabScreen` のタブ定義をデータ駆動化（タブ位置ハードコード排除、GlobalKey キャスト排除） | M-3 |
+| 3-5 | `MainTabScreen` のタブ定義をデータ駆動化 — **完了 (2026-06-12)**: `_MainTab` enum + `_TabDefinition` リストに集約し、タブ位置ハードコード（`_selectedIndex == 2` 等）を全廃。タブの増減・並び替えはリスト編集のみで完結。GlobalKey 経由のリフレッシュはタブ識別子ベースの switch + null安全キャストに変更 | M-3 |
 
 既存の `refactor-mvvm-architecture` ブランチはマージせず設計リファレンスとして参照する（精査結果は決定事項 D-6 参照。リポジトリ分割粒度と ViewModel の責務分割は流用価値が高いが、コードベースが古く ChangeNotifier ベースのため、Riverpod で新規に実装し直す）。
 
@@ -236,7 +236,7 @@
 | 4-4 | 編集フォームのバリデーション強化（配合量の数値必須、原料未選択行の警告） | M-6 |
 | 4-5 | 匿名 → 永続アカウントのリンク実装（`linkWithCredential`） | M-7, D-4 |
 | 4-6 | 引き継ぎコード実装（Cloud Function によるワンタイムコード発行 + カスタムトークンでの旧 uid 引き継ぎ。設計は決定事項 D-4 参照） | D-4 |
-| 4-7 | 一覧グリッドのサムネイル優先表示（原寸画像は詳細画面のみ）と README の実態反映（Blaze プラン） | D-5, D-1 |
+| 4-7 | 一覧グリッドのサムネイル優先表示と README の実態反映（Blaze プラン） — **完了 (2026-06-12)**: `TestPieceCard` / `TestPieceListTile` がサムネイル(200px)優先・原寸はフォールバックに変更（原寸の読み込みは詳細画面のみ）。README の Spark 記載を Blaze に修正 | D-5, D-1 |
 | 4-8 | 配布準備: バージョニング運用ルール、Android 署名分離、Crashlytics、`main`/`release` ブランチ運用整理（アイコン更新コミット `f4fd47f` の release への取り込み含む） | D-7, D-6 |
 
 ---

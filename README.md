@@ -17,7 +17,8 @@
     * フロントエンド (クライアント): **Flutter (Dart)**
     * バックエンド (BaaS): **Firebase**
 * **コスト要件:**
-    * サーバー費用を発生させず、Firebase の無料枠（Sparkプラン）での運用を前提とする。
+    * Firebase **Blazeプラン**で運用する（Cloud Functions のサムネイル生成・色解析に必要）。
+    * 個人利用規模では無料枠の範囲に収まる想定で、課金が発生しない運用を維持する。
 
 ### 3. Firebase サービス構成
 * **Authentication (認証):**
