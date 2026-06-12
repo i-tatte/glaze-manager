@@ -1,9 +1,14 @@
+import hashlib
 import os
+import secrets
 import tempfile
 import uuid
+from datetime import datetime, timedelta, timezone
+
 import numpy as np
 import cv2
-from firebase_functions import storage_fn, options
+from firebase_functions import https_fn, storage_fn, options
+from firebase_admin import auth as admin_auth
 from firebase_admin import initialize_app, storage, firestore
 from PIL import Image
 
@@ -12,6 +17,98 @@ initialize_app()
 
 # リージョンを設定 (Storageバケットと同じリージョン)
 options.set_global_options(region="us-central1")
+
+# --- 引き継ぎコード (機種変更時のデータ引き継ぎ) ---
+#
+# 仕組み:
+#   1. 旧端末: issue_transfer_code がワンタイムコードを発行。
+#      コードは平文では保存せず SHA-256 ハッシュをドキュメントIDとして
+#      transfer_codes コレクションに保存する (有効期限つき・1回限り)。
+#   2. 新端末: redeem_transfer_code がコードを検証し、
+#      旧アカウント (uid) のカスタムトークンを返す。
+#      クライアントは signInWithCustomToken で旧アカウントとしてログインする。
+#
+# transfer_codes コレクションは Admin SDK からのみアクセスする
+# (セキュリティルールは users/ 配下しか許可していないため、クライアントは読めない)。
+#
+# 注意: create_custom_token には Functions の実行サービスアカウントに
+# 「サービス アカウント トークン作成者 (roles/iam.serviceAccountTokenCreator)」
+# ロールが必要。未付与の場合はIAMコンソールで付与すること。
+
+TRANSFER_CODE_TTL_MINUTES = 15
+TRANSFER_CODE_LENGTH = 12
+# 紛らわしい文字 (0/O, 1/I/L) を除いた英大文字+数字
+_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+
+
+def _hash_code(code: str) -> str:
+    return hashlib.sha256(code.encode("utf-8")).hexdigest()
+
+
+@https_fn.on_call()
+def issue_transfer_code(req: https_fn.CallableRequest):
+    """ログイン中ユーザーの引き継ぎコードを発行する"""
+    if req.auth is None:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.UNAUTHENTICATED,
+            message="ログインが必要です。",
+        )
+
+    code = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(TRANSFER_CODE_LENGTH))
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=TRANSFER_CODE_TTL_MINUTES)
+
+    db = firestore.client()
+    db.collection("transfer_codes").document(_hash_code(code)).set({
+        "uid": req.auth.uid,
+        "createdAt": firestore.SERVER_TIMESTAMP,
+        "expiresAt": expires_at,
+        "used": False,
+    })
+
+    return {"code": code, "expiresInMinutes": TRANSFER_CODE_TTL_MINUTES}
+
+
+@https_fn.on_call()
+def redeem_transfer_code(req: https_fn.CallableRequest):
+    """引き継ぎコードを検証し、元アカウントのカスタムトークンを返す"""
+    raw = (req.data or {}).get("code", "")
+    code = str(raw).strip().upper().replace(" ", "").replace("-", "")
+    if len(code) != TRANSFER_CODE_LENGTH:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message="コードの形式が正しくありません。",
+        )
+
+    db = firestore.client()
+    doc_ref = db.collection("transfer_codes").document(_hash_code(code))
+    transaction = db.transaction()
+
+    @firestore.transactional
+    def _redeem(txn):
+        snapshot = doc_ref.get(transaction=txn)
+        if not snapshot.exists:
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.NOT_FOUND,
+                message="コードが無効です。入力内容を確認してください。",
+            )
+        data = snapshot.to_dict()
+        if data.get("used"):
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+                message="このコードは使用済みです。旧端末で再発行してください。",
+            )
+        expires_at = data.get("expiresAt")
+        if expires_at is not None and expires_at < datetime.now(timezone.utc):
+            raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.DEADLINE_EXCEEDED,
+                message="コードの有効期限が切れています。旧端末で再発行してください。",
+            )
+        txn.update(doc_ref, {"used": True, "usedAt": firestore.SERVER_TIMESTAMP})
+        return data["uid"]
+
+    uid = _redeem(transaction)
+    token = admin_auth.create_custom_token(uid)
+    return {"token": token.decode("utf-8")}
 
 def analyze_glaze_color(image_path: str, k_init: int = 10, merge_threshold: float = 6.0) -> list[dict]:
     """

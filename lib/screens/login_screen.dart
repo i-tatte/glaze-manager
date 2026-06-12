@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:glaze_manager/services/auth_service.dart';
@@ -86,6 +87,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: () => _navigateToEmailLogin(context),
                         ),
                       ),
+                      const SizedBox(height: 24),
+                      TextButton.icon(
+                        icon: const Icon(Icons.move_down),
+                        label: const Text('引き継ぎコードでログイン (機種変更の方)'),
+                        onPressed: _showTransferCodeDialog,
+                      ),
                     ],
                   ),
           ],
@@ -121,6 +128,68 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => const EmailPasswordLoginScreen()));
+  }
+
+  /// 引き継ぎコードの入力ダイアログを表示し、コードでログインする
+  Future<void> _showTransferCodeDialog() async {
+    final codeController = TextEditingController();
+
+    final code = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('引き継ぎコードでログイン'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('旧端末の「設定 > 引き継ぎコードを発行」で表示されたコードを入力してください。'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: codeController,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                labelText: '引き継ぎコード',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(context).pop(codeController.text.trim()),
+            child: const Text('ログイン'),
+          ),
+        ],
+      ),
+    );
+
+    if (code == null || code.isEmpty || !mounted) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      await authService.signInWithTransferCode(code);
+      // 成功時はAuthWrapperが画面遷移をハンドルする
+    } on FirebaseFunctionsException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? '引き継ぎに失敗しました。')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('引き継ぎに失敗しました: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _signIn(AuthMethod method) async {
