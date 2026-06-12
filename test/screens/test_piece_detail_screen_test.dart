@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
@@ -8,9 +10,9 @@ import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as m;
 import 'package:glaze_manager/models/test_piece.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/test_piece_detail_screen.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
-import 'package:provider/provider.dart';
 
 // Manual mock
 class ManualMockFirestoreService implements FirestoreService {
@@ -62,6 +64,31 @@ class ManualMockFirestoreService implements FirestoreService {
     return Stream.value(<m.Material>[]);
   }
 
+  // データプロバイダ経由で参照されるリスト系メソッド
+  @override
+  Stream<List<Glaze>> getGlazes() =>
+      Stream.value([if (glazeToReturn != null) glazeToReturn!]);
+
+  @override
+  Stream<List<Clay>> getClays() =>
+      Stream.value([if (clayToReturn != null) clayToReturn!]);
+
+  @override
+  Stream<List<FiringProfile>> getFiringProfiles() => Stream.value([
+    if (firingProfileToReturn != null) firingProfileToReturn!,
+  ]);
+
+  @override
+  Stream<List<FiringAtmosphere>> getFiringAtmospheres() => Stream.value([
+    if (firingAtmosphereToReturn != null) firingAtmosphereToReturn!,
+  ]);
+
+  @override
+  Stream<List<String>> getTags() => Stream.value(<String>[]);
+
+  @override
+  Stream<List<TestPiece>> getTestPieces() => Stream.value(<TestPiece>[]);
+
   @override
   Future<void> updateViewHistory(String id) async {}
 
@@ -85,8 +112,13 @@ void main() {
   });
 
   Widget createTestableWidget(Widget child) {
-    return Provider<FirestoreService>(
-      create: (_) => mockFirestoreService,
+    return ProviderScope(
+      overrides: [
+        firestoreServiceProvider.overrideWithValue(mockFirestoreService),
+        authStateChangesProvider.overrideWith(
+          (ref) => Stream<User?>.value(null),
+        ),
+      ],
       child: MaterialApp(home: child),
     );
   }

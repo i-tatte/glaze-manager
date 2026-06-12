@@ -9,28 +9,29 @@ import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/test_piece.dart';
-import 'package:glaze_manager/services/firestore_service.dart';
-import 'package:glaze_manager/services/storage_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show ConsumerStatefulWidget, ConsumerState, AsyncValueX;
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/image_crop_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dropdown_search/dropdown_search.dart';
-import 'package:provider/provider.dart';
 import 'package:glaze_manager/widgets/firing_chart.dart';
 import 'package:uuid/uuid.dart';
 import 'package:path/path.dart' as p;
 import 'package:glaze_manager/widgets/common/unsaved_changes_pop_scope.dart';
 import 'package:glaze_manager/widgets/common/common_app_bar_actions.dart';
 
-class TestPieceEditScreen extends StatefulWidget {
+class TestPieceEditScreen extends ConsumerStatefulWidget {
   final TestPiece? testPiece;
 
   const TestPieceEditScreen({super.key, this.testPiece});
 
   @override
-  State<TestPieceEditScreen> createState() => _TestPieceEditScreenState();
+  ConsumerState<TestPieceEditScreen> createState() =>
+      _TestPieceEditScreenState();
 }
 
-class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
+class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
   final _formKey = GlobalKey<FormState>();
 
   String? _selectedGlazeId;
@@ -40,6 +41,7 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
   String? _selectedFiringAtmosphereId;
   final _noteController = TextEditingController();
 
+  // ドロップダウンの選択肢 (buildでプロバイダから更新される)
   List<FiringProfile> _availableFiringProfiles = [];
   List<FiringAtmosphere> _availableFiringAtmospheres = [];
   List<Clay> _availableClays = [];
@@ -68,22 +70,6 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     _noteController.text = widget.testPiece?.note ?? '';
 
     _noteController.addListener(_markAsDirty);
-    _loadDropdownData();
-  }
-
-  Future<void> _loadDropdownData() async {
-    final firestoreService = Provider.of<FirestoreService>(
-      context,
-      listen: false,
-    );
-    _availableGlazes = await firestoreService.getGlazes().first;
-    _availableClays = await firestoreService.getClays().first;
-    _availableFiringProfiles = await firestoreService.getFiringProfiles().first;
-    _availableFiringAtmospheres = await firestoreService
-        .getFiringAtmospheres()
-        .first;
-    // 初回ロード時はダーティ状態にしない
-    setState(() {});
   }
 
   void _markAsDirty() {
@@ -156,14 +142,8 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     // 画面pop後もSnackBarを出せるよう、ルートのMessengerを先に取得しておく
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     try {
-      final firestoreService = Provider.of<FirestoreService>(
-        context,
-        listen: false,
-      );
-      final storageService = Provider.of<StorageService>(
-        context,
-        listen: false,
-      );
+      final firestoreService = ref.read(firestoreServiceProvider);
+      final storageService = ref.read(storageServiceProvider);
 
       // 保存順序の制約:
       // Cloud Function (process_uploaded_image) はアップロード完了をトリガに
@@ -276,8 +256,8 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
     if (confirmed == true && mounted) {
       final navigator = Navigator.of(context);
       try {
-        final firestoreService = context.read<FirestoreService>();
-        final storageService = context.read<StorageService>();
+        final firestoreService = ref.read(firestoreServiceProvider);
+        final storageService = ref.read(storageServiceProvider);
 
         // Storageから画像とサムネイルを削除 (並行処理)
         // 新形式 (docIdフォルダ) はフォルダごと、旧形式はURL指定で削除する
@@ -318,6 +298,14 @@ class _TestPieceEditScreenState extends State<TestPieceEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ドロップダウンの選択肢をプロバイダから取得 (データ更新で自動反映)
+    _availableGlazes = ref.watch(glazesProvider).valueOrNull ?? [];
+    _availableClays = ref.watch(claysProvider).valueOrNull ?? [];
+    _availableFiringProfiles =
+        ref.watch(firingProfilesProvider).valueOrNull ?? [];
+    _availableFiringAtmospheres =
+        ref.watch(firingAtmospheresProvider).valueOrNull ?? [];
+
     return UnsavedChangesPopScope(isDirty: _isDirty, child: _buildScaffold());
   }
 
