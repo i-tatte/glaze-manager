@@ -1,5 +1,7 @@
-import 'package:cloud_functions/cloud_functions.dart';
+import 'dart:convert';
+
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
 import 'package:desktop_webview_auth/desktop_webview_auth.dart';
@@ -149,6 +151,60 @@ class AuthService {
   }
 
   // --- 引き継ぎコード (機種変更時のデータ引き継ぎ) ---
+  //
+  // cloud_functions プラグインは Windows に対応していないため、
+  // callable プロトコル (POST {"data": ...} / Authorization: Bearer <idToken>)
+  // を HTTPS で直接呼び出す。
+
+  static const _functionsBaseUrl =
+      'https://us-central1-glaze-manager.cloudfunctions.net';
+
+  /// callable関数を呼び出し、result部分を返す。
+  /// サーバーが返したエラーは [TransferCodeException] (日本語メッセージ) にして投げる。
+  Future<Map<String, dynamic>> _callFunction(
+    String name,
+    Map<String, dynamic> payload, {
+    required bool requireAuth,
+  }) async {
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (requireAuth) {
+      final idToken = await _auth.currentUser?.getIdToken();
+      if (idToken == null) {
+        throw TransferCodeException('ログインが必要です。');
+      }
+      headers['Authorization'] = 'Bearer $idToken';
+    }
+
+    final http.Response response;
+    try {
+      response = await http.post(
+        Uri.parse('$_functionsBaseUrl/$name'),
+        headers: headers,
+        body: jsonEncode({'data': payload}),
+      );
+    } catch (e) {
+      throw TransferCodeException('サーバーに接続できませんでした。通信環境を確認してください。');
+    }
+
+    Map<String, dynamic>? body;
+    try {
+      body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    } catch (_) {
+      body = null;
+    }
+
+    if (response.statusCode != 200 || body == null || body['error'] != null) {
+      final error = body?['error'];
+      var message = error is Map ? error['message'] as String? : null;
+      // HttpsError以外の内部エラーは "INTERNAL" 等のステータス文字列が入るため日本語に置き換える
+      if (message == null || RegExp(r'^[A-Z_ ]+$').hasMatch(message)) {
+        message = 'サーバーでエラーが発生しました。時間をおいて再度お試しください。';
+      }
+      throw TransferCodeException(message);
+    }
+
+    return Map<String, dynamic>.from(body['result'] as Map);
+  }
 
   /// 引き継ぎコードを発行する (旧端末で実行)。
   /// 返されたコードを新端末で [signInWithTransferCode] に入力すると、
@@ -156,23 +212,24 @@ class AuthService {
   ///
   /// コードに有効期限はないが、1回使用するか再発行すると無効になる。
   Future<String> issueTransferCode() async {
-    final result = await FirebaseFunctions.instance
-        .httpsCallable('issue_transfer_code')
-        .call();
-    final data = Map<String, dynamic>.from(result.data as Map);
-    return data['code'] as String;
+    final result = await _callFunction(
+      'issue_transfer_code',
+      {},
+      requireAuth: true,
+    );
+    return result['code'] as String;
   }
 
   /// 引き継ぎコードでサインインする (新端末で実行)。
-  /// コードが無効・期限切れ・使用済みの場合は
-  /// [FirebaseFunctionsException] をスローする (messageは日本語)。
+  /// コードが無効・使用済みの場合は [TransferCodeException] をスローする。
   Future<User?> signInWithTransferCode(String code) async {
-    final result = await FirebaseFunctions.instance
-        .httpsCallable('redeem_transfer_code')
-        .call({'code': code});
-    final data = Map<String, dynamic>.from(result.data as Map);
+    final result = await _callFunction(
+      'redeem_transfer_code',
+      {'code': code},
+      requireAuth: false,
+    );
     final userCredential = await _auth.signInWithCustomToken(
-      data['token'] as String,
+      result['token'] as String,
     );
     return userCredential.user;
   }
@@ -185,3 +242,12 @@ class AuthService {
 
 /// Googleサインインがユーザーによってキャンセルされたことを示すためのカスタム例外
 class GoogleSignInCanceled implements Exception {}
+
+/// 引き継ぎコードの発行・引き換えに失敗したことを示す例外 (messageは表示可能な日本語)
+class TransferCodeException implements Exception {
+  final String message;
+  TransferCodeException(this.message);
+
+  @override
+  String toString() => message;
+}

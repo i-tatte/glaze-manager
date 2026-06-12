@@ -1,4 +1,3 @@
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -379,10 +378,8 @@ class _AccountSectionState extends State<_AccountSection> {
           ],
         ),
       );
-    } on FirebaseFunctionsException catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('コードの発行に失敗しました: ${e.message ?? e.code}')),
-      );
+    } on TransferCodeException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('コードの発行に失敗しました: $e')));
     } finally {
