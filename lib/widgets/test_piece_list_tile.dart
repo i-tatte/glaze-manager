@@ -53,12 +53,12 @@ class TestPieceListTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Thumbnail
+              // Thumbnail (80pxの表示にはサムネイルで十分。原寸は詳細画面のみ)
               ClipRRect(
                 borderRadius: BorderRadius.circular(8.0),
-                child: testPiece.imageUrl != null
+                child: (testPiece.thumbnailUrl ?? testPiece.imageUrl) != null
                     ? Image.network(
-                        testPiece.imageUrl!,
+                        (testPiece.thumbnailUrl ?? testPiece.imageUrl)!,
                         width: 80,
                         height: 80,
                         fit: BoxFit.cover,

@@ -30,17 +30,15 @@ class TestPieceRepository extends UserScopedRepository<TestPiece> {
   }
 
   /// 特定の釉薬を使用するテストピース一覧を監視する (メイン・追加釉薬の両方を含む)
+  ///
+  /// firestore.indexes.json の複合インデックス
+  /// (relatedGlazeIds CONTAINS + createdAt DESC) が必要。
   Stream<List<TestPiece>> watchForGlaze(String glazeId) {
     if (userId == null) return Stream.value([]);
     return collection
         .where('relatedGlazeIds', arrayContains: glazeId)
-        // 複合インデックスが未定義のためクライアント側でソート
-        // (firestore.indexes.json 整備後にサーバーソートへ戻す)
+        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) {
-          final docs = snapshot.docs.map(fromFirestore).toList();
-          docs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          return docs;
-        });
+        .map((snapshot) => snapshot.docs.map(fromFirestore).toList());
   }
 }

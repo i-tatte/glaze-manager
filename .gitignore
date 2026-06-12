@@ -129,3 +129,8 @@ lib/generated_plugin_registrant.dart
 **/linux/flutter/generated_plugin_registrant.cc
 **/linux/flutter/generated_plugin_registrant.h
 **/linux/flutter/generated_plugins.cmake
+# Firebase emulators / rules tests
+firestore-debug.log
+firebase-debug.log
+ui-debug.log
+rules_test/node_modules/

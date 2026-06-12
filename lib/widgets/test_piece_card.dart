@@ -63,40 +63,39 @@ class TestPieceCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // 画像部分
+            // 一覧の小さなカードではサムネイル(200px)を優先して帯域とメモリを節約する。
+            // 原寸画像は詳細画面でのみ読み込む。
             AspectRatio(
               aspectRatio: 1.0,
               child: Hero(
                 tag: 'testPieceImage_${testPiece.id}',
-                child: testPiece.imageUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: testPiece.imageUrl!,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) {
-                          // サムネイルがあればそれを表示、なければインジケーター
-                          if (testPiece.thumbnailUrl != null) {
-                            return CachedNetworkImage(
-                              imageUrl: testPiece.thumbnailUrl!,
-                              fit: BoxFit.cover,
-                            );
-                          }
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        },
-                        errorWidget: (context, url, error) => const Icon(
-                          Icons.broken_image,
-                          size: 40,
-                          color: Colors.grey,
-                        ),
-                      )
-                    : Container(
+                child: Builder(
+                  builder: (context) {
+                    final displayUrl =
+                        testPiece.thumbnailUrl ?? testPiece.imageUrl;
+                    if (displayUrl == null) {
+                      return Container(
                         color: Colors.grey[200],
                         child: const Icon(
                           Icons.photo,
                           size: 40,
                           color: Colors.grey,
                         ),
+                      );
+                    }
+                    return CachedNetworkImage(
+                      imageUrl: displayUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) =>
+                          const Center(child: CircularProgressIndicator()),
+                      errorWidget: (context, url, error) => const Icon(
+                        Icons.broken_image,
+                        size: 40,
+                        color: Colors.grey,
                       ),
+                    );
+                  },
+                ),
               ),
             ),
             // テキスト部分

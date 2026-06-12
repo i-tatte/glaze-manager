@@ -12,6 +12,26 @@ import 'package:glaze_manager/services/glaze_import_service.dart';
 import 'package:glaze_manager/services/auth_service.dart';
 import 'package:provider/provider.dart' show ReadContext;
 
+/// タブの識別子。位置 (インデックス) ではなくこの値で分岐することで、
+/// タブの追加・並び替えに強くする。
+enum _MainTab { testPieces, search, glazes, materials, settings }
+
+/// 1タブ分の定義。タブの増減・並び替えは [_MainTabScreenState._tabs] の
+/// リストを編集するだけで完結する。
+class _TabDefinition {
+  final _MainTab tab;
+  final String title;
+  final BottomNavigationBarItem navItem;
+  final Widget screen;
+
+  const _TabDefinition({
+    required this.tab,
+    required this.title,
+    required this.navItem,
+    required this.screen,
+  });
+}
+
 class MainTabScreen extends ConsumerStatefulWidget {
   const MainTabScreen({super.key});
 
@@ -21,7 +41,7 @@ class MainTabScreen extends ConsumerStatefulWidget {
 
 class _MainTabScreenState extends ConsumerState<MainTabScreen> {
   int _selectedIndex = 0;
-  late final List<Widget> _widgetOptions;
+  late final List<_TabDefinition> _tabs;
 
   // 原料一覧画面の編集状態を管理するNotifier
   final _isMaterialsEditingNotifier = ValueNotifier<bool>(false);
@@ -37,79 +57,79 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
   // PageStorageKeyを管理するためのバケット
   final PageStorageBucket _bucket = PageStorageBucket();
 
-  // 各タブに対応する画面ウィジェットのリスト
-  // 今後タブを増減させる場合は、このリストと _bottomNavigationBarItems を修正します。
-  // static const List<Widget> _widgetOptions = <Widget>[
-  //   TestPieceListScreen(),
-  //   GlazeListScreen(),
-  //   MaterialsListScreen(),
-  //   SettingsScreen(),
-  // ];
+  _MainTab get _selectedTab => _tabs[_selectedIndex].tab;
 
   @override
   void initState() {
     super.initState();
-    _widgetOptions = <Widget>[
-      TestPieceListScreen(
-        key: _testPieceListKey,
-        pageStorageKey: const PageStorageKey('testPieceList'),
+    _tabs = [
+      _TabDefinition(
+        tab: _MainTab.testPieces,
+        title: 'テストピース一覧',
+        navItem: const BottomNavigationBarItem(
+          icon: Icon(Icons.photo_library_outlined),
+          activeIcon: Icon(Icons.photo_library),
+          label: 'テストピース',
+        ),
+        screen: TestPieceListScreen(
+          key: _testPieceListKey,
+          pageStorageKey: const PageStorageKey('testPieceList'),
+        ),
       ),
-      const SearchScreen(pageStorageKey: PageStorageKey('search')),
-      GlazeListScreen(
-        key: _glazeListKey,
-        pageStorageKey: const PageStorageKey('glazeList'),
+      const _TabDefinition(
+        tab: _MainTab.search,
+        title: '検索',
+        navItem: BottomNavigationBarItem(
+          icon: Icon(Icons.search_outlined),
+          activeIcon: Icon(Icons.search),
+          label: '検索',
+        ),
+        screen: SearchScreen(pageStorageKey: PageStorageKey('search')),
       ),
-      MaterialsListScreen(
-        key: _materialsListKey,
-        isEditingNotifier: _isMaterialsEditingNotifier,
-        pageStorageKey: const PageStorageKey('materialsList'),
+      _TabDefinition(
+        tab: _MainTab.glazes,
+        title: '釉薬一覧',
+        navItem: const BottomNavigationBarItem(
+          icon: Icon(Icons.color_lens_outlined),
+          activeIcon: Icon(Icons.color_lens),
+          label: '釉薬',
+        ),
+        screen: GlazeListScreen(
+          key: _glazeListKey,
+          pageStorageKey: const PageStorageKey('glazeList'),
+        ),
       ),
-      const SettingsScreen(pageStorageKey: PageStorageKey('settings')),
+      _TabDefinition(
+        tab: _MainTab.materials,
+        title: '原料一覧',
+        navItem: const BottomNavigationBarItem(
+          icon: Icon(Icons.science_outlined),
+          activeIcon: Icon(Icons.science),
+          label: '原料',
+        ),
+        screen: MaterialsListScreen(
+          key: _materialsListKey,
+          isEditingNotifier: _isMaterialsEditingNotifier,
+          pageStorageKey: const PageStorageKey('materialsList'),
+        ),
+      ),
+      const _TabDefinition(
+        tab: _MainTab.settings,
+        title: '設定',
+        navItem: BottomNavigationBarItem(
+          icon: Icon(Icons.settings_outlined),
+          activeIcon: Icon(Icons.settings),
+          label: '設定',
+        ),
+        screen: SettingsScreen(pageStorageKey: PageStorageKey('settings')),
+      ),
     ];
   }
 
-  // 各タブのタイトル
-  static const List<String> _appBarTitles = <String>[
-    'テストピース一覧',
-    '検索',
-    '釉薬一覧',
-    '原料一覧',
-    '設定',
-  ];
-
-  // BottomNavigationBarItem のリスト
-  static const List<BottomNavigationBarItem> _bottomNavigationBarItems = [
-    BottomNavigationBarItem(
-      icon: Icon(Icons.photo_library_outlined),
-      activeIcon: Icon(Icons.photo_library),
-      label: 'テストピース',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.search_outlined),
-      activeIcon: Icon(Icons.search),
-      label: '検索',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.color_lens_outlined),
-      activeIcon: Icon(Icons.color_lens),
-      label: '釉薬',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.science_outlined),
-      activeIcon: Icon(Icons.science),
-      label: '原料',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.settings_outlined),
-      activeIcon: Icon(Icons.settings),
-      label: '設定',
-    ),
-  ];
-
   void _onItemTapped(int index) {
-    // 他のタブに移動したら、原料一覧の編集モードを自動的に解除する
-    if (_selectedIndex == 3 && index != 3) {
-      // 原料タブのインデックスが3に変わったため修正
+    // 原料タブから離れたら、編集モードを自動的に解除する
+    if (_selectedTab == _MainTab.materials &&
+        _tabs[index].tab != _MainTab.materials) {
       if (_isMaterialsEditingNotifier.value) {
         _isMaterialsEditingNotifier.value = false;
       }
@@ -163,6 +183,77 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
     );
   }
 
+  /// 選択中のタブに応じたAppBarアクションを返す
+  List<Widget> _buildAppBarActions() {
+    switch (_selectedTab) {
+      case _MainTab.glazes:
+        return [
+          if (_isImporting)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.upload_file),
+              onPressed: _importGlazes,
+              tooltip: 'ファイルからインポート',
+            ),
+        ];
+      case _MainTab.materials:
+        return [
+          // isEditingNotifierの状態が変更されるたびにAppBarのボタンも再描画
+          ValueListenableBuilder<bool>(
+            valueListenable: _isMaterialsEditingNotifier,
+            builder: (context, _, _) => Row(
+              children: MaterialsListScreen.buildActions(
+                context,
+                _isMaterialsEditingNotifier,
+              ),
+            ),
+          ),
+        ];
+      case _MainTab.settings:
+        return [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'サインアウト',
+            onPressed: _confirmSignOut,
+          ),
+        ];
+      case _MainTab.testPieces:
+      case _MainTab.search:
+        return const [];
+    }
+  }
+
+  Future<void> _confirmSignOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('サインアウト'),
+        content: const Text('本当にサインアウトしますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('サインアウト'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await context.read<AuthService>().signOut();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Shortcuts(
@@ -177,77 +268,15 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
         },
         child: Scaffold(
           appBar: AppBar(
-            title: Text(_appBarTitles[_selectedIndex]),
-            // 検索画面(index: 1)ではAppBarのactionsを非表示にする
-            // 検索バーをボディに配置するため
-            actions: [
-              // 釉薬一覧画面(index: 2)でのみインポートボタンを表示
-              if (_selectedIndex == 2)
-                if (_isImporting)
-                  const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
-                else
-                  IconButton(
-                    icon: const Icon(Icons.upload_file),
-                    onPressed: _importGlazes,
-                    tooltip: 'ファイルからインポート',
-                  ),
-
-              // 原料一覧画面(index: 3)でのみ編集ボタンを表示
-              if (_selectedIndex == 3)
-                // isEditingNotifierの状態が変更されるたびにAppBarのボタンも再描画
-                ValueListenableBuilder<bool>(
-                  valueListenable: _isMaterialsEditingNotifier,
-                  builder: (context, _, _) => Row(
-                    children: MaterialsListScreen.buildActions(
-                      context,
-                      _isMaterialsEditingNotifier,
-                    ),
-                  ),
-                ),
-
-              // 設定画面(index: 4)でのみサインアウトボタンを表示
-              if (_selectedIndex == 4)
-                IconButton(
-                  icon: const Icon(Icons.logout),
-                  tooltip: 'サインアウト',
-                  onPressed: () async {
-                    final confirmed = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('サインアウト'),
-                        content: const Text('本当にサインアウトしますか？'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(false),
-                            child: const Text('キャンセル'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(true),
-                            child: const Text('サインアウト'),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (confirmed == true && context.mounted) {
-                      await context.read<AuthService>().signOut();
-                    }
-                  },
-                ),
-            ],
+            title: Text(_tabs[_selectedIndex].title),
+            actions: _buildAppBarActions(),
           ),
           body: PageStorage(
             bucket: _bucket,
-            child: _widgetOptions[_selectedIndex],
+            child: _tabs[_selectedIndex].screen,
           ),
           bottomNavigationBar: BottomNavigationBar(
-            items: _bottomNavigationBarItems,
+            items: _tabs.map((t) => t.navItem).toList(),
             currentIndex: _selectedIndex,
             onTap: _onItemTapped,
             type: BottomNavigationBarType.fixed, // タブが4つ以上でもレイアウトを維持
@@ -257,24 +286,24 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
     );
   }
 
-  /// 現在表示中のタブのリストをリフレッシュする
+  /// 現在表示中のタブのリストをリフレッシュする (F5)
   Future<void> _handleRefresh() async {
-    // _widgetOptionsのStateに直接アクセスすることはできないため、
-    // GlobalKey経由で公開されたメソッドを呼び出すなどの工夫が必要。
-    // ここでは、各Stateクラスに `handleRefresh` メソッドがあると仮定する。
-    switch (_selectedIndex) {
-      case 0:
-        (_testPieceListKey.currentState as TestPieceListScreenState)
-            .handleRefresh();
+    switch (_selectedTab) {
+      case _MainTab.testPieces:
+        (_testPieceListKey.currentState as TestPieceListScreenState?)
+            ?.handleRefresh();
         break;
-      case 2:
-        (_glazeListKey.currentState as GlazeListScreenState).handleRefresh();
+      case _MainTab.glazes:
+        (_glazeListKey.currentState as GlazeListScreenState?)?.handleRefresh();
         break;
-      case 3:
-        (_materialsListKey.currentState as MaterialsListScreenState)
-            .handleRefresh();
+      case _MainTab.materials:
+        (_materialsListKey.currentState as MaterialsListScreenState?)
+            ?.handleRefresh();
         break;
-      // 他のタブはリフレッシュ不要
+      case _MainTab.search:
+      case _MainTab.settings:
+        // リフレッシュ不要
+        break;
     }
   }
 }

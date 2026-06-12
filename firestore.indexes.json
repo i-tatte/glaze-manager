@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "test_pieces",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "relatedGlazeIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
