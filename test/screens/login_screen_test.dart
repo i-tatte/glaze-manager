@@ -54,7 +54,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.byType(AlertDialog), findsOneWidget);
-        expect(find.text('匿名ログインの注意点'), findsOneWidget);
+        expect(find.text('匿名ログインについて'), findsOneWidget);
 
         await tester.tap(find.text('キャンセル'));
         await tester.pumpAndSettle();

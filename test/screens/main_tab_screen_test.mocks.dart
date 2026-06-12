@@ -185,19 +185,17 @@ class MockAuthService extends _i1.Mock implements _i11.AuthService {
           as _i12.Future<_i2.UserCredential>);
 
   @override
-  _i12.Future<({String code, int expiresInMinutes})> issueTransferCode() =>
+  _i12.Future<String> issueTransferCode() =>
       (super.noSuchMethod(
             Invocation.method(#issueTransferCode, []),
-            returnValue:
-                _i12.Future<({String code, int expiresInMinutes})>.value((
-                  code: _i13.dummyValue<String>(
-                    this,
-                    Invocation.method(#issueTransferCode, []),
-                  ),
-                  expiresInMinutes: 0,
-                )),
+            returnValue: _i12.Future<String>.value(
+              _i13.dummyValue<String>(
+                this,
+                Invocation.method(#issueTransferCode, []),
+              ),
+            ),
           )
-          as _i12.Future<({String code, int expiresInMinutes})>);
+          as _i12.Future<String>);
 
   @override
   _i12.Future<_i2.User?> signInWithTransferCode(String? code) =>

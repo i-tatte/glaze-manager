@@ -219,9 +219,12 @@ class _LoginScreenState extends State<LoginScreen> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('匿名ログインの注意点'),
+          title: const Text('匿名ログインについて'),
           content: const Text(
-            '匿名ログインでは、アプリを削除したり機種変更した場合にデータを引き継ぐことができません。\n\nGoogleサインインで始めると、別デバイスでも同じデータを利用できます。',
+            '匿名ログインでは、データはこの端末のアカウントに紐付きます。\n\n'
+            '機種変更のときは「設定 > アカウント」から引き継ぎコードを発行することでデータを移行できます。'
+            'また、あとからGoogleアカウントやメールアドレスと連携して、複数端末で同じデータを使うこともできます。\n\n'
+            'ただし、連携もコード発行もしないままアプリを削除するとデータは復元できません。',
           ),
           actions: [
             TextButton(

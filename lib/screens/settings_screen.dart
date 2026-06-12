@@ -330,7 +330,7 @@ class _AccountSectionState extends State<_AccountSection> {
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _isBusy = true);
     try {
-      final result = await authService.issueTransferCode();
+      final code = await authService.issueTransferCode();
       if (!mounted) return;
       await showDialog(
         context: context,
@@ -342,7 +342,7 @@ class _AccountSectionState extends State<_AccountSection> {
             children: [
               Center(
                 child: SelectableText(
-                  result.code,
+                  code,
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -354,8 +354,8 @@ class _AccountSectionState extends State<_AccountSection> {
               Text(
                 '新しい端末のログイン画面で「引き継ぎコードでログイン」を選び、'
                 'このコードを入力してください。\n\n'
-                '・有効期限: ${result.expiresInMinutes}分\n'
-                '・1回のみ使用できます\n'
+                '・有効期限はありません。メモして大切に保管してください\n'
+                '・1回使用するか、新しいコードを発行すると無効になります\n'
                 '・他人には教えないでください',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
@@ -366,7 +366,7 @@ class _AccountSectionState extends State<_AccountSection> {
               icon: const Icon(Icons.copy),
               label: const Text('コピー'),
               onPressed: () {
-                Clipboard.setData(ClipboardData(text: result.code));
+                Clipboard.setData(ClipboardData(text: code));
                 ScaffoldMessenger.of(
                   context,
                 ).showSnackBar(const SnackBar(content: Text('コピーしました。')));

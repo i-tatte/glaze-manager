@@ -153,15 +153,14 @@ class AuthService {
   /// 引き継ぎコードを発行する (旧端末で実行)。
   /// 返されたコードを新端末で [signInWithTransferCode] に入力すると、
   /// このアカウントとしてログインできる。
-  Future<({String code, int expiresInMinutes})> issueTransferCode() async {
+  ///
+  /// コードに有効期限はないが、1回使用するか再発行すると無効になる。
+  Future<String> issueTransferCode() async {
     final result = await FirebaseFunctions.instance
         .httpsCallable('issue_transfer_code')
         .call();
     final data = Map<String, dynamic>.from(result.data as Map);
-    return (
-      code: data['code'] as String,
-      expiresInMinutes: (data['expiresInMinutes'] as num).toInt(),
-    );
+    return data['code'] as String;
   }
 
   /// 引き継ぎコードでサインインする (新端末で実行)。
