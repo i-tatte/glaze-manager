@@ -1,30 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show ConsumerWidget, WidgetRef, AsyncValueX;
 import 'package:glaze_manager/models/firing_atmosphere.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
-import 'package:provider/provider.dart';
 import 'package:glaze_manager/screens/firing_atmosphere_edit_screen.dart';
 
-class FiringAtmosphereListScreen extends StatelessWidget {
+class FiringAtmosphereListScreen extends ConsumerWidget {
   const FiringAtmosphereListScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final firestoreService = context.read<FirestoreService>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final firestoreService = ref.read(firestoreServiceProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('焼成雰囲気の管理')),
       body: Stack(
         children: [
-          StreamBuilder<List<FiringAtmosphere>>(
-            stream: firestoreService.getFiringAtmospheres(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Center(child: Text('エラーが発生しました: ${snapshot.error}'));
-              }
-              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          ref
+              .watch(firingAtmospheresProvider)
+              .when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, _) => Center(child: Text('エラーが発生しました: $error')),
+            data: (atmospheres) {
+              if (atmospheres.isEmpty) {
                 return const Center(
                   child: Text(
                     '焼成雰囲気が登録されていません。\n右下のボタンから追加してください。',
@@ -32,8 +31,6 @@ class FiringAtmosphereListScreen extends StatelessWidget {
                   ),
                 );
               }
-
-              final atmospheres = snapshot.data!;
 
               return ListView.builder(
                 itemCount: atmospheres.length,

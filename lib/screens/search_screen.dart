@@ -11,7 +11,6 @@ import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
-import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/settings_service.dart';
 import 'package:glaze_manager/widgets/test_piece_grid.dart';
 import 'package:glaze_manager/widgets/tag_management_widget.dart';
@@ -657,7 +656,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildRecentTestPieces(int crossAxisCount) {
-    final firestoreService = context.read<FirestoreService>();
+    final firestoreService = ref.read(firestoreServiceProvider);
     return StreamBuilder<List<String>>(
       stream: firestoreService.getRecentTestPieceIds(),
       builder: (context, snapshot) {

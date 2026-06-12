@@ -1,35 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show ConsumerStatefulWidget, ConsumerState, AsyncValueX;
 import 'package:glaze_manager/models/clay.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
-import 'package:provider/provider.dart';
 import 'package:glaze_manager/screens/clay_edit_screen.dart';
 
-class ClayListScreen extends StatefulWidget {
+class ClayListScreen extends ConsumerStatefulWidget {
   const ClayListScreen({super.key});
 
   @override
-  State<ClayListScreen> createState() => _ClayListScreenState();
+  ConsumerState<ClayListScreen> createState() => _ClayListScreenState();
 }
 
-class _ClayListScreenState extends State<ClayListScreen> {
+class _ClayListScreenState extends ConsumerState<ClayListScreen> {
   @override
   Widget build(BuildContext context) {
-    final firestoreService = Provider.of<FirestoreService>(context);
+    final firestoreService = ref.read(firestoreServiceProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('素地土名の管理')),
       body: Stack(
         children: [
-          StreamBuilder<List<Clay>>(
-            stream: firestoreService.getClays(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Center(child: Text('エラーが発生しました: ${snapshot.error}'));
-              }
-              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          ref
+              .watch(claysProvider)
+              .when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, _) => Center(child: Text('エラーが発生しました: $error')),
+            data: (data) {
+              if (data.isEmpty) {
                 return const Center(
                   child: Text(
                     '素地土名が登録されていません。\n右下のボタンから追加してください。',
@@ -38,7 +37,8 @@ class _ClayListScreenState extends State<ClayListScreen> {
                 );
               }
 
-              final clays = snapshot.data!;
+              // 並べ替え操作でリストを直接変更するためコピーを使う
+              final clays = [...data];
 
               return ReorderableListView.builder(
                 itemCount: clays.length,

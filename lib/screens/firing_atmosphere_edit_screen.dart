@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show ConsumerStatefulWidget, ConsumerState;
 import 'package:glaze_manager/models/firing_atmosphere.dart';
-import 'package:glaze_manager/services/firestore_service.dart';
-import 'package:provider/provider.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 
-class FiringAtmosphereEditScreen extends StatefulWidget {
+class FiringAtmosphereEditScreen extends ConsumerStatefulWidget {
   final FiringAtmosphere? atmosphere;
 
   const FiringAtmosphereEditScreen({super.key, this.atmosphere});
 
   @override
-  State<FiringAtmosphereEditScreen> createState() =>
+  ConsumerState<FiringAtmosphereEditScreen> createState() =>
       _FiringAtmosphereEditScreenState();
 }
 
 class _FiringAtmosphereEditScreenState
-    extends State<FiringAtmosphereEditScreen> {
+    extends ConsumerState<FiringAtmosphereEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late FiringAtmosphereType _selectedType;
@@ -50,7 +51,7 @@ class _FiringAtmosphereEditScreenState
     final navigator = Navigator.of(context);
 
     try {
-      final firestoreService = context.read<FirestoreService>();
+      final firestoreService = ref.read(firestoreServiceProvider);
       final atmosphere = FiringAtmosphere(
         id: widget.atmosphere?.id,
         name: _nameController.text,

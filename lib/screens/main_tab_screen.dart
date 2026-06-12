@@ -5,19 +5,21 @@ import 'package:glaze_manager/screens/materials_list_screen.dart';
 import 'package:glaze_manager/screens/settings_screen.dart';
 import 'package:glaze_manager/screens/search_screen.dart';
 import 'package:glaze_manager/screens/test_piece_list_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show ConsumerStatefulWidget, ConsumerState;
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/services/glaze_import_service.dart';
 import 'package:glaze_manager/services/auth_service.dart';
-import 'package:glaze_manager/services/firestore_service.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/provider.dart' show ReadContext;
 
-class MainTabScreen extends StatefulWidget {
+class MainTabScreen extends ConsumerStatefulWidget {
   const MainTabScreen({super.key});
 
   @override
-  State<MainTabScreen> createState() => _MainTabScreenState();
+  ConsumerState<MainTabScreen> createState() => _MainTabScreenState();
 }
 
-class _MainTabScreenState extends State<MainTabScreen> {
+class _MainTabScreenState extends ConsumerState<MainTabScreen> {
   int _selectedIndex = 0;
   late final List<Widget> _widgetOptions;
 
@@ -120,7 +122,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
   Future<void> _importGlazes() async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final importer = GlazeImporter(
-      firestoreService: context.read<FirestoreService>(),
+      firestoreService: ref.read(firestoreServiceProvider),
     );
 
     await importer.importFromExcel(

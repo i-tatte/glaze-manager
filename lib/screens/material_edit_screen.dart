@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show ConsumerStatefulWidget, ConsumerState;
 import 'package:glaze_manager/models/material.dart' as app;
-import 'package:glaze_manager/services/firestore_service.dart';
-import 'package:provider/provider.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/widgets/common/unsaved_changes_pop_scope.dart';
 import 'package:glaze_manager/widgets/common/common_app_bar_actions.dart';
 
-class MaterialEditScreen extends StatefulWidget {
+class MaterialEditScreen extends ConsumerStatefulWidget {
   final app.Material? material;
 
   const MaterialEditScreen({super.key, this.material});
 
   @override
-  State<MaterialEditScreen> createState() => _MaterialEditScreenState();
+  ConsumerState<MaterialEditScreen> createState() =>
+      _MaterialEditScreenState();
 }
 
-class _MaterialEditScreenState extends State<MaterialEditScreen> {
+class _MaterialEditScreenState extends ConsumerState<MaterialEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late List<_ComponentController> _componentControllers;
@@ -65,10 +67,7 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       try {
-        final firestoreService = Provider.of<FirestoreService>(
-          context,
-          listen: false,
-        );
+        final firestoreService = ref.read(firestoreServiceProvider);
         final componentsMap = {
           for (var c in _componentControllers)
             if (c.name.text.isNotEmpty)
@@ -144,9 +143,9 @@ class _MaterialEditScreenState extends State<MaterialEditScreen> {
     if (confirmed == true && mounted) {
       final navigator = Navigator.of(context);
       try {
-        await context.read<FirestoreService>().deleteMaterial(
-          widget.material!.id!,
-        );
+        await ref
+            .read(firestoreServiceProvider)
+            .deleteMaterial(widget.material!.id!);
         if (mounted) {
           // 編集画面と詳細画面を閉じて一覧画面まで戻る
           int count = 0;

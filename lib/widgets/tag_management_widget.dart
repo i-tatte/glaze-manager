@@ -1,30 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show ConsumerWidget, WidgetRef, AsyncValueX;
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
-import 'package:provider/provider.dart';
 
-class TagManagementWidget extends StatelessWidget {
+class TagManagementWidget extends ConsumerWidget {
   const TagManagementWidget({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final firestoreService = context.read<FirestoreService>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final firestoreService = ref.read(firestoreServiceProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('タグ管理'),
       ),
-      body: StreamBuilder<List<String>>(
-        stream: firestoreService.getTags(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('エラーが発生しました: ${snapshot.error}'));
-          }
-
-          final tags = snapshot.data ?? [];
-
+      body: ref
+          .watch(tagsProvider)
+          .when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Center(child: Text('エラーが発生しました: $error')),
+        data: (tags) {
           if (tags.isEmpty) {
             return const Center(child: Text('登録されているタグはありません'));
           }

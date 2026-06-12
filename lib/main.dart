@@ -3,8 +3,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:glaze_manager/screens/auth_wrapper.dart';
 import 'package:glaze_manager/services/auth_service.dart';
-import 'package:glaze_manager/services/firestore_service.dart';
-import 'package:glaze_manager/services/storage_service.dart';
 import 'package:glaze_manager/services/settings_service.dart';
 import 'firebase_options.dart'; // flutterfire configure で生成されたファイル
 import 'package:provider/provider.dart';
@@ -36,12 +34,13 @@ class AppProviders extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // FirestoreService / StorageService は Riverpod
+        // (lib/providers/data_providers.dart) に移行済み。
+        // SettingsService / AuthService は移行が済むまで provider で提供する。
         ChangeNotifierProvider<SettingsService>(
           create: (_) => SettingsService(),
         ),
         Provider<AuthService>(create: (_) => AuthService()),
-        Provider<FirestoreService>(create: (_) => FirestoreService()),
-        Provider<StorageService>(create: (_) => StorageService()),
       ],
       child: Consumer<SettingsService>(
         builder: (context, settings, child) {

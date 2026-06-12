@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:firebase_auth/firebase_auth.dart' show User;
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/widgets/tag_management_widget.dart';
 import 'package:mockito/mockito.dart';
-import 'package:provider/provider.dart';
 
 class MockFirestoreService extends Mock implements FirestoreService {
   @override
@@ -27,15 +29,18 @@ void main() {
     ).thenAnswer((_) => Stream.value(['Tag1', 'Tag2']));
 
     await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          Provider<FirestoreService>.value(value: mockFirestoreService),
+      ProviderScope(
+        overrides: [
+          firestoreServiceProvider.overrideWithValue(mockFirestoreService),
+          authStateChangesProvider.overrideWith(
+            (ref) => Stream<User?>.value(null),
+          ),
         ],
         child: const MaterialApp(home: TagManagementWidget()),
       ),
     );
 
-    await tester.pump(); // Build stream builder
+    await tester.pumpAndSettle();
 
     expect(find.text('Tag1'), findsOneWidget);
     expect(find.text('Tag2'), findsOneWidget);
@@ -49,15 +54,18 @@ void main() {
     when(mockFirestoreService.getTags()).thenAnswer((_) => Stream.value([]));
 
     await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          Provider<FirestoreService>.value(value: mockFirestoreService),
+      ProviderScope(
+        overrides: [
+          firestoreServiceProvider.overrideWithValue(mockFirestoreService),
+          authStateChangesProvider.overrideWith(
+            (ref) => Stream<User?>.value(null),
+          ),
         ],
         child: const MaterialApp(home: TagManagementWidget()),
       ),
     );
 
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('登録されているタグはありません'), findsOneWidget);
   });
@@ -70,15 +78,18 @@ void main() {
     when(mockFirestoreService.deleteTag('Tag1')).thenAnswer((_) async => {});
 
     await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          Provider<FirestoreService>.value(value: mockFirestoreService),
+      ProviderScope(
+        overrides: [
+          firestoreServiceProvider.overrideWithValue(mockFirestoreService),
+          authStateChangesProvider.overrideWith(
+            (ref) => Stream<User?>.value(null),
+          ),
         ],
         child: const MaterialApp(home: TagManagementWidget()),
       ),
     );
 
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     // Tap delete button
     await tester.tap(find.byIcon(Icons.delete_outline));
