@@ -417,9 +417,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             .split(RegExp(r'[ \u3000]+'))
                             .where((t) => t.isNotEmpty)
                             .map((term) {
+                              // \u300c-\u8a9e\u300d\u306f\u30de\u30a4\u30ca\u30b9\u691c\u7d22 (\u9664\u5916\u6761\u4ef6)
+                              final isNegative =
+                                  term.startsWith('-') && term.length > 1;
                               return Chip(
-                                avatar: const Icon(Icons.text_fields, size: 18),
-                                label: Text(term),
+                                avatar: Icon(
+                                  isNegative
+                                      ? Icons.block
+                                      : Icons.text_fields,
+                                  size: 18,
+                                  color: isNegative
+                                      ? Theme.of(context).colorScheme.error
+                                      : null,
+                                ),
+                                label: Text(
+                                  isNegative
+                                      ? '${term.substring(1)} \u3092\u9664\u5916'
+                                      : term,
+                                ),
                                 onDeleted: () {
                                   final terms = _searchQuery
                                       .split(RegExp(r'[ \u3000]+'))

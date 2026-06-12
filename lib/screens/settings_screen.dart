@@ -209,7 +209,9 @@ class _AccountSectionState extends State<_AccountSection> {
               ListTile(
                 leading: const Icon(Icons.move_down),
                 title: const Text('引き継ぎコードを発行'),
-                subtitle: const Text('新しい端末でこのデータを使うためのワンタイムコードを発行します'),
+                subtitle: const Text(
+                  '新しい端末でこのデータを使うためのコードを発行します (無期限・1回使用で無効)',
+                ),
                 onTap: _issueTransferCode,
               ),
             ],
