@@ -1,4 +1,3 @@
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:glaze_manager/services/auth_service.dart';
@@ -175,11 +174,11 @@ class _LoginScreenState extends State<LoginScreen> {
       final authService = Provider.of<AuthService>(context, listen: false);
       await authService.signInWithTransferCode(code);
       // 成功時はAuthWrapperが画面遷移をハンドルする
-    } on FirebaseFunctionsException catch (e) {
+    } on TransferCodeException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? '引き継ぎに失敗しました。')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
       }
     } catch (e) {
       if (mounted) {
