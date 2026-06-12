@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show ConsumerStatefulWidget, ConsumerState;
 import 'package:glaze_manager/models/clay.dart';
-import 'package:glaze_manager/services/firestore_service.dart';
-import 'package:provider/provider.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 
-class ClayEditScreen extends StatefulWidget {
+class ClayEditScreen extends ConsumerStatefulWidget {
   final Clay? clay;
 
   const ClayEditScreen({super.key, this.clay});
 
   @override
-  State<ClayEditScreen> createState() => _ClayEditScreenState();
+  ConsumerState<ClayEditScreen> createState() => _ClayEditScreenState();
 }
 
-class _ClayEditScreenState extends State<ClayEditScreen> {
+class _ClayEditScreenState extends ConsumerState<ClayEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   bool _isLoading = false;
@@ -44,7 +45,7 @@ class _ClayEditScreenState extends State<ClayEditScreen> {
     final navigator = Navigator.of(context);
 
     try {
-      final firestoreService = context.read<FirestoreService>();
+      final firestoreService = ref.read(firestoreServiceProvider);
 
       if (widget.clay == null) {
         // 新規作成

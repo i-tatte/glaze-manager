@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show ConsumerStatefulWidget, ConsumerState;
 import 'package:glaze_manager/models/firing_profile.dart';
-import 'package:glaze_manager/services/firestore_service.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/widgets/firing_chart.dart';
-import 'package:provider/provider.dart';
 
-class FiringProfileEditScreen extends StatefulWidget {
+class FiringProfileEditScreen extends ConsumerStatefulWidget {
   final FiringProfile? profile;
 
   const FiringProfileEditScreen({super.key, this.profile});
 
   @override
-  State<FiringProfileEditScreen> createState() =>
+  ConsumerState<FiringProfileEditScreen> createState() =>
       _FiringProfileEditScreenState();
 }
 
-class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
+class _FiringProfileEditScreenState
+    extends ConsumerState<FiringProfileEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _curveDataController;
@@ -67,7 +69,7 @@ class _FiringProfileEditScreenState extends State<FiringProfileEditScreen> {
     final navigator = Navigator.of(context);
 
     try {
-      final firestoreService = context.read<FirestoreService>();
+      final firestoreService = ref.read(firestoreServiceProvider);
       final profile = FiringProfile(
         id: widget.profile?.id,
         name: _nameController.text,

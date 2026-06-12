@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/screens/firing_atmosphere_list_screen.dart';
-import 'package:glaze_manager/services/firestore_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:mockito/mockito.dart';
-import 'package:provider/provider.dart';
 
 import 'main_tab_screen_test.mocks.dart';
 
@@ -16,8 +17,13 @@ void main() {
   });
 
   Widget createTestableWidget(Widget child) {
-    return Provider<FirestoreService>(
-      create: (_) => mockFirestoreService,
+    return ProviderScope(
+      overrides: [
+        firestoreServiceProvider.overrideWithValue(mockFirestoreService),
+        authStateChangesProvider.overrideWith(
+          (ref) => Stream<User?>.value(null),
+        ),
+      ],
       child: MaterialApp(home: child),
     );
   }

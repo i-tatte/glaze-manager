@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show ConsumerStatefulWidget, ConsumerState;
 import 'package:glaze_manager/models/material.dart' as app;
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/material_edit_screen.dart';
-import 'package:glaze_manager/services/firestore_service.dart';
-import 'package:provider/provider.dart';
 
-class MaterialDetailScreen extends StatefulWidget {
+class MaterialDetailScreen extends ConsumerStatefulWidget {
   final app.Material material;
 
   const MaterialDetailScreen({super.key, required this.material});
 
   @override
-  State<MaterialDetailScreen> createState() => _MaterialDetailScreenState();
+  ConsumerState<MaterialDetailScreen> createState() =>
+      _MaterialDetailScreenState();
 }
 
-class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
+class _MaterialDetailScreenState extends ConsumerState<MaterialDetailScreen> {
   @override
   Widget build(BuildContext context) {
-    final firestoreService = context.read<FirestoreService>();
+    final firestoreService = ref.read(firestoreServiceProvider);
 
     return StreamBuilder<app.Material>(
       stream: firestoreService.getMaterialStream(widget.material.id!),
