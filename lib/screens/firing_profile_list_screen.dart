@@ -61,6 +61,7 @@ class FiringProfileListScreen extends ConsumerWidget {
                           tooltip: '削除',
                           onPressed: () => _confirmDelete(
                             context,
+                            ref,
                             firestoreService,
                             profile,
                           ),
@@ -95,14 +96,25 @@ class FiringProfileListScreen extends ConsumerWidget {
 
   Future<void> _confirmDelete(
     BuildContext context,
+    WidgetRef ref,
     FirestoreService service,
     FiringProfile profile,
   ) async {
+    // この焼成プロファイルを使用しているテストピースの数を集計して警告に含める
+    final testPieces = await ref.read(testPiecesProvider.future);
+    final usedCount = testPieces
+        .where((tp) => tp.firingProfileId == profile.id)
+        .length;
+    final warning = usedCount > 0
+        ? '\n\nこの焼成プロファイルは$usedCount件のテストピースで使用されています。\n削除すると、それらの表示は「未設定」になります。'
+        : '';
+
+    if (!context.mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('削除の確認'),
-        content: Text('「${profile.name}」を本当に削除しますか？'),
+        content: Text('「${profile.name}」を本当に削除しますか？$warning'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),

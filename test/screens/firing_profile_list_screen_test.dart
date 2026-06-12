@@ -4,6 +4,7 @@ import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/screens/firing_profile_list_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
+import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:mockito/mockito.dart';
 
@@ -14,6 +15,10 @@ void main() {
 
   setUp(() {
     mockFirestoreService = MockFirestoreService();
+    // 削除確認ダイアログが参照件数集計のために読むためのデフォルトスタブ
+    when(
+      mockFirestoreService.getTestPieces(),
+    ).thenAnswer((_) => Stream.value(<TestPiece>[]));
   });
 
   Widget createTestableWidget(Widget child) {

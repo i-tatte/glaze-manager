@@ -63,6 +63,7 @@ class FiringAtmosphereListScreen extends ConsumerWidget {
                           tooltip: '削除',
                           onPressed: () => _confirmDelete(
                             context,
+                            ref,
                             firestoreService,
                             atmosphere,
                           ),
@@ -96,14 +97,25 @@ class FiringAtmosphereListScreen extends ConsumerWidget {
 
   Future<void> _confirmDelete(
     BuildContext context,
+    WidgetRef ref,
     FirestoreService service,
     FiringAtmosphere atmosphere,
   ) async {
+    // この焼成雰囲気を使用しているテストピースの数を集計して警告に含める
+    final testPieces = await ref.read(testPiecesProvider.future);
+    final usedCount = testPieces
+        .where((tp) => tp.firingAtmosphereId == atmosphere.id)
+        .length;
+    final warning = usedCount > 0
+        ? '\n\nこの焼成雰囲気は$usedCount件のテストピースで使用されています。\n削除すると、それらの表示は「未設定」になります。'
+        : '';
+
+    if (!context.mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('削除の確認'),
-        content: Text('「${atmosphere.name}」を本当に削除しますか？'),
+        content: Text('「${atmosphere.name}」を本当に削除しますか？$warning'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),

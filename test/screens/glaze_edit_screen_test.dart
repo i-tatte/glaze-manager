@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as app;
+import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/glaze_edit_screen.dart';
 import 'package:mockito/mockito.dart';
@@ -92,6 +93,66 @@ void main() {
       expect(find.text('tag1'), findsOneWidget);
       // Recipe row check might be harder due to DropdownSearch, but we can check if amount is there
       expect(find.text('10.0'), findsOneWidget);
+    });
+
+    testWidgets('delete dialog warns about referencing test pieces', (
+      WidgetTester tester,
+    ) async {
+      final glaze = Glaze(
+        id: 'g1',
+        name: 'Used Glaze',
+        recipe: {},
+        tags: [],
+        createdAt: Timestamp.now(),
+      );
+
+      when(
+        mockFirestoreService.getMaterials(),
+      ).thenAnswer((_) => Stream.value(<app.Material>[]));
+      when(
+        mockFirestoreService.getTags(),
+      ).thenAnswer((_) => Stream.value(<String>[]));
+      when(mockFirestoreService.getTestPieces()).thenAnswer(
+        (_) => Stream.value([
+          // メインとして2件、追加として1件参照
+          TestPiece(
+            id: 'tp1',
+            glazeId: 'g1',
+            clayId: 'c1',
+            createdAt: Timestamp.now(),
+          ),
+          TestPiece(
+            id: 'tp2',
+            glazeId: 'g1',
+            clayId: 'c1',
+            createdAt: Timestamp.now(),
+          ),
+          TestPiece(
+            id: 'tp3',
+            glazeId: 'other',
+            additionalGlazeIds: const ['g1'],
+            clayId: 'c1',
+            createdAt: Timestamp.now(),
+          ),
+        ]),
+      );
+
+      await tester.pumpWidget(
+        createTestableWidget(GlazeEditScreen(glaze: glaze)),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('2件のテストピースがこの釉薬をメインとして使用しています'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('1件のテストピースが追加の釉薬として使用しています'),
+        findsOneWidget,
+      );
     });
   });
 }
