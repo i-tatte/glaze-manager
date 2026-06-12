@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show ConsumerStatefulWidget, ConsumerState, AsyncValueX;
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as app;
-import 'package:glaze_manager/services/firestore_service.dart';
-import 'package:provider/provider.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:glaze_manager/widgets/common/unsaved_changes_pop_scope.dart';
 import 'package:glaze_manager/widgets/common/common_app_bar_actions.dart';
 
-class GlazeEditScreen extends StatefulWidget {
+class GlazeEditScreen extends ConsumerStatefulWidget {
   final Glaze? glaze;
 
   const GlazeEditScreen({super.key, this.glaze});
 
   @override
-  State<GlazeEditScreen> createState() => _GlazeEditScreenState();
+  ConsumerState<GlazeEditScreen> createState() => _GlazeEditScreenState();
 }
 
-class _GlazeEditScreenState extends State<GlazeEditScreen> {
+class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _registeredNameController;
@@ -28,9 +29,8 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
   // レシピの各行を管理するためのリスト
   late List<_RecipeRow> _recipeRows;
 
-  // 選択可能な原料のリスト
+  // 選択可能な原料・タグのリスト (buildでプロバイダから更新される)
   List<app.Material> _availableMaterials = [];
-  // 既存のタグリスト (オートコンプリート用)
   List<String> _availableTags = [];
 
   List<String> _tags = [];
@@ -54,17 +54,7 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
     _registeredNameController.addListener(_markAsDirty);
     _descriptionController.addListener(_markAsDirty);
 
-    _loadMaterialsAndTags();
     _tagInputController.addListener(_onTagInputChanged);
-  }
-
-  Future<void> _loadMaterialsAndTags() async {
-    final firestoreService = Provider.of<FirestoreService>(
-      context,
-      listen: false,
-    );
-    _availableMaterials = await firestoreService.getMaterials().first;
-    _availableTags = await firestoreService.getTags().first;
 
     if (widget.glaze != null) {
       // 編集モードの場合、既存のレシピを復元
@@ -81,7 +71,6 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
         );
       }
     }
-    setState(() {}); // 原料リストとタグのロード完了をUIに反映
   }
 
   void _markAsDirty() {
@@ -128,10 +117,7 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
       setState(() => _isLoading = true);
 
       try {
-        final firestoreService = Provider.of<FirestoreService>(
-          context,
-          listen: false,
-        );
+        final firestoreService = ref.read(firestoreServiceProvider);
 
         // レシピMapを作成
         final recipeMap = {
@@ -208,7 +194,9 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
     if (confirmed == true && mounted) {
       final navigator = Navigator.of(context);
       try {
-        await context.read<FirestoreService>().deleteGlaze(widget.glaze!.id!);
+        await ref
+            .read(firestoreServiceProvider)
+            .deleteGlaze(widget.glaze!.id!);
         if (mounted) {
           // 編集画面と詳細画面を閉じて一覧画面まで戻る
           int count = 0;
@@ -225,6 +213,10 @@ class _GlazeEditScreenState extends State<GlazeEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 原料・タグの選択肢をプロバイダから取得 (データ更新で自動反映)
+    _availableMaterials = ref.watch(materialsProvider).valueOrNull ?? [];
+    _availableTags = ref.watch(tagsProvider).valueOrNull ?? [];
+
     return UnsavedChangesPopScope(
       isDirty: _isDirty,
       child: Scaffold(

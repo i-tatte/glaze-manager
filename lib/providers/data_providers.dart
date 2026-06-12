@@ -7,6 +7,7 @@ import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
+import 'package:glaze_manager/services/storage_service.dart';
 
 /// アプリスコープのデータ層プロバイダ群。
 ///
@@ -21,6 +22,10 @@ import 'package:glaze_manager/services/firestore_service.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>(
   (ref) => FirestoreService(),
+);
+
+final storageServiceProvider = Provider<StorageService>(
+  (ref) => StorageService(),
 );
 
 /// 認証状態。各コレクションのプロバイダはこれをwatchすることで、

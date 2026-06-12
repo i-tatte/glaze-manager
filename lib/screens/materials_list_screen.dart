@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show ConsumerStatefulWidget, ConsumerState, AsyncValueX;
 import 'package:glaze_manager/models/material.dart' as app;
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/material_edit_screen.dart';
-import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/screens/material_detail_screen.dart';
-import 'package:provider/provider.dart';
 import 'package:glaze_manager/widgets/common/common_search_bar.dart';
 import 'package:glaze_manager/widgets/common/empty_list_placeholder.dart';
 
-class MaterialsListScreen extends StatefulWidget {
+class MaterialsListScreen extends ConsumerStatefulWidget {
   final PageStorageKey? pageStorageKey;
   // MainTabScreenから編集状態を監視するためのValueNotifierを受け取る
   final ValueNotifier<bool> isEditingNotifier;
@@ -34,13 +35,13 @@ class MaterialsListScreen extends StatefulWidget {
   }
 
   @override
-  State<MaterialsListScreen> createState() => MaterialsListScreenState();
+  ConsumerState<MaterialsListScreen> createState() =>
+      MaterialsListScreenState();
 }
 
-class MaterialsListScreenState extends State<MaterialsListScreen> {
+class MaterialsListScreenState extends ConsumerState<MaterialsListScreen> {
   final _searchController = TextEditingController();
 
-  late Stream<List<app.Material>> _materialsStream;
   String _searchQuery = '';
   final Set<app.MaterialCategory> _selectedCategories = app
       .MaterialCategory
@@ -50,7 +51,6 @@ class MaterialsListScreenState extends State<MaterialsListScreen> {
   @override
   void initState() {
     super.initState();
-    _loadStream();
     _searchController.addListener(_onSearchChanged);
     widget.isEditingNotifier.addListener(_onEditingChanged);
   }
@@ -63,14 +63,8 @@ class MaterialsListScreenState extends State<MaterialsListScreen> {
     super.dispose();
   }
 
-  void _loadStream() {
-    _materialsStream = context.read<FirestoreService>().getMaterials();
-  }
-
   Future<void> handleRefresh() async {
-    setState(() {
-      _loadStream();
-    });
+    ref.invalidate(materialsProvider);
   }
 
   void _onSearchChanged() {
@@ -194,41 +188,40 @@ class MaterialsListScreenState extends State<MaterialsListScreen> {
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: handleRefresh,
-                  child: StreamBuilder<List<app.Material>>(
-                    stream: _materialsStream,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (snapshot.hasError) {
-                        return Center(child: Text('Error: ${snapshot.error}'));
-                      }
+                  child: ref
+                      .watch(materialsProvider)
+                      .when(
+                        loading: () =>
+                            const Center(child: CircularProgressIndicator()),
+                        error: (error, _) =>
+                            Center(child: Text('Error: $error')),
+                        data: (allMaterials) {
+                          final displayedMaterials = _filterMaterials(
+                            allMaterials,
+                          );
 
-                      final allMaterials = snapshot.data ?? [];
-                      final displayedMaterials = _filterMaterials(allMaterials);
+                          if (displayedMaterials.isEmpty) {
+                            return EmptyListPlaceholder(
+                              message:
+                                  _searchQuery.isNotEmpty ||
+                                      _selectedCategories.length !=
+                                          app.MaterialCategory.values.length
+                                  ? '条件に一致する原料が見つかりません。'
+                                  : '原料が登録されていません。\n右下のボタンから追加してください。',
+                            );
+                          }
 
-                      if (displayedMaterials.isEmpty) {
-                        return EmptyListPlaceholder(
-                          message:
-                              _searchQuery.isNotEmpty ||
-                                  _selectedCategories.length !=
-                                      app.MaterialCategory.values.length
-                              ? '条件に一致する原料が見つかりません。'
-                              : '原料が登録されていません。\n右下のボタンから追加してください。',
-                        );
-                      }
-
-                      return ListView.builder(
-                        itemCount: displayedMaterials.length,
-                        itemBuilder: (context, index) {
-                          final material = displayedMaterials[index];
-                          return isEditing
-                              ? _buildEditableTile(context, material)
-                              : _buildNormalTile(context, material);
+                          return ListView.builder(
+                            itemCount: displayedMaterials.length,
+                            itemBuilder: (context, index) {
+                              final material = displayedMaterials[index];
+                              return isEditing
+                                  ? _buildEditableTile(context, material)
+                                  : _buildNormalTile(context, material);
+                            },
+                          );
                         },
-                      );
-                    },
-                  ),
+                      ),
                 ),
               ),
             ],
@@ -298,7 +291,7 @@ class MaterialsListScreenState extends State<MaterialsListScreen> {
 
   /// 編集モード用のタイル
   Widget _buildEditableTile(BuildContext context, app.Material material) {
-    final firestoreService = context.read<FirestoreService>();
+    final firestoreService = ref.read(firestoreServiceProvider);
     return ListTile(
       key: ValueKey(material.id),
       leading: IconButton(

@@ -46,8 +46,8 @@ void main() {
 
     testWidgets('should save new clay', (WidgetTester tester) async {
       when(
-        mockFirestoreService.getClays(),
-      ).thenAnswer((_) => Stream.value([])); // For order calculation
+        mockFirestoreService.getClaysOnce(),
+      ).thenAnswer((_) async => []); // For order calculation
       when(mockFirestoreService.addClay(any)).thenAnswer((_) => Future.value());
 
       await tester.pumpWidget(createTestableWidget(const ClayEditScreen()));

@@ -11,24 +11,26 @@ import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as m;
 import 'package:glaze_manager/models/test_piece.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/glaze_detail_screen.dart';
 import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
 import 'package:glaze_manager/screens/mixing_calculator_screen.dart';
-import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/widgets/firing_chart.dart';
 import 'package:glaze_manager/screens/search_screen.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show ConsumerStatefulWidget, ConsumerState, AsyncValueX;
 
-class TestPieceDetailScreen extends StatefulWidget {
+class TestPieceDetailScreen extends ConsumerStatefulWidget {
   final TestPiece testPiece;
 
   const TestPieceDetailScreen({super.key, required this.testPiece});
 
   @override
-  State<TestPieceDetailScreen> createState() => _TestPieceDetailScreenState();
+  ConsumerState<TestPieceDetailScreen> createState() =>
+      _TestPieceDetailScreenState();
 }
 
-class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
+class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
   bool _isEyedropperActive = false;
   final GlobalKey _imageKey = GlobalKey();
 
@@ -39,21 +41,32 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
   }
 
   void _updateViewHistory() {
-    // initStateではcontext.readが直接使えないため、Future.microtaskで遅延実行
+    // initStateでは直接使えないため、Future.microtaskで遅延実行
     Future.microtask(() {
       if (!mounted) return;
-      context.read<FirestoreService>().updateViewHistory(widget.testPiece.id!);
+      ref
+          .read(firestoreServiceProvider)
+          .updateViewHistory(widget.testPiece.id!);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final firestoreService = context.read<FirestoreService>();
+    final firestoreService = ref.read(firestoreServiceProvider);
+
+    // 関連データはアプリスコープのプロバイダから取得 (一回読みを廃止)
+    final glazesAsync = ref.watch(glazesProvider);
+    final glazeMap = ref.watch(glazeMapProvider);
+    final clayMap = ref.watch(clayMapProvider);
+    final profileMap = ref.watch(firingProfileMapProvider);
+    final atmosphereMap = ref.watch(firingAtmosphereMapProvider);
+    final materials = ref.watch(materialsProvider).valueOrNull ?? [];
 
     return StreamBuilder<TestPiece>(
       stream: firestoreService.getTestPieceStream(widget.testPiece.id!),
       builder: (context, testPieceSnapshot) {
-        if (testPieceSnapshot.connectionState == ConnectionState.waiting) {
+        if (testPieceSnapshot.connectionState == ConnectionState.waiting ||
+            glazesAsync.isLoading) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
@@ -66,6 +79,19 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
         }
 
         final testPiece = testPieceSnapshot.data!;
+        final Glaze? glaze = glazeMap[testPiece.glazeId];
+        final Clay? clay = clayMap[testPiece.clayId];
+        final FiringProfile? firingProfile = testPiece.firingProfileId != null
+            ? profileMap[testPiece.firingProfileId]
+            : null;
+        final FiringAtmosphere? firingAtmosphere =
+            testPiece.firingAtmosphereId != null
+            ? atmosphereMap[testPiece.firingAtmosphereId]
+            : null;
+        final additionalGlazes = testPiece.additionalGlazeIds
+            .map((id) => glazeMap[id])
+            .whereType<Glaze>()
+            .toList();
 
         return Scaffold(
           appBar: AppBar(
@@ -79,124 +105,39 @@ class _TestPieceDetailScreenState extends State<TestPieceDetailScreen> {
               ),
             ],
           ),
-          body: FutureBuilder<Map<String, dynamic>>(
-            // 関連データを取得するFuture
-            future: _loadRelatedData(firestoreService, testPiece),
-            builder: (context, relatedDataSnapshot) {
-              if (relatedDataSnapshot.connectionState ==
-                  ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (relatedDataSnapshot.hasError) {
-                return Center(
-                  child: Text(
-                    '関連データの読み込みに失敗しました: ${relatedDataSnapshot.error}',
-                  ),
-                );
-              }
-
-              final details = relatedDataSnapshot.data ?? {};
-              final Glaze? glaze = details['glaze'];
-              final Clay? clay = details['clay'];
-              final FiringProfile? firingProfile = details['firingProfile'];
-              final FiringAtmosphere? firingAtmosphere =
-                  details['firingAtmosphere'];
-              final List<Glaze> additionalGlazes =
-                  details['additionalGlazes'] ?? [];
-              final List<m.Material> materials = details['materials'] ?? [];
-
-              if (glaze == null) {
-                return const Center(child: Text('関連する釉薬データが見つかりません。'));
-              }
-
-              return LayoutBuilder(
-                builder: (context, constraints) {
-                  final isWide =
-                      constraints.maxWidth / constraints.maxHeight > 1.2;
-                  if (isWide) {
-                    return _buildWideLayout(
-                      testPiece,
-                      glaze,
-                      clay,
-                      firingProfile,
-                      firingAtmosphere,
-                      constraints,
-                      additionalGlazes,
-                      materials,
-                    );
-                  } else {
-                    return _buildNarrowLayout(
-                      testPiece,
-                      glaze,
-                      clay,
-                      firingProfile,
-                      firingAtmosphere,
-                      additionalGlazes,
-                      materials,
-                    );
-                  }
-                },
-              );
-            },
-          ),
+          body: glaze == null
+              ? const Center(child: Text('関連する釉薬データが見つかりません。'))
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isWide =
+                        constraints.maxWidth / constraints.maxHeight > 1.2;
+                    if (isWide) {
+                      return _buildWideLayout(
+                        testPiece,
+                        glaze,
+                        clay,
+                        firingProfile,
+                        firingAtmosphere,
+                        constraints,
+                        additionalGlazes,
+                        materials,
+                      );
+                    } else {
+                      return _buildNarrowLayout(
+                        testPiece,
+                        glaze,
+                        clay,
+                        firingProfile,
+                        firingAtmosphere,
+                        additionalGlazes,
+                        materials,
+                      );
+                    }
+                  },
+                ),
         );
       },
     );
-  }
-
-  /// TestPieceに関連するデータを非同期で取得する
-  Future<Map<String, dynamic>> _loadRelatedData(
-    FirestoreService firestoreService,
-    TestPiece testPiece,
-  ) async {
-    // 各IDに対応するドキュメントを直接取得
-    final glazeFuture = firestoreService
-        .getGlazeStream(testPiece.glazeId)
-        .first;
-    final clayFuture = firestoreService.getClayStream(testPiece.clayId).first;
-
-    final Future<FiringProfile?> profileFuture =
-        testPiece.firingProfileId != null
-        ? firestoreService
-              .getFiringProfileStream(testPiece.firingProfileId!)
-              .first
-        : Future.value(null);
-
-    final Future<FiringAtmosphere?> atmosphereFuture =
-        testPiece.firingAtmosphereId != null
-        ? firestoreService
-              .getFiringAtmosphereStream(testPiece.firingAtmosphereId!)
-              .first
-        : Future.value(null);
-
-    // 追加の釉薬を取得
-    final additionalGlazesFuture = Future.wait(
-      testPiece.additionalGlazeIds.map(
-        (id) => firestoreService.getGlazeStream(id).first,
-      ),
-    );
-
-    // 原料一覧を取得
-    final materialsFuture = firestoreService.getMaterials().first;
-
-    // 各データを並行して取得
-    final results = await Future.wait([
-      glazeFuture,
-      clayFuture,
-      profileFuture,
-      atmosphereFuture,
-      additionalGlazesFuture,
-      materialsFuture,
-    ]);
-
-    return {
-      'glaze': results[0] as Glaze?,
-      'clay': results[1] as Clay?,
-      'firingProfile': results[2] as FiringProfile?,
-      'firingAtmosphere': results[3] as FiringAtmosphere?,
-      'additionalGlazes': results[4] as List<Glaze>,
-      'materials': results[5] as List<m.Material>,
-    };
   }
 
   Widget _buildWideLayout(

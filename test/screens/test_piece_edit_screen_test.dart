@@ -1,15 +1,15 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
-import 'package:glaze_manager/services/firestore_service.dart';
-import 'package:glaze_manager/services/storage_service.dart';
 import 'package:mockito/mockito.dart';
-import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'main_tab_screen_test.mocks.dart';
@@ -24,10 +24,13 @@ void main() {
   });
 
   Widget createTestableWidget(Widget child) {
-    return MultiProvider(
-      providers: [
-        Provider<FirestoreService>(create: (_) => mockFirestoreService),
-        Provider<StorageService>(create: (_) => mockStorageService),
+    return ProviderScope(
+      overrides: [
+        firestoreServiceProvider.overrideWithValue(mockFirestoreService),
+        storageServiceProvider.overrideWithValue(mockStorageService),
+        authStateChangesProvider.overrideWith(
+          (ref) => Stream<User?>.value(null),
+        ),
       ],
       child: MaterialApp(home: child),
     );

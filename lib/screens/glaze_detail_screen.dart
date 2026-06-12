@@ -1,31 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'
+    show ConsumerWidget, WidgetRef, AsyncValueX;
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as app;
 import 'package:glaze_manager/models/test_piece.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/glaze_edit_screen.dart';
 import 'package:glaze_manager/screens/material_detail_screen.dart';
 import 'package:glaze_manager/screens/mixing_calculator_screen.dart';
 import 'package:glaze_manager/screens/test_piece_detail_screen.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
-import 'package:provider/provider.dart';
 
-class GlazeDetailScreen extends StatefulWidget {
+class GlazeDetailScreen extends ConsumerWidget {
   final Glaze glaze;
 
   const GlazeDetailScreen({super.key, required this.glaze});
 
   @override
-  State<GlazeDetailScreen> createState() => _GlazeDetailScreenState();
-}
-
-class _GlazeDetailScreenState extends State<GlazeDetailScreen> {
-  @override
-  Widget build(BuildContext context) {
-    final firestoreService = context.read<FirestoreService>();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final firestoreService = ref.read(firestoreServiceProvider);
+    final materials = ref.watch(materialsProvider).valueOrNull ?? [];
 
     // StreamBuilderでGlazeの変更を監視
     return StreamBuilder<Glaze>(
-      stream: firestoreService.getGlazeStream(widget.glaze.id!),
+      stream: firestoreService.getGlazeStream(glaze.id!),
       builder: (context, glazeSnapshot) {
         if (glazeSnapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -40,6 +38,7 @@ class _GlazeDetailScreenState extends State<GlazeDetailScreen> {
         }
 
         final glaze = glazeSnapshot.data!;
+        final materialMap = {for (var m in materials) m.id: m.name};
 
         return Scaffold(
           appBar: AppBar(
@@ -69,30 +68,12 @@ class _GlazeDetailScreenState extends State<GlazeDetailScreen> {
               ),
             ],
           ),
-          body: FutureBuilder<List<app.Material>>(
-            future: firestoreService.getMaterials().first,
-            builder: (context, materialsSnapshot) {
-              if (materialsSnapshot.connectionState ==
-                  ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (materialsSnapshot.hasError) {
-                return Center(
-                  child: Text('原料データの読み込みエラー: ${materialsSnapshot.error}'),
-                );
-              }
-
-              final materials = materialsSnapshot.data ?? [];
-              final materialMap = {for (var m in materials) m.id: m.name};
-
-              return _buildContent(
-                context,
-                firestoreService,
-                glaze,
-                materialMap,
-                materials,
-              );
-            },
+          body: _buildContent(
+            context,
+            firestoreService,
+            glaze,
+            materialMap,
+            materials,
           ),
         );
       },

@@ -48,7 +48,7 @@ class _ClayEditScreenState extends State<ClayEditScreen> {
 
       if (widget.clay == null) {
         // 新規作成
-        final clays = await firestoreService.getClays().first;
+        final clays = await firestoreService.getClaysOnce();
         final newClay = Clay(name: _nameController.text, order: clays.length);
         await firestoreService.addClay(newClay);
       } else {

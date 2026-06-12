@@ -1,15 +1,21 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
+import 'package:glaze_manager/models/firing_profile.dart';
+import 'package:glaze_manager/models/glaze.dart';
+import 'package:glaze_manager/models/material.dart' as app;
 import 'package:glaze_manager/models/test_piece.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/theme/app_colors.dart';
 import 'package:glaze_manager/widgets/test_piece_card.dart';
 import 'package:mockito/mockito.dart';
-import 'package:provider/provider.dart';
 
 class MockFirestoreService extends Mock implements FirestoreService {
   @override
@@ -23,6 +29,27 @@ class MockFirestoreService extends Mock implements FirestoreService {
     Invocation.method(#getTestPieceStream, [id]),
     returnValue: Stream<TestPiece>.empty(),
   );
+
+  // 詳細画面がデータプロバイダ経由で参照するリスト系メソッド
+  @override
+  Stream<List<Glaze>> getGlazes() => Stream.value(<Glaze>[]);
+
+  @override
+  Stream<List<Clay>> getClays() => Stream.value(<Clay>[]);
+
+  @override
+  Stream<List<FiringProfile>> getFiringProfiles() =>
+      Stream.value(<FiringProfile>[]);
+
+  @override
+  Stream<List<FiringAtmosphere>> getFiringAtmospheres() =>
+      Stream.value(<FiringAtmosphere>[]);
+
+  @override
+  Stream<List<app.Material>> getMaterials() => Stream.value(<app.Material>[]);
+
+  @override
+  Stream<List<String>> getTags() => Stream.value(<String>[]);
 }
 
 class TestHttpOverrides extends HttpOverrides {
@@ -206,9 +233,12 @@ void main() {
     ).thenAnswer((_) => Stream.value(testPiece));
 
     await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          Provider<FirestoreService>.value(value: mockFirestoreService),
+      ProviderScope(
+        overrides: [
+          firestoreServiceProvider.overrideWithValue(mockFirestoreService),
+          authStateChangesProvider.overrideWith(
+            (ref) => Stream<User?>.value(null),
+          ),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -233,8 +263,8 @@ void main() {
 
     // Tap to navigate
     await tester.tap(find.byType(TestPieceCard));
-    await tester.pump(); // Start navigation
-    await tester.pump(); // Build next screen
+    // 画面遷移 + データプロバイダのロード完了を待つ
+    await tester.pumpAndSettle();
 
     // Check if navigation happened by looking for title
     expect(find.text('テストピース詳細'), findsOneWidget);
