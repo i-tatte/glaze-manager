@@ -111,11 +111,19 @@ class _ClayListScreenState extends ConsumerState<ClayListScreen> {
     FirestoreService service,
     Clay clay,
   ) async {
+    // この素地土を使用しているテストピースの数を集計して警告に含める
+    final testPieces = await ref.read(testPiecesProvider.future);
+    final usedCount = testPieces.where((tp) => tp.clayId == clay.id).length;
+    final warning = usedCount > 0
+        ? '\n\nこの素地土は$usedCount件のテストピースで使用されています。\n削除すると、それらの表示は「未設定」になります。'
+        : '';
+
+    if (!context.mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('削除の確認'),
-        content: Text('「${clay.name}」を本当に削除しますか？'),
+        content: Text('「${clay.name}」を本当に削除しますか？$warning'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),

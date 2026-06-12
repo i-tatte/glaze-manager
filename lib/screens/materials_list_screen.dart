@@ -297,12 +297,22 @@ class MaterialsListScreenState extends ConsumerState<MaterialsListScreen> {
       leading: IconButton(
         icon: const Icon(Icons.remove_circle, color: Colors.red),
         onPressed: () async {
+          // この原料を使用している釉薬の数を集計して警告に含める
+          final glazes = await ref.read(glazesProvider.future);
+          final usedCount = glazes
+              .where((g) => g.recipe.containsKey(material.id))
+              .length;
+          final warning = usedCount > 0
+              ? '\n\nこの原料は$usedCount件の釉薬のレシピで使用されています。\n削除すると、それらのレシピでは「不明な原料」と表示されます。'
+              : '';
+
+          if (!context.mounted) return;
           // 削除確認ダイアログ
           final confirmed = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
               title: const Text('削除の確認'),
-              content: Text('「${material.name}」を本当に削除しますか？'),
+              content: Text('「${material.name}」を本当に削除しますか？$warning'),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(false),

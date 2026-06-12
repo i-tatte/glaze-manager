@@ -171,12 +171,30 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
     // 新規作成時は何もしない
     if (widget.glaze == null) return;
 
+    // この釉薬を使用しているテストピースの数を集計して警告に含める
+    // (.future で初回値の到着を待つ: プロバイダが未購読でも正しい件数になる)
+    final testPieces = await ref.read(testPiecesProvider.future);
+    final glazeId = widget.glaze!.id;
+    final mainCount = testPieces.where((tp) => tp.glazeId == glazeId).length;
+    final additionalCount = testPieces
+        .where((tp) => tp.additionalGlazeIds.contains(glazeId))
+        .length;
+    var warning = '';
+    if (mainCount > 0) {
+      warning +=
+          '\n\n$mainCount件のテストピースがこの釉薬をメインとして使用しています。\n削除すると、それらのテストピースの詳細が表示できなくなります。';
+    }
+    if (additionalCount > 0) {
+      warning += '\n\n$additionalCount件のテストピースが追加の釉薬として使用しています。';
+    }
+
+    if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('削除の確認'),
         content: Text(
-          '「${widget.glaze!.name}」を本当に削除しますか？\n関連するテストピースは削除されません。',
+          '「${widget.glaze!.name}」を本当に削除しますか？\n関連するテストピースは削除されません。$warning',
         ),
         actions: [
           TextButton(

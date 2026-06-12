@@ -120,13 +120,21 @@ class _MaterialEditScreenState extends ConsumerState<MaterialEditScreen> {
     // 新規作成時は何もしない
     if (widget.material == null) return;
 
+    // この原料を使用している釉薬の数を集計して警告に含める
+    final glazes = await ref.read(glazesProvider.future);
+    final usedCount = glazes
+        .where((g) => g.recipe.containsKey(widget.material!.id))
+        .length;
+    final warning = usedCount > 0
+        ? '\n\nこの原料は$usedCount件の釉薬のレシピで使用されています。\n削除すると、それらのレシピでは「不明な原料」と表示されます。'
+        : '';
+
+    if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('削除の確認'),
-        content: Text(
-          '「${widget.material!.name}」を本当に削除しますか？\nこの原料を使用している釉薬レシピがある場合、問題が発生する可能性があります。',
-        ),
+        content: Text('「${widget.material!.name}」を本当に削除しますか？$warning'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
