@@ -72,6 +72,11 @@ void main() {
     // ChangeNotifierのメソッドをスタブ
     when(mockSettingsService.addListener(any)).thenReturn(null);
     when(mockSettingsService.removeListener(any)).thenReturn(null);
+
+    // 設定タブのアカウントセクションが参照する認証状態 (未ログイン扱い)
+    when(
+      mockAuthService.user,
+    ).thenAnswer((_) => Stream<User?>.value(null));
   });
 
   // テスト対象のウィジェットをラップするヘルパー関数
