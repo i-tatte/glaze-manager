@@ -258,6 +258,11 @@ class _LoginScreenState extends State<LoginScreen> {
       // Googleサインインのダイアログを閉じた場合など、ユーザー起因のキャンセルはエラー表示しない
       if (e is! GoogleSignInCanceled) {
         debugPrint("Sign-in failed: $e");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('サインインに失敗しました: $e')),
+          );
+        }
       }
     }
     // 成功時はAuthWrapperが画面遷移をハンドルするが、失敗時やキャンセル時に備えてローディングを解除

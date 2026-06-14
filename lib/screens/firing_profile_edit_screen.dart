@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/widgets/firing_chart.dart';
+import 'package:glaze_manager/widgets/common/unsaved_changes_pop_scope.dart';
+import 'package:glaze_manager/widgets/common/common_app_bar_actions.dart';
 
 class FiringProfileEditScreen extends ConsumerStatefulWidget {
   final FiringProfile? profile;
@@ -111,34 +113,8 @@ class _FiringProfileEditScreenState
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      // PopScopeのonPopInvokedはdidPopがfalseの時のみ呼ばれるため、
-      // isDirtyがfalseの場合でも手動でpopを呼ぶ必要がある。
-      // そのロジックを_onPopInvokedにまとめる。
-      canPop: !_isDirty,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('変更を破棄しますか？'),
-            content: const Text('入力中の内容は保存されません。'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('キャンセル'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('破棄', style: TextStyle(color: Colors.red)),
-              ),
-            ],
-          ),
-        );
-        if (confirmed == true && context.mounted) {
-          Navigator.of(context).pop();
-        }
-      },
+    return UnsavedChangesPopScope(
+      isDirty: _isDirty,
       child: _buildScaffold(),
     );
   }
@@ -148,13 +124,11 @@ class _FiringProfileEditScreenState
       appBar: AppBar(
         title: Text(widget.profile == null ? 'プロファイルの新規作成' : 'プロファイルの編集'),
         actions: [
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: CircularProgressIndicator(),
-            )
-          else
-            IconButton(icon: const Icon(Icons.save), onPressed: _saveProfile),
+          CommonAppBarActions(
+            isLoading: _isLoading,
+            onDelete: null,
+            onSave: _saveProfile,
+          ),
         ],
       ),
       body: LayoutBuilder(

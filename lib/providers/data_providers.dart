@@ -71,6 +71,39 @@ final tagsProvider = StreamProvider<List<String>>((ref) {
   return ref.watch(firestoreServiceProvider).getTags();
 });
 
+// --- 単一ドキュメント / 関連リストの購読 (詳細画面・検索履歴用) ---
+//
+// 詳細画面の build() 内で Stream を毎回生成すると、画面が他データの変化で
+// 再ビルドされるたびに購読が張り直されてスピナーが点滅し、読み取りも無駄になる。
+// これらを ref.watch することで購読を安定させる。
+// autoDispose: 画面を閉じたら購読を破棄する。family: ドキュメント ID ごとに分離。
+// 画面テストは firestoreServiceProvider のモック経由で同メソッドが呼ばれるため、
+// 個別 override は不要 (必要なら glazeByIdProvider('id').overrideWith(...) も可)。
+
+final glazeByIdProvider = StreamProvider.autoDispose.family<Glaze, String>(
+  (ref, id) => ref.watch(firestoreServiceProvider).getGlazeStream(id),
+);
+
+final materialByIdProvider = StreamProvider.autoDispose
+    .family<Material, String>(
+      (ref, id) => ref.watch(firestoreServiceProvider).getMaterialStream(id),
+    );
+
+final testPieceByIdProvider = StreamProvider.autoDispose
+    .family<TestPiece, String>(
+      (ref, id) => ref.watch(firestoreServiceProvider).getTestPieceStream(id),
+    );
+
+final testPiecesForGlazeProvider = StreamProvider.autoDispose
+    .family<List<TestPiece>, String>(
+      (ref, glazeId) =>
+          ref.watch(firestoreServiceProvider).getTestPiecesForGlaze(glazeId),
+    );
+
+final recentTestPieceIdsProvider = StreamProvider.autoDispose<List<String>>(
+  (ref) => ref.watch(firestoreServiceProvider).getRecentTestPieceIds(),
+);
+
 // --- 派生データ (ID -> モデルのマップ。ロード中・エラー時は空マップ) ---
 
 final glazeMapProvider = Provider<Map<String, Glaze>>(

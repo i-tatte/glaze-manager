@@ -101,17 +101,18 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
       final newFileName = '$uuid$extension';
 
       // ファイル名とバイトデータを受け取る
-      final Map<String, dynamic>? cropResult = await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) =>
-              ImageCropScreen(image: image, outputFileName: newFileName),
-        ),
-      );
+      final cropResult =
+          await Navigator.of(context).push<({String fileName, Uint8List bytes})>(
+            MaterialPageRoute(
+              builder: (context) =>
+                  ImageCropScreen(image: image, outputFileName: newFileName),
+            ),
+          );
 
       if (cropResult != null) {
         setState(() {
-          _newImageFileName = cropResult['fileName'];
-          _newImageBytes = cropResult['bytes'];
+          _newImageFileName = cropResult.fileName;
+          _newImageBytes = cropResult.bytes;
           _networkImageUrl = null; // プレビューを新しい画像に切り替える
           _markAsDirty();
         });

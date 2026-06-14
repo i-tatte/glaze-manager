@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    show ConsumerStatefulWidget, ConsumerState;
+    show ConsumerStatefulWidget, ConsumerState, AsyncValueX;
 import 'package:glaze_manager/models/material.dart' as app;
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/material_edit_screen.dart';
@@ -18,25 +18,16 @@ class MaterialDetailScreen extends ConsumerStatefulWidget {
 class _MaterialDetailScreenState extends ConsumerState<MaterialDetailScreen> {
   @override
   Widget build(BuildContext context) {
-    final firestoreService = ref.read(firestoreServiceProvider);
+    final materialAsync = ref.watch(materialByIdProvider(widget.material.id!));
 
-    return StreamBuilder<app.Material>(
-      stream: firestoreService.getMaterialStream(widget.material.id!),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        if (snapshot.hasError || !snapshot.hasData) {
-          return Scaffold(
-            appBar: AppBar(),
-            body: const Center(child: Text('原料データの読み込みに失敗しました。')),
-          );
-        }
-
-        final material = snapshot.data!;
-
+    return materialAsync.when(
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (error, stackTrace) => Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: Text('原料データの読み込みに失敗しました。')),
+      ),
+      data: (material) {
         return Scaffold(
           appBar: AppBar(
             title: Row(

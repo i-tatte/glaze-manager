@@ -75,11 +75,11 @@ class _ImageCropScreenState extends State<ImageCropScreen> {
                     );
 
                     if (context.mounted) {
-                      // ファイル名とバイトデータをMapで返す
-                      Navigator.of(context).pop({
-                        'fileName': widget.outputFileName,
-                        'bytes': jpegBytes,
-                      });
+                      // ファイル名とバイトデータを型付きレコードで返す
+                      Navigator.of(context).pop((
+                        fileName: widget.outputFileName,
+                        bytes: jpegBytes,
+                      ));
                     }
                   } catch (e) {
                     if (context.mounted) {

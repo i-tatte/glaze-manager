@@ -83,7 +83,7 @@ class _MaterialEditScreenState extends ConsumerState<MaterialEditScreen> {
             components: componentsMap,
             // orderは現在時刻のミリ秒を使うことで、オフラインでもユニークな順序を担保する
             order: DateTime.now().millisecondsSinceEpoch,
-            category: app.MaterialCategory.base, // デフォルト値を設定
+            category: _selectedCategory, // UIで選択されたカテゴリを保存する
           );
           await firestoreService.addMaterial(newMaterial);
         } else {
@@ -95,7 +95,7 @@ class _MaterialEditScreenState extends ConsumerState<MaterialEditScreen> {
             order: widget.material!.order, // 順序は維持
             category: _selectedCategory,
           );
-          firestoreService.updateMaterial(updatedMaterial);
+          await firestoreService.updateMaterial(updatedMaterial);
         }
 
         if (mounted) {

@@ -6,12 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
     show ConsumerStatefulWidget, ConsumerState, AsyncValueX;
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/models/clay.dart';
-import 'package:glaze_manager/models/color_swatch.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/services/settings_service.dart';
+import 'package:glaze_manager/services/test_piece_search.dart';
 import 'package:glaze_manager/widgets/test_piece_grid.dart';
 import 'package:glaze_manager/widgets/tag_management_widget.dart';
 import 'package:glaze_manager/widgets/test_piece_card.dart';
@@ -96,114 +96,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       _isSearching = true;
     });
 
-    List<TestPiece> filtered = _allTestPieces;
-
-    // 1. テキスト検索 (Positive & Negative)
-    if (_searchQuery.isNotEmpty) {
-      final terms = _searchQuery
-          .split(RegExp(r'\s+'))
-          .where((t) => t.isNotEmpty);
-      final positiveTerms = terms
-          .where((t) => !t.startsWith('-'))
-          .map((t) => t.toLowerCase())
-          .toList();
-      final negativeTerms = terms
-          .where((t) => t.startsWith('-') && t.length > 1)
-          .map((t) => t.substring(1).toLowerCase())
-          .toList();
-
-      final primaryMatches = <TestPiece>[];
-      final materialMatches = <TestPiece>[];
-
-      for (final tp in filtered) {
-        final glaze = _glazeMap[tp.glazeId];
-        if (glaze == null) continue;
-
-        final clay = _clayMap[tp.clayId];
-        final atmosphere = _atmosphereMap[tp.firingAtmosphereId];
-        final profile = _profileMap[tp.firingProfileId];
-
-        // 検索対象の文字列を結合して検索しやすくする
-        final searchableText = [
-          glaze.name,
-          ...glaze.tags,
-          clay?.name ?? '',
-          atmosphere?.name ?? '',
-          profile?.name ?? '',
-        ].join(' ').toLowerCase();
-
-        // 原料名の検索対象
-        final materialNames = glaze.recipe.keys
-            .map((id) => _materialMap[id] ?? '')
-            .join(' ')
-            .toLowerCase();
-
-        // Negative Terms Check (Common)
-        bool matchesNegative =
-            negativeTerms.isNotEmpty &&
-            negativeTerms.any(
-              (term) =>
-                  searchableText.contains(term) || materialNames.contains(term),
-            );
-
-        if (matchesNegative) continue;
-
-        // Positive Terms Check
-        bool matchesPrimary =
-            positiveTerms.isEmpty ||
-            positiveTerms.every((term) => searchableText.contains(term));
-
-        bool matchesMaterial =
-            positiveTerms.isEmpty ||
-            positiveTerms.every((term) => materialNames.contains(term));
-
-        if (matchesPrimary) {
-          primaryMatches.add(tp);
-        } else if (matchesMaterial) {
-          materialMatches.add(tp);
-        }
-      }
-
-      // プライマリマッチを優先、その後に原料マッチを追加
-      filtered = [...primaryMatches, ...materialMatches];
-    }
-
-    // 2. タグフィルタ (AND検索)
-    if (_selectedTags.isNotEmpty) {
-      filtered = filtered.where((tp) {
-        final glaze = _glazeMap[tp.glazeId];
-        if (glaze == null) return false;
-        return _selectedTags.every((tag) => glaze.tags.contains(tag));
-      }).toList();
-    }
-
-    // 3. 色検索 & ソート
-    if (_searchColor != null) {
-      final targetColorSwatch = ColorSwatch.fromColor(_searchColor!);
-      final List<(TestPiece, double)> matchedPieces = [];
-
-      for (final testPiece in filtered) {
-        if (testPiece.colorData == null || testPiece.colorData!.isEmpty) {
-          continue;
-        }
-
-        double minDeltaE = double.infinity;
-        for (final swatch in testPiece.colorData!) {
-          final deltaE = targetColorSwatch.deltaE(swatch);
-          if (deltaE < minDeltaE) {
-            minDeltaE = deltaE;
-          }
-        }
-
-        if (minDeltaE <= _deltaEThreshold) {
-          matchedPieces.add((testPiece, minDeltaE));
-        }
-      }
-
-      // 色に近い順にソート
-      matchedPieces.sort((a, b) => a.$2.compareTo(b.$2));
-      filtered = matchedPieces.map((e) => e.$1).toList();
-    }
+    // フィルタ・ソートの本体は純関数 filterTestPieces に分離 (ユニットテスト可能)
+    final filtered = filterTestPieces(
+      pieces: _allTestPieces,
+      query: _searchQuery,
+      selectedTags: _selectedTags,
+      color: _searchColor,
+      deltaEThreshold: _deltaEThreshold,
+      glazeMap: _glazeMap,
+      clayMap: _clayMap,
+      atmosphereMap: _atmosphereMap,
+      profileMap: _profileMap,
+      materialMap: _materialMap,
+    );
 
     setState(() {
       _searchResults = filtered;
@@ -393,6 +298,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       }
     });
 
+    // 詳細画面などから initialColor 付きで遷移してきたとき、testPiecesProvider が
+    // 既に値を持っていると上の ref.listen は発火しない（値の変化がないため）。
+    // その場合は build 時点で値があれば post-frame で一度だけ初期色検索を適用する。
+    if (widget.initialColor != null &&
+        !_appliedInitialColor &&
+        testPiecesAsync.hasValue) {
+      _appliedInitialColor = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _applyFilters();
+      });
+    }
+
     final isDataLoading = testPiecesAsync.isLoading;
 
     return Scaffold(
@@ -414,17 +331,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     children: [
                       if (_searchQuery.isNotEmpty)
                         ..._searchQuery
-                            .split(RegExp(r'[ \u3000]+'))
+                            .split(searchTermSplitter)
                             .where((t) => t.isNotEmpty)
                             .map((term) {
-                              // \u300c-\u8a9e\u300d\u306f\u30de\u30a4\u30ca\u30b9\u691c\u7d22 (\u9664\u5916\u6761\u4ef6)
+                              // 「-語」はマイナス検索 (除外条件)
                               final isNegative =
                                   term.startsWith('-') && term.length > 1;
                               return Chip(
                                 avatar: Icon(
-                                  isNegative
-                                      ? Icons.block
-                                      : Icons.text_fields,
+                                  isNegative ? Icons.block : Icons.text_fields,
                                   size: 18,
                                   color: isNegative
                                       ? Theme.of(context).colorScheme.error
@@ -432,12 +347,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                 ),
                                 label: Text(
                                   isNegative
-                                      ? '${term.substring(1)} \u3092\u9664\u5916'
+                                      ? '${term.substring(1)} を除外'
                                       : term,
                                 ),
                                 onDeleted: () {
                                   final terms = _searchQuery
-                                      .split(RegExp(r'[ \u3000]+'))
+                                      .split(searchTermSplitter)
                                       .where((t) => t.isNotEmpty)
                                       .toList();
                                   terms.remove(term);
@@ -671,122 +586,123 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildRecentTestPieces(int crossAxisCount) {
-    final firestoreService = ref.read(firestoreServiceProvider);
-    return StreamBuilder<List<String>>(
-      stream: firestoreService.getRecentTestPieceIds(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('最近見たテストピースはありません。'));
-        }
+    return ref
+        .watch(recentTestPieceIdsProvider)
+        .when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stackTrace) =>
+              const Center(child: Text('最近見たテストピースはありません。')),
+          data: (recentIds) {
+            if (recentIds.isEmpty) {
+              return const Center(child: Text('最近見たテストピースはありません。'));
+            }
 
-        final recentIds = snapshot.data!;
-        final recentPieces = <TestPiece>[];
-        for (final id in recentIds) {
-          try {
-            final piece = _allTestPieces.firstWhere((p) => p.id == id);
-            recentPieces.add(piece);
-          } catch (e) {
-            // ignore
-          }
-        }
+            final recentPieces = <TestPiece>[];
+            for (final id in recentIds) {
+              try {
+                final piece = _allTestPieces.firstWhere((p) => p.id == id);
+                recentPieces.add(piece);
+              } catch (e) {
+                // ignore
+              }
+            }
 
-        if (recentPieces.isEmpty) {
-          return const Center(child: Text('最近見たテストピースはありません。'));
-        }
+            if (recentPieces.isEmpty) {
+              return const Center(child: Text('最近見たテストピースはありません。'));
+            }
 
-        return Container(
-          color: Theme.of(
-            context,
-          ).colorScheme.surfaceContainerLow, // 僅かに背景色を変える
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 12.0,
-                ),
-                child: Text(
-                  '最近見たテストピース',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              SizedBox(
-                height: 240, // カルーセルの高さ
-                child: Listener(
-                  onPointerSignal: (pointerSignal) {
-                    if (pointerSignal is PointerScrollEvent) {
-                      final newOffset =
-                          _recentItemsController.offset +
-                          pointerSignal.scrollDelta.dy;
-                      if (newOffset >= 0 &&
-                          newOffset <=
-                              _recentItemsController.position.maxScrollExtent) {
-                        _recentItemsController.jumpTo(newOffset);
-                      }
-                    }
-                  },
-                  child: ScrollConfiguration(
-                    behavior: ScrollConfiguration.of(context).copyWith(
-                      dragDevices: {
-                        ui.PointerDeviceKind.touch,
-                        ui.PointerDeviceKind.mouse,
-                      },
+            return Container(
+              color: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerLow, // 僅かに背景色を変える
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 12.0,
                     ),
-                    child: ListView.builder(
-                      controller: _recentItemsController,
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                      itemCount: recentPieces.length,
-                      itemBuilder: (context, index) {
-                        final testPiece = recentPieces[index];
-                        final glazeName =
-                            _glazeMap[testPiece.glazeId]?.name ?? '不明な釉薬';
-                        final clayName =
-                            _clayMap[testPiece.clayId]?.name ?? '不明な素地';
-                        final firingAtmosphere =
-                            _atmosphereMap[testPiece.firingAtmosphereId];
-                        final firingAtmosphereName =
-                            firingAtmosphere?.name ?? '不明な雰囲気';
-                        final firingAtmosphereType =
-                            firingAtmosphere?.type ??
-                            FiringAtmosphereType.other;
-                        final firingProfileName =
-                            _profileMap[testPiece.firingProfileId]?.name ??
-                            '不明なプロファイル';
-
-                        return SizedBox(
-                          width: 160, // カードの幅
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 4.0,
-                              vertical: 6.0,
-                            ),
-                            child: TestPieceCard(
-                              testPiece: testPiece,
-                              glazeName: glazeName,
-                              clayName: clayName,
-                              firingAtmosphereName: firingAtmosphereName,
-                              firingAtmosphereType: firingAtmosphereType,
-                              firingProfileName: firingProfileName,
-                            ),
-                          ),
-                        );
-                      },
+                    child: Text(
+                      '最近見たテストピース',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
+                  SizedBox(
+                    height: 240, // カルーセルの高さ
+                    child: Listener(
+                      onPointerSignal: (pointerSignal) {
+                        if (pointerSignal is PointerScrollEvent) {
+                          final newOffset =
+                              _recentItemsController.offset +
+                              pointerSignal.scrollDelta.dy;
+                          if (newOffset >= 0 &&
+                              newOffset <=
+                                  _recentItemsController
+                                      .position
+                                      .maxScrollExtent) {
+                            _recentItemsController.jumpTo(newOffset);
+                          }
+                        }
+                      },
+                      child: ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(context).copyWith(
+                          dragDevices: {
+                            ui.PointerDeviceKind.touch,
+                            ui.PointerDeviceKind.mouse,
+                          },
+                        ),
+                        child: ListView.builder(
+                          controller: _recentItemsController,
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                          itemCount: recentPieces.length,
+                          itemBuilder: (context, index) {
+                            final testPiece = recentPieces[index];
+                            final glazeName =
+                                _glazeMap[testPiece.glazeId]?.name ?? '不明な釉薬';
+                            final clayName =
+                                _clayMap[testPiece.clayId]?.name ?? '不明な素地';
+                            final firingAtmosphere =
+                                _atmosphereMap[testPiece.firingAtmosphereId];
+                            final firingAtmosphereName =
+                                firingAtmosphere?.name ?? '不明な雰囲気';
+                            final firingAtmosphereType =
+                                firingAtmosphere?.type ??
+                                FiringAtmosphereType.other;
+                            final firingProfileName =
+                                _profileMap[testPiece.firingProfileId]?.name ??
+                                '不明なプロファイル';
+
+                            return SizedBox(
+                              width: 160, // カードの幅
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4.0,
+                                  vertical: 6.0,
+                                ),
+                                child: TestPieceCard(
+                                  testPiece: testPiece,
+                                  glazeName: glazeName,
+                                  clayName: clayName,
+                                  firingAtmosphereName: firingAtmosphereName,
+                                  firingAtmosphereType: firingAtmosphereType,
+                                  firingProfileName: firingProfileName,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
-      },
-    );
   }
 
   Widget _buildSearchResults(int crossAxisCount) {

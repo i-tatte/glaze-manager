@@ -22,7 +22,7 @@ class CommonAppBarActions extends StatelessWidget {
         child: SizedBox(
           width: 24,
           height: 24,
-          child: CircularProgressIndicator(color: Colors.black),
+          child: CircularProgressIndicator(),
         ),
       );
     }

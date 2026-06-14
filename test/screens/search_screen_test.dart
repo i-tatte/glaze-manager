@@ -1,9 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
+import 'package:flutter_riverpod/flutter_riverpod.dart' as rp show Consumer;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/models/clay.dart';
+import 'package:glaze_manager/models/color_swatch.dart' as cs;
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
@@ -307,5 +309,101 @@ void main() {
 
       expect(find.text('Kaolin'), findsOneWidget);
     });
+
+    testWidgets(
+      'initialColor auto-applies the color search after navigation (R-2)',
+      (WidgetTester tester) async {
+        tester.view.physicalSize = const Size(1080, 1920);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        const targetColor = Color(0xFFFF0000);
+        // 検索色とまったく同じ Lab を持つスウォッチ → ΔE=0 で必ずマッチする
+        final swatch = cs.ColorSwatch.fromColor(targetColor);
+
+        final glazes = [
+          Glaze(
+            id: 'g1',
+            name: 'Glaze 1',
+            recipe: {},
+            tags: [],
+            createdAt: Timestamp.now(),
+          ),
+        ];
+        final clays = [Clay(id: 'c1', name: 'Clay 1', order: 1)];
+        final testPieces = [
+          TestPiece(
+            id: 'tp1',
+            glazeId: 'g1',
+            clayId: 'c1',
+            firingProfileId: 'fp1',
+            colorData: [swatch],
+            createdAt: Timestamp.now(),
+          ),
+        ];
+
+        when(
+          mockFirestoreService.getGlazes(),
+        ).thenAnswer((_) => Stream.value(glazes));
+        when(
+          mockFirestoreService.getTestPieces(),
+        ).thenAnswer((_) => Stream.value(testPieces));
+        when(mockFirestoreService.getFiringAtmospheres()).thenAnswer(
+          (_) => Stream.value([FiringAtmosphere(id: 'fa1', name: 'Oxidation')]),
+        );
+        when(mockFirestoreService.getFiringProfiles()).thenAnswer(
+          (_) => Stream.value([FiringProfile(id: 'fp1', name: 'Profile 1')]),
+        );
+        when(
+          mockFirestoreService.getClays(),
+        ).thenAnswer((_) => Stream.value(clays));
+        when(
+          mockFirestoreService.getTags(),
+        ).thenAnswer((_) => Stream.value(<String>[]));
+        when(
+          mockFirestoreService.getMaterials(),
+        ).thenAnswer((_) => Stream.value(<m.Material>[]));
+        when(
+          mockFirestoreService.getRecentTestPieceIds(),
+        ).thenAnswer((_) => Stream.value(<String>[]));
+
+        // 実機を模す: testPiecesProvider を先に購読して値を持たせ、
+        // SearchScreen をあとから push する。こうすると SearchScreen の build 時点で
+        // provider は既に値を持っており、ref.listen は発火しない。
+        await tester.pumpWidget(
+          createTestableWidget(
+            rp.Consumer(
+              builder: (context, ref, _) {
+                ref.watch(testPiecesProvider);
+                return Scaffold(
+                  body: Builder(
+                    builder: (context) => Center(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const SearchScreen(initialColor: targetColor),
+                          ),
+                        ),
+                        child: const Text('検索へ'),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('検索へ'));
+        await tester.pumpAndSettle();
+
+        // 初期色検索が自動実行されていれば検索結果ビューが表示される
+        expect(find.text('検索結果'), findsOneWidget);
+        expect(find.text('Glaze 1'), findsOneWidget);
+      },
+    );
   });
 }
