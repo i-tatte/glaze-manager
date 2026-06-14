@@ -3,13 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
     show ConsumerWidget, WidgetRef, AsyncValueX;
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as app;
-import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/glaze_edit_screen.dart';
 import 'package:glaze_manager/screens/material_detail_screen.dart';
 import 'package:glaze_manager/screens/mixing_calculator_screen.dart';
 import 'package:glaze_manager/screens/test_piece_detail_screen.dart';
-import 'package:glaze_manager/services/firestore_service.dart';
 
 class GlazeDetailScreen extends ConsumerWidget {
   final Glaze glaze;
@@ -18,26 +16,17 @@ class GlazeDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final firestoreService = ref.read(firestoreServiceProvider);
     final materials = ref.watch(materialsProvider).valueOrNull ?? [];
+    final glazeAsync = ref.watch(glazeByIdProvider(glaze.id!));
 
-    // StreamBuilderでGlazeの変更を監視
-    return StreamBuilder<Glaze>(
-      stream: firestoreService.getGlazeStream(glaze.id!),
-      builder: (context, glazeSnapshot) {
-        if (glazeSnapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        if (glazeSnapshot.hasError || !glazeSnapshot.hasData) {
-          return Scaffold(
-            appBar: AppBar(),
-            body: const Center(child: Text('釉薬データの読み込みに失敗しました。')),
-          );
-        }
-
-        final glaze = glazeSnapshot.data!;
+    return glazeAsync.when(
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (error, stackTrace) => Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: Text('釉薬データの読み込みに失敗しました。')),
+      ),
+      data: (glaze) {
         final materialMap = {for (var m in materials) m.id: m.name};
 
         return Scaffold(
@@ -68,13 +57,7 @@ class GlazeDetailScreen extends ConsumerWidget {
               ),
             ],
           ),
-          body: _buildContent(
-            context,
-            firestoreService,
-            glaze,
-            materialMap,
-            materials,
-          ),
+          body: _buildContent(context, ref, glaze, materialMap, materials),
         );
       },
     );
@@ -82,7 +65,7 @@ class GlazeDetailScreen extends ConsumerWidget {
 
   Widget _buildContent(
     BuildContext context,
-    FirestoreService firestoreService,
+    WidgetRef ref,
     Glaze glaze,
     Map<String?, String?> materialMap,
     List<app.Material> materials,
@@ -182,14 +165,14 @@ class GlazeDetailScreen extends ConsumerWidget {
           ),
         const SizedBox(height: 24),
         const Divider(height: 32),
-        _buildTestPiecesSection(context, firestoreService, glaze.id!),
+        _buildTestPiecesSection(context, ref, glaze.id!),
       ],
     );
   }
 
   Widget _buildTestPiecesSection(
     BuildContext context,
-    FirestoreService firestoreService,
+    WidgetRef ref,
     String glazeId,
   ) {
     return Column(
@@ -197,93 +180,99 @@ class GlazeDetailScreen extends ConsumerWidget {
       children: [
         Text('テストピース', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
-        StreamBuilder<List<TestPiece>>(
-          stream: firestoreService.getTestPiecesForGlaze(glazeId),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              debugPrint("Test piece stream error: ${snapshot.error}");
-              return const Text('テストピースの読み込みに失敗しました。');
-            }
-            final testPieces = snapshot.data ?? [];
-            if (testPieces.isEmpty) {
-              return const Text('この釉薬を使ったテストピースはまだ登録されていません。');
-            }
+        ref
+            .watch(testPiecesForGlazeProvider(glazeId))
+            .when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stackTrace) {
+                debugPrint("Test piece stream error: $error");
+                return const Text('テストピースの読み込みに失敗しました。');
+              },
+              data: (testPieces) {
+                if (testPieces.isEmpty) {
+                  return const Text('この釉薬を使ったテストピースはまだ登録されていません。');
+                }
 
-            return SizedBox(
-              height: 120, // 画像とキャプションのための高さを確保
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: testPieces.length,
-                itemBuilder: (context, index) {
-                  final testPiece = testPieces[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 12.0),
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                TestPieceDetailScreen(testPiece: testPiece),
-                          ),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(8.0),
-                      child: SizedBox(
-                        width: 100,
-                        child: Column(
-                          children: [
-                            AspectRatio(
-                              aspectRatio: 1,
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8.0),
-                                child: Builder(
-                                  builder: (context) {
-                                    final url =
-                                        (testPiece.thumbnailUrl != null &&
-                                            testPiece.thumbnailUrl!.isNotEmpty)
-                                        ? testPiece.thumbnailUrl
-                                        : testPiece.imageUrl;
-                                    if (url != null && url.isNotEmpty) {
-                                      return Image.network(
-                                        url,
-                                        fit: BoxFit.cover,
-                                        loadingBuilder:
-                                            (context, child, loadingProgress) {
-                                              if (loadingProgress == null) {
-                                                return child;
-                                              }
-                                              return const Center(
-                                                child:
-                                                    CircularProgressIndicator(),
-                                              );
-                                            },
-                                        errorBuilder:
-                                            (context, error, stackTrace) {
-                                              return const Icon(Icons.error);
-                                            },
-                                      );
-                                    } else {
-                                      return const Icon(
-                                        Icons.image_not_supported,
-                                      );
-                                    }
-                                  },
-                                ),
+                return SizedBox(
+                  height: 120, // 画像とキャプションのための高さを確保
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: testPieces.length,
+                    itemBuilder: (context, index) {
+                      final testPiece = testPieces[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 12.0),
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    TestPieceDetailScreen(testPiece: testPiece),
                               ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(8.0),
+                          child: SizedBox(
+                            width: 100,
+                            child: Column(
+                              children: [
+                                AspectRatio(
+                                  aspectRatio: 1,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8.0),
+                                    child: Builder(
+                                      builder: (context) {
+                                        final url =
+                                            (testPiece.thumbnailUrl != null &&
+                                                testPiece
+                                                    .thumbnailUrl!
+                                                    .isNotEmpty)
+                                            ? testPiece.thumbnailUrl
+                                            : testPiece.imageUrl;
+                                        if (url != null && url.isNotEmpty) {
+                                          return Image.network(
+                                            url,
+                                            fit: BoxFit.cover,
+                                            loadingBuilder:
+                                                (
+                                                  context,
+                                                  child,
+                                                  loadingProgress,
+                                                ) {
+                                                  if (loadingProgress == null) {
+                                                    return child;
+                                                  }
+                                                  return const Center(
+                                                    child:
+                                                        CircularProgressIndicator(),
+                                                  );
+                                                },
+                                            errorBuilder:
+                                                (context, error, stackTrace) {
+                                                  return const Icon(
+                                                    Icons.error,
+                                                  );
+                                                },
+                                          );
+                                        } else {
+                                          return const Icon(
+                                            Icons.image_not_supported,
+                                          );
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
       ],
     );
   }
