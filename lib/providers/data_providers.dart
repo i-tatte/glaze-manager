@@ -84,18 +84,18 @@ final glazeByIdProvider = StreamProvider.autoDispose.family<Glaze, String>(
   (ref, id) => ref.watch(firestoreServiceProvider).getGlazeStream(id),
 );
 
-final materialByIdProvider =
-    StreamProvider.autoDispose.family<Material, String>(
+final materialByIdProvider = StreamProvider.autoDispose
+    .family<Material, String>(
       (ref, id) => ref.watch(firestoreServiceProvider).getMaterialStream(id),
     );
 
-final testPieceByIdProvider =
-    StreamProvider.autoDispose.family<TestPiece, String>(
+final testPieceByIdProvider = StreamProvider.autoDispose
+    .family<TestPiece, String>(
       (ref, id) => ref.watch(firestoreServiceProvider).getTestPieceStream(id),
     );
 
-final testPiecesForGlazeProvider =
-    StreamProvider.autoDispose.family<List<TestPiece>, String>(
+final testPiecesForGlazeProvider = StreamProvider.autoDispose
+    .family<List<TestPiece>, String>(
       (ref, glazeId) =>
           ref.watch(firestoreServiceProvider).getTestPiecesForGlaze(glazeId),
     );
