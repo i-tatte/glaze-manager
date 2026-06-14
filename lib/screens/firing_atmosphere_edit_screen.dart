@@ -135,8 +135,7 @@ class _FiringAtmosphereEditScreenState
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<FiringAtmosphereType>(
-                // ignore: deprecated_member_use
-                value: _selectedType,
+                initialValue: _selectedType,
                 decoration: const InputDecoration(labelText: '雰囲気タイプ'),
                 items: FiringAtmosphereType.values.map((type) {
                   return DropdownMenuItem(
