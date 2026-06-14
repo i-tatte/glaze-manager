@@ -18,7 +18,6 @@ class ClayEditScreen extends ConsumerStatefulWidget {
 class _ClayEditScreenState extends ConsumerState<ClayEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
-  final bool _isLoading = false;
   bool _isDirty = false;
 
   @override
@@ -90,7 +89,6 @@ class _ClayEditScreenState extends ConsumerState<ClayEditScreen> {
           title: Text(widget.clay == null ? '素地土の新規作成' : '素地土の編集'),
           actions: [
             CommonAppBarActions(
-              isLoading: _isLoading,
               onDelete: null,
               onSave: _saveClay,
             ),

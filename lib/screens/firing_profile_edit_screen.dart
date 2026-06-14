@@ -25,7 +25,6 @@ class _FiringProfileEditScreenState
   late TextEditingController _reductionStartTempController;
   late TextEditingController _reductionEndTempController;
   bool _isReduction = false;
-  final bool _isLoading = false;
   bool _isDirty = false;
 
   @override
@@ -127,7 +126,6 @@ class _FiringProfileEditScreenState
         title: Text(widget.profile == null ? 'プロファイルの新規作成' : 'プロファイルの編集'),
         actions: [
           CommonAppBarActions(
-            isLoading: _isLoading,
             onDelete: null,
             onSave: _saveProfile,
           ),

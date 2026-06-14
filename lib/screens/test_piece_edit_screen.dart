@@ -52,7 +52,6 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
   String? _networkImageUrl; // 既存の画像のURL
   List<LabColor> _colorData = []; // 編集用の色データ
 
-  final bool _isLoading = false;
   bool _isDirty = false;
   // グラフ表示用の状態
   bool _isChartVisible = false;
@@ -301,7 +300,6 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
         title: Text(widget.testPiece == null ? 'テストピースの新規作成' : 'テストピースの編集'),
         actions: [
           CommonAppBarActions(
-            isLoading: _isLoading,
             onDelete: widget.testPiece != null ? _confirmDelete : null,
             onSave: _saveTestPiece,
           ),

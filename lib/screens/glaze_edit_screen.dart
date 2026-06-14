@@ -34,7 +34,6 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
   List<String> _availableTags = [];
 
   List<String> _tags = [];
-  final bool _isLoading = false;
   bool _isDirty = false;
 
   @override
@@ -242,7 +241,6 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
           title: Text(widget.glaze == null ? '釉薬の新規作成' : '釉薬の編集'),
           actions: [
             CommonAppBarActions(
-              isLoading: _isLoading,
               onDelete: widget.glaze != null ? _confirmDelete : null,
               onSave: _saveGlaze,
             ),

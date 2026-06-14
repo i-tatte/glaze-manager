@@ -8,7 +8,7 @@ class CommonAppBarActions extends StatelessWidget {
 
   const CommonAppBarActions({
     super.key,
-    required this.isLoading,
+    this.isLoading = false,
     this.onDelete,
     required this.onSave,
     this.hasDelete = true,

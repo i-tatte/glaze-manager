@@ -21,7 +21,6 @@ class _FiringAtmosphereEditScreenState
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late FiringAtmosphereType _selectedType;
-  final bool _isLoading = false;
   bool _isDirty = false;
 
   @override
@@ -92,7 +91,6 @@ class _FiringAtmosphereEditScreenState
           title: Text(widget.atmosphere == null ? '雰囲気の新規作成' : '雰囲気の編集'),
           actions: [
             CommonAppBarActions(
-              isLoading: _isLoading,
               onDelete: null,
               onSave: _saveAtmosphere,
             ),

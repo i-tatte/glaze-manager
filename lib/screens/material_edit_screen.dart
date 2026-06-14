@@ -21,7 +21,6 @@ class _MaterialEditScreenState extends ConsumerState<MaterialEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late List<_ComponentController> _componentControllers;
-  final bool _isLoading = false;
   bool _isDirty = false;
   late app.MaterialCategory _selectedCategory;
 
@@ -264,7 +263,6 @@ class _MaterialEditScreenState extends ConsumerState<MaterialEditScreen> {
           title: Text(widget.material == null ? '原料の新規作成' : '原料の編集'),
           actions: [
             CommonAppBarActions(
-              isLoading: _isLoading,
               onDelete: widget.material != null ? _confirmDelete : null,
               onSave: _saveMaterial,
             ),
