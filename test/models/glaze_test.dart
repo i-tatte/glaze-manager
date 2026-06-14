@@ -63,6 +63,24 @@ void main() {
       },
     );
 
+    test('constructor copies collections defensively (R-7)', () {
+      final recipe = {'kaolin': 50.0};
+      final tags = ['blue'];
+      final glaze = Glaze(
+        name: 'G',
+        recipe: recipe,
+        tags: tags,
+        createdAt: Timestamp.now(),
+      );
+
+      // コンストラクタに渡したコレクションを後から変更してもモデルに影響しない
+      recipe['silica'] = 10.0;
+      tags.add('glossy');
+
+      expect(glaze.recipe, {'kaolin': 50.0});
+      expect(glaze.tags, ['blue']);
+    });
+
     test('fromFirestore handles missing data with defaults', () async {
       final fakeDb = FakeFirebaseFirestore();
       await fakeDb.collection('glazes').doc('test_id').set({});
