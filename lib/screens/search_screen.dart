@@ -393,6 +393,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       }
     });
 
+    // 詳細画面などから initialColor 付きで遷移してきたとき、testPiecesProvider が
+    // 既に値を持っていると上の ref.listen は発火しない（値の変化がないため）。
+    // その場合は build 時点で値があれば post-frame で一度だけ初期色検索を適用する。
+    if (widget.initialColor != null &&
+        !_appliedInitialColor &&
+        testPiecesAsync.hasValue) {
+      _appliedInitialColor = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _applyFilters();
+      });
+    }
+
     final isDataLoading = testPiecesAsync.isLoading;
 
     return Scaffold(
