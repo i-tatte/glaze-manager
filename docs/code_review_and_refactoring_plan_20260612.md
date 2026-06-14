@@ -188,9 +188,9 @@
 |---|---|---|---|
 | 0-1 | `build_runner` でモック再生成、`flutter test` 全通過 | H-1 | **完了 (2026-06-12)** 124 テスト全パス |
 | 0-2 | `build_runner` / `mockito` を `dev_dependencies` へ移動 | M-8 | **完了 (2026-06-12)** |
-| 0-3 | `flutter analyze` 再実行 → 非推奨 API・lint を一掃、`analyze_output.txt` 削除 | H-6, Low | **ほぼ完了**: 再実行の結果 No issues（過去コミットで修正済みと判明）。`analyze_output.txt` の削除のみ残 |
+| 0-3 | `flutter analyze` 再実行 → 非推奨 API・lint を一掃、`analyze_output.txt` 削除 | H-6, Low | **完了**: 再実行の結果 No issues。`analyze_output.txt` は既にリポジトリに存在しない（CI に役割を移行済み）。残っていた非推奨 API は 2026-06-14 の R-10 で解消 |
 | 0-4 | `ColorAlpha` extension 削除、SDK の `withValues` に統一 | H-5 | **完了 (2026-06-12)** 全呼び出し箇所が SDK 版を使用していることを確認のうえ削除 |
-| 0-5 | GitHub Actions で analyze + test の CI を構築 | H-1 | **ファイル作成済み** (`.github/workflows/ci.yaml`)。コミット & push で有効化 |
+| 0-5 | GitHub Actions で analyze + test の CI を構築 | H-1 | **完了**: `.github/workflows/ci.yaml` がコミット済みで稼働中（analyze + test + モック鮮度チェック + Emulator ルールテスト） |
 
 **完了条件**: CI グリーン。これ以降のフェーズはすべて CI の保護下で行う。
 
@@ -202,7 +202,7 @@
 | 1-2 | `firestore.indexes.json` 追加、`getTestPiecesForGlaze` をサーバーソートに戻す — **実装完了 (2026-06-12)**。**`firebase deploy --only firestore:indexes` のデプロイが必要**（デプロイ前に新ビルドを起動すると釉薬詳細のテストピース一覧がインデックスエラーになる） | M-8 |
 | 1-3 | `FirestoreService` をエンティティ別リポジトリに分割 — **概ね完了 (2026-06-12)**: 汎用基底 `UserScopedRepository<T>` + 8 リポジトリ (`lib/repositories/`) を新設し、`FirestoreService` は互換ファサード化（既存画面・テスト無変更）。一回読み用 `getAll()`/`getXxxOnce()` を追加しインポート処理の `snapshots().first` を排除。リポジトリ単体テスト9件追加。残: 画面側の `.first` 置き換え（フェーズ3のVM移行と同時に実施） | M-2 |
 | 1-4 | `findOrCreate` 系をマップ事前構築 + バッチ作成に書き換え、インポートの N+1 を解消 — **完了 (2026-06-12)**: インポートを2パス化（全行パース → 顔料一括作成 → ID 解決1回）、タグ保存も `addTags` バッチ化。同名原料の競合（複数端末が同時に findOrCreate する場合のみ発生）は、完全防止に名前インデックスコレクション等の追加設計を要する一方、単一ユーザー・端末1〜2台の利用形態では発生確率が実質ゼロのため**受容する**（事前の名前重複チェックは実装済み） | H-3 |
-| 1-5 | モデルの List/Map フィールドを不変化（`List.unmodifiable`）し、エイリアシング起因の事故を予防 | M-6 |
+| 1-5 | モデルの List/Map フィールドを不変化し、エイリアシング起因の事故を予防 — **完了 (2026-06-14, `refactor/debt-cleanup-20260614` の R-7)**: `Glaze.recipe/tags`・`Material.components`・`TestPiece.additionalGlazeIds/colorData` をコンストラクタで防御的コピー（`List.of`/`Map.of`）。`List.unmodifiable` までは踏み込まず（コレクションを in-place で mutate する箇所が無いことを grep で確認したうえで、将来の mutate が実行時例外に化けるのを避けるため可変コピーを選択）。コンストラクタに渡したコレクションの後変更がモデルに波及しないことを検証するモデルテストを追加 | M-6 |
 
 ### フェーズ 2: 保存フローの堅牢化（画像パイプライン）— 規模: 中
 
@@ -321,3 +321,35 @@ Cloud Functions は Blaze プランで実運用中。ストア公開はしない
 | 画面 | `lib/screens/main_tab_screen.dart` | 284 行 | タブ番号結合（M-3） |
 | Functions | `functions/main.py` | 219 行 | サムネイル + 色解析（C-1 関連） |
 | テスト | `test/` 配下 | 41 ファイル | モック陳腐化で実行不能（H-1） |
+
+---
+
+## 7. 追補: 2026-06-14 の負債クリーンアップ（`refactor/debt-cleanup-20260614`）
+
+`refactor-instructions.md` に基づく負債整理を実施。baseline（`2a8384b`）の
+`flutter analyze` No issues / `flutter test` 138 件全パスを維持したまま、
+実バグ 2 件の修正と構造的負債の解消を行った。完了後は **155 件全パス**（+17 件）。
+
+実装した項目（R 番号は指示書のもの）:
+
+| R | 種別 | 内容 |
+|---|---|---|
+| R-1 | バグ | 原料新規作成でカテゴリ選択が無視され `base` 固定だったのを `_selectedCategory` 反映に修正。`updateMaterial` の await 漏れも修正。再現テスト追加 |
+| R-2 | バグ（退行） | 詳細画面からの初期色検索が、`testPiecesProvider` が既に値を持つと `ref.listen` 不発で自動実行されなかった問題を、build 時の post-frame 適用で修正。再現テスト追加（実機条件を模す） |
+| R-4 | バグ | ログインのサインイン失敗（キャンセル以外）が無通知だったので SnackBar 表示を追加 |
+| R-10 | 軽微 | `DropdownButtonFormField` の非推奨 `value:` を `initialValue:` に |
+| R-5 | 構造 | clay / firing_atmosphere / firing_profile 編集画面の PopScope + 保存アクションを共通ウィジェット（`UnsavedChangesPopScope` / `CommonAppBarActions`）へ集約。スピナーの黒固定色も撤去 |
+| R-9 | 軽微 | 検索の語分割正規表現を `searchTermSplitter` 1 定義に統一。`\uXXXX` エスケープ表記を日本語リテラルへ |
+| R-11 | 軽微（任意） | `ImageCropScreen` の戻り値を型付きレコード化 |
+| R-3 | 構造 | 詳細 3 画面 + 検索の最近表示で build() 内 Stream 生成をやめ、`autoDispose family` の StreamProvider（`glazeById` 等）を `ref.watch` に置換 |
+| R-6 | 堅牢化 | `recipe`/`components` の数値復元を `(v as num).toDouble()` 化し、整数保存値での実行時例外を防止 |
+| R-7 | 堅牢化 | モデルのコレクションをコンストラクタで防御的コピー（フェーズ 1-5 相当）。詳細は 1-5 行参照 |
+| R-8 | 構造 | `SearchScreen._applyFilters` のフィルタ・ソートを純関数 `filterTestPieces`（`lib/services/test_piece_search.dart`）へ抽出し、ユニットテスト 9 件を追加 |
+| R-17 | ドキュメント | 本表（0-3 / 0-5 / 1-5）を実態に更新し、本追補を追記 |
+
+提案のみ（**コード未変更**、`docs/refactor-proposals-20260614.md`）: R-12（ファサード=維持推奨）/
+R-13（`ColorSwatch`→`LabColor` リネーム=承認後実施推奨）/ R-14（provider 撤去）/
+R-15（オフライン保存 UX=Q2 回答待ち）/ R-16（Cloud Functions=対象外）。
+
+オーナー確認が残る事項: **Q1**（`firestore.indexes.json` のデプロイ状況はリポジトリから確認不能）、
+**Q2**（オフライン保存の完了可否）。`functions/` / ルール / インデックス / ネイティブ設定は未変更。
