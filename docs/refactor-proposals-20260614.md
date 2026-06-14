@@ -11,7 +11,7 @@
 
 ---
 
-## R-12 🛑 `FirestoreService` ファサードの去就
+## R-12 ✅ `FirestoreService` ファサードの去就 — **維持で確定**
 
 ### 現状
 - `lib/services/firestore_service.dart`（約247行）は各リポジトリ（`materialRepository` 等 8 個）へ
@@ -52,7 +52,7 @@
 
 ---
 
-## R-13 🛑 `ColorSwatch` → `LabColor` リネーム
+## R-13 ✅ `ColorSwatch` → `LabColor` リネーム — **実施済み (2026-06-14, `7bac40f`)**
 
 ### 現状
 - アプリ独自の `lib/models/color_swatch.dart` の `ColorSwatch` が Flutter SDK の
@@ -182,13 +182,12 @@
 
 ---
 
-## R-16 🛑 Cloud Functions（`functions/main.py`）の細部
+## R-16 🔶 Cloud Functions（`functions/main.py`）の細部 — **モジュール分割のみ実施済み (2026-06-15, `e2600db`)**
 
-### 現状（**デプロイ権限がないため変更禁止**。提案のみ）
-- `firebaseStorageDownloadTokens` メタデータの手動生成（非公式 API 依存、計画書 M-9）。
-- 色解析パラメータ（K-Means のクラスタ数・サムネイル 200px 等）のハードコード。
-- 引き継ぎコード処理（`issue/redeem_transfer_code`）と画像パイプライン（`process_uploaded_image`）が
-  1 ファイルに同居。
+### 現状
+- ~~引き継ぎコード処理と画像パイプラインが 1 ファイルに同居。~~ → **`transfer_codes.py` / `image_pipeline.py` に分割済み。エミュレータで 3 関数の正常ロードを確認。**
+- `firebaseStorageDownloadTokens` メタデータの手動生成（非公式 API 依存、計画書 M-9）は未対応。
+- 色解析パラメータ（K-Means のクラスタ数・サムネイル 200px 等）のハードコードは未対応。
 
 ### 選択肢
 1. 現状維持。
@@ -219,5 +218,5 @@
 |---|---|---|
 | **Q1** | `firestore.indexes.json` はデプロイ済みか（複合インデックス前提のサーバーソート） | **リポジトリからは確認不能**。コードは変更せず、最終報告で再掲（要オーナー確認）。 |
 | **Q2** | オフライン保存は完了するか（R-15） | 実機確認待ち。再現する場合の方針は R-15 の「楽観的 pop」を推奨。**承認まで実装しない。** |
-| **Q3** | `FirestoreService` ファサードは維持でよいか（R-12） | **推奨: 維持。** 上記 R-12 参照。 |
-| **Q4** | `ColorSwatch` → `LabColor` リネーム実施可否（R-13） | **推奨: 実施（保存データ影響なし・CI 保護下）。** 承認が得られれば単独コミットで対応可能。 |
+| **Q3** | `FirestoreService` ファサードは維持でよいか（R-12） | **✅ 維持で確定。** オーナー承認済み。 |
+| **Q4** | `ColorSwatch` → `LabColor` リネーム実施可否（R-13） | **✅ 実施済み。** `7bac40f` で完了。シリアライズキー不変・analyze/test 全パス。 |
