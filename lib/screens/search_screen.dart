@@ -29,6 +29,10 @@ class SearchScreen extends ConsumerStatefulWidget {
 }
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
+  // 検索クエリの語分割に使う正規表現。半角・全角スペースの連続を 1 区切りとして扱う。
+  // Dart(ECMAScript) の \s は U+3000 を含むため、全角スペースも分割対象になる。
+  static final RegExp _termSplitter = RegExp(r'\s+');
+
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _recentItemsController = ScrollController();
 
@@ -101,7 +105,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     // 1. テキスト検索 (Positive & Negative)
     if (_searchQuery.isNotEmpty) {
       final terms = _searchQuery
-          .split(RegExp(r'\s+'))
+          .split(_termSplitter)
           .where((t) => t.isNotEmpty);
       final positiveTerms = terms
           .where((t) => !t.startsWith('-'))
@@ -426,10 +430,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     children: [
                       if (_searchQuery.isNotEmpty)
                         ..._searchQuery
-                            .split(RegExp(r'[ \u3000]+'))
+                            .split(_termSplitter)
                             .where((t) => t.isNotEmpty)
                             .map((term) {
-                              // \u300c-\u8a9e\u300d\u306f\u30de\u30a4\u30ca\u30b9\u691c\u7d22 (\u9664\u5916\u6761\u4ef6)
+                              // 「-語」はマイナス検索 (除外条件)
                               final isNegative =
                                   term.startsWith('-') && term.length > 1;
                               return Chip(
@@ -444,12 +448,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                 ),
                                 label: Text(
                                   isNegative
-                                      ? '${term.substring(1)} \u3092\u9664\u5916'
+                                      ? '${term.substring(1)} を除外'
                                       : term,
                                 ),
                                 onDeleted: () {
                                   final terms = _searchQuery
-                                      .split(RegExp(r'[ \u3000]+'))
+                                      .split(_termSplitter)
                                       .where((t) => t.isNotEmpty)
                                       .toList();
                                   terms.remove(term);
