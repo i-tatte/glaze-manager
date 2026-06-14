@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/models/material.dart' as app;
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/material_edit_screen.dart';
+import 'package:mockito/mockito.dart';
 
 import 'main_tab_screen_test.mocks.dart';
 
@@ -59,6 +60,37 @@ void main() {
       expect(find.text('Test Material'), findsOneWidget);
       expect(find.text('SiO2'), findsOneWidget);
       expect(find.text('50.0'), findsOneWidget);
+    });
+
+    testWidgets('new material save uses the selected category (R-1)', (
+      WidgetTester tester,
+    ) async {
+      when(
+        mockFirestoreService.addMaterial(any),
+      ).thenAnswer((_) => Future.value());
+
+      await tester.pumpWidget(createTestableWidget(const MaterialEditScreen()));
+      await tester.pumpAndSettle();
+
+      // 原料名を入力（バリデーション通過のため必須）
+      await tester.enterText(find.byType(TextFormField), '弁柄');
+
+      // カテゴリで「顔料」を選択する
+      await tester.tap(find.text('顔料'));
+      await tester.pumpAndSettle();
+
+      // 保存
+      await tester.tap(find.byIcon(Icons.save));
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // addMaterial に渡った Material のカテゴリが pigment であること
+      final captured = verify(
+        mockFirestoreService.addMaterial(captureAny),
+      ).captured;
+      expect(captured, hasLength(1));
+      final saved = captured.single as app.Material;
+      expect(saved.category, app.MaterialCategory.pigment);
     });
 
     testWidgets('should add component row', (WidgetTester tester) async {
