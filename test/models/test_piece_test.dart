@@ -65,6 +65,25 @@ void main() {
       expect(testPiece.colorData!.first.l, 50.0);
     });
 
+    test('constructor copies collections defensively (R-7)', () {
+      final additionalGlazeIds = ['g2'];
+      final colorData = [ColorSwatch(l: 50, a: 10, b: 20, percentage: 0.5)];
+      final testPiece = TestPiece(
+        glazeId: 'g1',
+        clayId: 'c1',
+        additionalGlazeIds: additionalGlazeIds,
+        colorData: colorData,
+        createdAt: Timestamp.now(),
+      );
+
+      // コンストラクタに渡したリストを後から変更してもモデルに影響しない
+      additionalGlazeIds.add('g3');
+      colorData.add(ColorSwatch(l: 0, a: 0, b: 0, percentage: 0));
+
+      expect(testPiece.additionalGlazeIds, ['g2']);
+      expect(testPiece.colorData!.length, 1);
+    });
+
     test('fromFirestore handles missing data with defaults', () async {
       final fakeDb = FakeFirebaseFirestore();
       await fakeDb.collection('test_pieces').doc('tp2').set({});

@@ -28,9 +28,9 @@ class Material {
     this.id,
     required this.name,
     required this.order,
-    required this.components,
+    required Map<String, double> components,
     required this.category,
-  });
+  }) : components = Map.of(components);
 
   // FirestoreのドキュメントからMaterialオブジェクトを生成
   factory Material.fromFirestore(

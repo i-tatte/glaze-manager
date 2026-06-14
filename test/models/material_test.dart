@@ -68,6 +68,21 @@ void main() {
       },
     );
 
+    test('constructor copies components defensively (R-7)', () {
+      final components = {'SiO2': 50.0};
+      final material = Material(
+        name: 'M',
+        order: 1,
+        components: components,
+        category: MaterialCategory.base,
+      );
+
+      // コンストラクタに渡したマップを後から変更してもモデルに影響しない
+      components['Al2O3'] = 10.0;
+
+      expect(material.components, {'SiO2': 50.0});
+    });
+
     test('fromFirestore handles missing data with defaults', () async {
       final fakeDb = FakeFirebaseFirestore();
       await fakeDb.collection('materials').doc('test_id').set({});

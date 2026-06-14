@@ -14,12 +14,13 @@ class Glaze {
     this.id,
     required this.name,
     this.registeredName,
-    required this.recipe,
+    required Map<String, double> recipe,
     this.imageUrl,
-    required this.tags,
+    required List<String> tags,
     this.description,
     required this.createdAt,
-  });
+  }) : recipe = Map.of(recipe),
+       tags = List.of(tags);
 
   factory Glaze.fromFirestore(DocumentSnapshot<Map<String, dynamic>> snapshot) {
     final data = snapshot.data()!;

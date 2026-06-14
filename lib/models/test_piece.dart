@@ -19,17 +19,18 @@ class TestPiece {
   TestPiece({
     this.id,
     required this.glazeId,
-    this.additionalGlazeIds = const [],
+    List<String> additionalGlazeIds = const [],
     required this.clayId,
     this.firingAtmosphereId,
     this.firingProfileId,
     this.imageUrl,
     this.imagePath,
     this.thumbnailUrl,
-    this.colorData,
+    List<ColorSwatch>? colorData,
     this.note,
     required this.createdAt,
-  });
+  }) : additionalGlazeIds = List.of(additionalGlazeIds),
+       colorData = colorData == null ? null : List.of(colorData);
 
   factory TestPiece.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> snapshot,
@@ -38,10 +39,9 @@ class TestPiece {
     return TestPiece(
       id: snapshot.id,
       glazeId: data['glazeId'] ?? '',
-      additionalGlazeIds:
-          data.containsKey('additionalGlazeIds')
-              ? List<String>.from(data['additionalGlazeIds'])
-              : [],
+      additionalGlazeIds: data.containsKey('additionalGlazeIds')
+          ? List<String>.from(data['additionalGlazeIds'])
+          : [],
       clayId: data['clayId'] ?? '',
       firingAtmosphereId: data['firingAtmosphereId'],
       firingProfileId: data['firingProfileId'],
