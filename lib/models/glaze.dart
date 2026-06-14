@@ -28,7 +28,10 @@ class Glaze {
       name: data['name'] ?? '',
       registeredName: data['registeredName'],
       recipe: data.containsKey('recipe')
-          ? Map<String, double>.from(data['recipe'])
+          ? (data['recipe'] as Map).map(
+              (key, value) =>
+                  MapEntry(key as String, (value as num).toDouble()),
+            )
           : {},
       imageUrl: data['imageUrl'],
       tags: data.containsKey('tags') ? List<String>.from(data['tags']) : [],

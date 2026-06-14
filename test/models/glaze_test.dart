@@ -43,6 +43,26 @@ void main() {
       expect(glaze.description, 'A red glaze');
     });
 
+    test(
+      'fromFirestore restores integer recipe amounts as double (R-6)',
+      () async {
+        final fakeDb = FakeFirebaseFirestore();
+        await fakeDb.collection('glazes').doc('test_id').set({
+          'name': 'Int Glaze',
+          // 整数で保存された配合量 (手作業・外部ツール由来) でも復元できること
+          'recipe': {'feldspar': 100, 'silica': 50},
+          'tags': ['x'],
+          'createdAt': Timestamp.now(),
+        });
+        final snapshot = await fakeDb.collection('glazes').doc('test_id').get();
+
+        final glaze = Glaze.fromFirestore(snapshot);
+        expect(glaze.recipe['feldspar'], 100.0);
+        expect(glaze.recipe['silica'], 50.0);
+        expect(glaze.recipe['feldspar'], isA<double>());
+      },
+    );
+
     test('fromFirestore handles missing data with defaults', () async {
       final fakeDb = FakeFirebaseFirestore();
       await fakeDb.collection('glazes').doc('test_id').set({});

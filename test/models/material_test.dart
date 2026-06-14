@@ -45,6 +45,29 @@ void main() {
       expect(material.category, MaterialCategory.base);
     });
 
+    test(
+      'fromFirestore restores integer component values as double (R-6)',
+      () async {
+        final fakeDb = FakeFirebaseFirestore();
+        await fakeDb.collection('materials').doc('test_id').set({
+          'name': 'Silica',
+          'order': 1,
+          // 整数で保存された成分値でも復元できること
+          'components': {'SiO2': 99, 'Al2O3': 1},
+          'category': 'base',
+        });
+        final snapshot = await fakeDb
+            .collection('materials')
+            .doc('test_id')
+            .get();
+
+        final material = Material.fromFirestore(snapshot);
+        expect(material.components['SiO2'], 99.0);
+        expect(material.components['Al2O3'], 1.0);
+        expect(material.components['SiO2'], isA<double>());
+      },
+    );
+
     test('fromFirestore handles missing data with defaults', () async {
       final fakeDb = FakeFirebaseFirestore();
       await fakeDb.collection('materials').doc('test_id').set({});

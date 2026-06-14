@@ -43,7 +43,10 @@ class Material {
       // orderフィールドがない古いデータとの互換性のため、デフォルト値を設定
       order: data['order'] ?? 0,
       components: data.containsKey('components')
-          ? Map<String, double>.from(data['components'])
+          ? (data['components'] as Map).map(
+              (key, value) =>
+                  MapEntry(key as String, (value as num).toDouble()),
+            )
           : {},
       category: MaterialCategory.fromString(data['category']),
     );
