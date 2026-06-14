@@ -1,6 +1,7 @@
 import os
 import tempfile
 import uuid
+from urllib.parse import quote
 
 import numpy as np
 import cv2
@@ -8,8 +9,25 @@ from firebase_functions import storage_fn
 from firebase_admin import storage, firestore
 from PIL import Image
 
+THUMBNAIL_SIZE = (200, 200)
+ANALYSIS_RESIZE = (64, 64)
+CROP_CENTER_RATIO = 0.5
+K_INIT = 10
+MERGE_THRESHOLD = 6.0
+LIGHTNESS_WEIGHT = 0.5
 
-def analyze_glaze_color(image_path: str, k_init: int = 10, merge_threshold: float = 6.0) -> list[dict]:
+
+def _make_download_url(blob, bucket_name: str) -> str:
+    token = uuid.uuid4()
+    blob.metadata = {"firebaseStorageDownloadTokens": str(token)}
+    blob.patch()
+    return (
+        f"https://firebasestorage.googleapis.com/v0/b/{bucket_name}"
+        f"/o/{quote(blob.name, safe='')}?alt=media&token={token}"
+    )
+
+
+def analyze_glaze_color(image_path: str, k_init: int = K_INIT, merge_threshold: float = MERGE_THRESHOLD) -> list[dict]:
     """
     画像から釉薬の主要な色構成を解析する。
     Over-segmentation & Merge手法により、多色釉薬にも対応する。
@@ -29,14 +47,15 @@ def analyze_glaze_color(image_path: str, k_init: int = 10, merge_threshold: floa
         print(f"Error: Failed to load image at {image_path}")
         return []
 
-    # 2. 領域抽出 (中心の50%をクロップ)
+    # 2. 領域抽出 (中心をクロップ)
     h, w, _ = img.shape
-    start_x, start_y = w // 4, h // 4
-    end_x, end_y = w * 3 // 4, h * 3 // 4
+    margin = (1 - CROP_CENTER_RATIO) / 2
+    start_x, start_y = int(w * margin), int(h * margin)
+    end_x, end_y = int(w * (1 - margin)), int(h * (1 - margin))
     center_img = img[start_y:end_y, start_x:end_x]
 
     # 3. 高速化のための縮小
-    resized_img = cv2.resize(center_img, (64, 64), interpolation=cv2.INTER_AREA)
+    resized_img = cv2.resize(center_img, ANALYSIS_RESIZE, interpolation=cv2.INTER_AREA)
 
     # 3.5. Lab 色空間への変換準備 (float32 正規化; しないと0-255になってLが2.55倍鋭敏になる)
     img_float = resized_img.astype(np.float32) / 255.0
@@ -68,8 +87,7 @@ def analyze_glaze_color(image_path: str, k_init: int = 10, merge_threshold: floa
                 dL = clusters[i]['center'][0] - clusters[j]['center'][0]
                 da = clusters[i]['center'][1] - clusters[j]['center'][1]
                 db = clusters[i]['center'][2] - clusters[j]['center'][2]
-                # 明度の違いを 0.5倍 (50%) に過小評価させる
-                dist = np.sqrt((dL * 0.5) ** 2 + da ** 2 + db ** 2)
+                dist = np.sqrt((dL * LIGHTNESS_WEIGHT) ** 2 + da ** 2 + db ** 2)
                 if dist < min_dist:
                     min_dist = dist
                     merge_indices = (i, j)
@@ -168,7 +186,7 @@ def process_uploaded_image(event: storage_fn.CloudEvent): # type: ignore exporte
 
         with Image.open(temp_file_path) as im:
             # アスペクト比を維持したままリサイズ
-            im.thumbnail((200, 200))
+            im.thumbnail(THUMBNAIL_SIZE)
             im.save(temp_thumb_path, "JPEG")
         print(f"Thumbnail created at {temp_thumb_path}")
 
@@ -211,20 +229,11 @@ def process_uploaded_image(event: storage_fn.CloudEvent): # type: ignore exporte
             return
 
         # 6. オリジナル画像とサムネイル画像のダウンロードURLを生成
+        original_image_url = _make_download_url(original_blob, bucket_name)
+        print(f"Generated original image URL: {original_image_url}")
 
-        # オリジナル画像のURL
-        original_token = uuid.uuid4()
-        original_blob.metadata = {"firebaseStorageDownloadTokens": str(original_token)}
-        original_blob.patch()
-        original_image_url = f"https://firebasestorage.googleapis.com/v0/b/{bucket_name}/o/{str(original_blob.name).replace('/', '%2F')}?alt=media&token={original_token}"
-        print(f"Generated original image URL with token: {original_image_url}")
-
-        # サムネイル画像のURL
-        thumbnail_token = uuid.uuid4()
-        thumb_blob.metadata = {"firebaseStorageDownloadTokens": str(thumbnail_token)}
-        thumb_blob.patch()
-        thumbnail_url = f"https://firebasestorage.googleapis.com/v0/b/{bucket_name}/o/{str(thumb_blob.name).replace('/', '%2F')}?alt=media&token={thumbnail_token}"
-        print(f"Generated thumbnail URL with token: {thumbnail_url}")
+        thumbnail_url = _make_download_url(thumb_blob, bucket_name)
+        print(f"Generated thumbnail URL: {thumbnail_url}")
 
         # 7. Firestoreドキュメントを両方のURLで更新、色解析結果も保存
         doc_snapshot.reference.update({
