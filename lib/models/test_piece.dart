@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:glaze_manager/models/color_swatch.dart';
+import 'package:glaze_manager/models/lab_color.dart';
 
 class TestPiece {
   final String? id;
@@ -12,7 +12,7 @@ class TestPiece {
   final String?
   imagePath; // Storage内のファイルパス (例: users/xxx/test_pieces/images/yyy.jpg)
   final String? thumbnailUrl; // サムネイル画像のURL
-  final List<ColorSwatch>? colorData; // 解析された色のリスト
+  final List<LabColor>? colorData; // 解析された色のリスト
   final String? note; // 備考
   final Timestamp createdAt; // 作成日時
 
@@ -26,7 +26,7 @@ class TestPiece {
     this.imageUrl,
     this.imagePath,
     this.thumbnailUrl,
-    List<ColorSwatch>? colorData,
+    List<LabColor>? colorData,
     this.note,
     required this.createdAt,
   }) : additionalGlazeIds = List.of(additionalGlazeIds),
@@ -49,7 +49,7 @@ class TestPiece {
       imagePath: data['imagePath'],
       thumbnailUrl: data['thumbnailUrl'],
       colorData: (data['colorData'] as List<dynamic>?)?.map((swatchMap) {
-        return ColorSwatch.fromMap(swatchMap as Map<String, dynamic>);
+        return LabColor.fromMap(swatchMap as Map<String, dynamic>);
       }).toList(),
       note: data['note'],
       createdAt: data['createdAt'] ?? Timestamp.now(),

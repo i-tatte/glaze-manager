@@ -1,6 +1,6 @@
 import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart' hide ColorSwatch;
+import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     show ConsumerStatefulWidget, ConsumerState, AsyncValueX;
