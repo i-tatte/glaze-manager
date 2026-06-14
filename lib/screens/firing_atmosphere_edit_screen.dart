@@ -21,7 +21,7 @@ class _FiringAtmosphereEditScreenState
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late FiringAtmosphereType _selectedType;
-  bool _isLoading = false;
+  final bool _isLoading = false;
   bool _isDirty = false;
 
   @override
@@ -49,8 +49,8 @@ class _FiringAtmosphereEditScreenState
       return;
     }
 
-    setState(() => _isLoading = true);
     final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     try {
       final firestoreService = ref.read(firestoreServiceProvider);
@@ -60,23 +60,25 @@ class _FiringAtmosphereEditScreenState
         type: _selectedType,
       );
 
+      final Future<void> writeFuture;
       if (widget.atmosphere == null) {
-        await firestoreService.addFiringAtmosphere(atmosphere);
+        writeFuture = firestoreService.addFiringAtmosphere(atmosphere);
       } else {
-        await firestoreService.updateFiringAtmosphere(atmosphere);
+        writeFuture = firestoreService.updateFiringAtmosphere(atmosphere);
       }
+      writeFuture.catchError((Object e) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('保存に失敗しました: $e')),
+        );
+      });
 
       _isDirty = false;
       navigator.pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('保存に失敗しました: $e')),
+        );
       }
     }
   }

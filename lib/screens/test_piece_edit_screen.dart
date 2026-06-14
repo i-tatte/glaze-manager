@@ -52,7 +52,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
   String? _networkImageUrl; // 既存の画像のURL
   List<LabColor> _colorData = []; // 編集用の色データ
 
-  bool _isLoading = false;
+  final bool _isLoading = false;
   bool _isDirty = false;
   // グラフ表示用の状態
   bool _isChartVisible = false;
@@ -137,29 +137,19 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
-
     final navigator = Navigator.of(context);
-    // 画面pop後もSnackBarを出せるよう、ルートのMessengerを先に取得しておく
     final scaffoldMessenger = ScaffoldMessenger.of(context);
+
     try {
       final firestoreService = ref.read(firestoreServiceProvider);
       final storageService = ref.read(storageServiceProvider);
 
-      // 保存順序の制約:
-      // Cloud Function (process_uploaded_image) はアップロード完了をトリガに
-      // imagePath でドキュメントを1回だけ検索するため、アップロードより先に
-      // Firestoreドキュメントが存在していなければならない。
-      // → 必ず「Firestore書き込み完了 → アップロード開始」の順で実行する。
-
       final hasNewImage = _newImageFileName != null && _newImageBytes != null;
 
-      // 新規作成時もアップロードパスにドキュメントIDを含めるため、先にIDを確定する
       final docId =
           widget.testPiece?.id ?? firestoreService.createTestPieceId();
 
       String? imagePath;
-      // 新規画像がある場合、アップロード先のパスを事前に決定
       if (hasNewImage) {
         imagePath = storageService.getUploadPath(
           testPieceId: docId,
@@ -169,18 +159,15 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
         imagePath = widget.testPiece?.imagePath;
       }
 
-      // 更新または作成するTestPieceオブジェクトを準備
-      // この時点ではimageUrlとthumbnailUrlは未定
       final testPieceData = TestPiece(
         id: docId,
         glazeId: _selectedGlazeId!,
         additionalGlazeIds: _additionalGlazeIds,
         clayId: _selectedClayId!,
-        imageUrl: widget.testPiece?.imageUrl, // 既存のURLを維持
+        imageUrl: widget.testPiece?.imageUrl,
         imagePath: imagePath,
-        thumbnailUrl: widget.testPiece?.thumbnailUrl, // 既存のURLを維持
+        thumbnailUrl: widget.testPiece?.thumbnailUrl,
         firingAtmosphereId: _selectedFiringAtmosphereId,
-        // 新規画像がある場合はCloud Functionの色解析結果で上書きされるため空にする
         colorData: hasNewImage ? [] : List<LabColor>.of(_colorData),
         firingProfileId: _selectedFiringProfileId,
         note: _noteController.text.trim().isEmpty
@@ -189,46 +176,43 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
         createdAt: widget.testPiece?.createdAt ?? Timestamp.now(),
       );
 
-      // Firestoreへの書き込みを先に完了させる
-      if (widget.testPiece == null) {
-        await firestoreService.setTestPiece(docId, testPieceData);
-      } else {
-        await firestoreService.updateTestPiece(testPieceData);
-      }
+      // §2.3 順序制約: サーバーACK後にアップロード開始 (UIはブロックしない)
+      final writeFuture = (widget.testPiece == null)
+          ? firestoreService.setTestPiece(docId, testPieceData)
+          : firestoreService.updateTestPiece(testPieceData);
 
-      // ドキュメントが存在する状態になってからアップロードを開始する
-      // (完了は待たずバックグラウンドで実行し、すぐに画面を戻す。
-      //  失敗時はルートのSnackBarで通知する)
       if (hasNewImage) {
-        storageService
-            .uploadTestPieceImage(
-              testPieceId: docId,
-              name: _newImageFileName!,
-              bytes: _newImageBytes!,
-              mimeType: 'image/jpeg',
-            )
+        final fileName = _newImageFileName!;
+        final bytes = _newImageBytes!;
+        writeFuture
+            .then((_) => storageService.uploadTestPieceImage(
+                  testPieceId: docId,
+                  name: fileName,
+                  bytes: bytes,
+                  mimeType: 'image/jpeg',
+                ))
             .catchError((Object e) {
-              scaffoldMessenger.showSnackBar(
-                SnackBar(
-                  content: Text('画像のアップロードに失敗しました。通信環境を確認して再度保存してください: $e'),
-                ),
-              );
-            });
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text('保存に失敗しました: $e'),
+            ),
+          );
+        });
+      } else {
+        writeFuture.catchError((Object e) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(content: Text('保存に失敗しました: $e')),
+          );
+        });
       }
 
-      if (mounted) {
-        _isDirty = false;
-        navigator.pop(); // 一覧または詳細画面に戻る
-      }
+      _isDirty = false;
+      navigator.pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('保存に失敗しました: $e')),
+        );
       }
     }
   }

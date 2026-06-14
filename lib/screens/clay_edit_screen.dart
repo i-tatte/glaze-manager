@@ -18,7 +18,7 @@ class ClayEditScreen extends ConsumerStatefulWidget {
 class _ClayEditScreenState extends ConsumerState<ClayEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
-  bool _isLoading = false;
+  final bool _isLoading = false;
   bool _isDirty = false;
 
   @override
@@ -43,17 +43,18 @@ class _ClayEditScreenState extends ConsumerState<ClayEditScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
     final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     try {
       final firestoreService = ref.read(firestoreServiceProvider);
 
+      final Future<void> writeFuture;
       if (widget.clay == null) {
-        // 新規作成
+        // 新規作成 (getClaysOnce はローカルキャッシュから即返るため await を維持)
         final clays = await firestoreService.getClaysOnce();
         final newClay = Clay(name: _nameController.text, order: clays.length);
-        await firestoreService.addClay(newClay);
+        writeFuture = firestoreService.addClay(newClay);
       } else {
         // 更新
         final updatedClay = Clay(
@@ -61,20 +62,21 @@ class _ClayEditScreenState extends ConsumerState<ClayEditScreen> {
           name: _nameController.text,
           order: widget.clay!.order,
         );
-        await firestoreService.updateClay(updatedClay);
+        writeFuture = firestoreService.updateClay(updatedClay);
       }
+      writeFuture.catchError((Object e) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('保存に失敗しました: $e')),
+        );
+      });
 
       _isDirty = false;
       navigator.pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('保存に失敗しました: $e')),
+        );
       }
     }
   }

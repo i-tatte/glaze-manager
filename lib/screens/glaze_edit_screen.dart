@@ -34,7 +34,7 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
   List<String> _availableTags = [];
 
   List<String> _tags = [];
-  bool _isLoading = false;
+  final bool _isLoading = false;
   bool _isDirty = false;
 
   @override
@@ -114,7 +114,8 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
 
   Future<void> _saveGlaze() async {
     if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
+      final navigator = Navigator.of(context);
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
 
       try {
         final firestoreService = ref.read(firestoreServiceProvider);
@@ -139,29 +140,28 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
           createdAt: widget.glaze?.createdAt ?? Timestamp.now(),
         );
 
-        // タグをマスターリストに追加 (存在しない場合のみ・一括)
-        await firestoreService.addTags(_tags);
+        // タグをマスターリストに追加 (冪等・fire-and-forget)
+        firestoreService.addTags(_tags).catchError((Object e) {});
 
+        final Future<void> writeFuture;
         if (widget.glaze == null) {
-          await firestoreService.addGlaze(glaze);
+          writeFuture = firestoreService.addGlaze(glaze);
         } else {
-          await firestoreService.updateGlaze(glaze);
+          writeFuture = firestoreService.updateGlaze(glaze);
         }
+        writeFuture.catchError((Object e) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(content: Text('保存に失敗しました: $e')),
+          );
+        });
 
-        if (mounted) {
-          _isDirty = false; // 保存成功でダーティ状態をリセット
-          // 1つ前の画面（詳細画面）に戻る
-          Navigator.of(context).pop();
-        }
+        _isDirty = false;
+        navigator.pop();
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
-        }
-      } finally {
-        if (mounted) {
-          setState(() => _isLoading = false);
+          scaffoldMessenger.showSnackBar(
+            SnackBar(content: Text('保存に失敗しました: $e')),
+          );
         }
       }
     }

@@ -25,7 +25,7 @@ class _FiringProfileEditScreenState
   late TextEditingController _reductionStartTempController;
   late TextEditingController _reductionEndTempController;
   bool _isReduction = false;
-  bool _isLoading = false;
+  final bool _isLoading = false;
   bool _isDirty = false;
 
   @override
@@ -67,8 +67,8 @@ class _FiringProfileEditScreenState
       return;
     }
 
-    setState(() => _isLoading = true);
     final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     try {
       final firestoreService = ref.read(firestoreServiceProvider);
@@ -81,23 +81,25 @@ class _FiringProfileEditScreenState
         reductionEndTemp: int.tryParse(_reductionEndTempController.text),
       );
 
+      final Future<void> writeFuture;
       if (widget.profile == null) {
-        await firestoreService.addFiringProfile(profile);
+        writeFuture = firestoreService.addFiringProfile(profile);
       } else {
-        await firestoreService.updateFiringProfile(profile);
+        writeFuture = firestoreService.updateFiringProfile(profile);
       }
+      writeFuture.catchError((Object e) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('保存に失敗しました: $e')),
+        );
+      });
 
       _isDirty = false;
       navigator.pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('保存に失敗しました: $e')),
+        );
       }
     }
   }

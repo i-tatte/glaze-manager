@@ -21,7 +21,7 @@ class _MaterialEditScreenState extends ConsumerState<MaterialEditScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late List<_ComponentController> _componentControllers;
-  bool _isLoading = false;
+  final bool _isLoading = false;
   bool _isDirty = false;
   late app.MaterialCategory _selectedCategory;
 
@@ -65,7 +65,9 @@ class _MaterialEditScreenState extends ConsumerState<MaterialEditScreen> {
 
   Future<void> _saveMaterial() async {
     if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
+      final navigator = Navigator.of(context);
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+
       try {
         final firestoreService = ref.read(firestoreServiceProvider);
         final componentsMap = {
@@ -74,8 +76,7 @@ class _MaterialEditScreenState extends ConsumerState<MaterialEditScreen> {
               c.name.text: double.tryParse(c.value.text) ?? 0.0,
         };
 
-        final navigator = Navigator.of(context);
-
+        final Future<void> writeFuture;
         if (widget.material == null) {
           // 新規作成
           final newMaterial = app.Material(
@@ -85,7 +86,7 @@ class _MaterialEditScreenState extends ConsumerState<MaterialEditScreen> {
             order: DateTime.now().millisecondsSinceEpoch,
             category: _selectedCategory, // UIで選択されたカテゴリを保存する
           );
-          await firestoreService.addMaterial(newMaterial);
+          writeFuture = firestoreService.addMaterial(newMaterial);
         } else {
           // 更新
           final updatedMaterial = app.Material(
@@ -95,22 +96,21 @@ class _MaterialEditScreenState extends ConsumerState<MaterialEditScreen> {
             order: widget.material!.order, // 順序は維持
             category: _selectedCategory,
           );
-          await firestoreService.updateMaterial(updatedMaterial);
+          writeFuture = firestoreService.updateMaterial(updatedMaterial);
         }
+        writeFuture.catchError((Object e) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(content: Text('保存に失敗しました: $e')),
+          );
+        });
 
-        if (mounted) {
-          _isDirty = false; // isDirtyはUI更新不要
-        }
-        navigator.pop(); // 成功したら画面を閉じる
+        _isDirty = false;
+        navigator.pop();
       } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
-      } finally {
-        // 成功・失敗にかかわらず、最後に必ずローディング状態を解除する
         if (mounted) {
-          setState(() => _isLoading = false);
+          scaffoldMessenger.showSnackBar(
+            SnackBar(content: Text('保存に失敗しました: $e')),
+          );
         }
       }
     }
