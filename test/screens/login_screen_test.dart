@@ -100,5 +100,21 @@ void main() {
         await tester.pumpAndSettle();
       },
     );
+
+    testWidgets('should show a SnackBar when sign-in fails (R-4)', (
+      WidgetTester tester,
+    ) async {
+      when(
+        mockAuthService.signInWithGoogle(),
+      ).thenThrow(Exception('network error'));
+
+      await tester.pumpWidget(createTestableWidget(const LoginScreen()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Googleでサインイン'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('サインインに失敗しました'), findsOneWidget);
+    });
   });
 }
