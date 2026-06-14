@@ -438,9 +438,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                   term.startsWith('-') && term.length > 1;
                               return Chip(
                                 avatar: Icon(
-                                  isNegative
-                                      ? Icons.block
-                                      : Icons.text_fields,
+                                  isNegative ? Icons.block : Icons.text_fields,
                                   size: 18,
                                   color: isNegative
                                       ? Theme.of(context).colorScheme.error
@@ -687,122 +685,123 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildRecentTestPieces(int crossAxisCount) {
-    final firestoreService = ref.read(firestoreServiceProvider);
-    return StreamBuilder<List<String>>(
-      stream: firestoreService.getRecentTestPieceIds(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('最近見たテストピースはありません。'));
-        }
+    return ref
+        .watch(recentTestPieceIdsProvider)
+        .when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stackTrace) =>
+              const Center(child: Text('最近見たテストピースはありません。')),
+          data: (recentIds) {
+            if (recentIds.isEmpty) {
+              return const Center(child: Text('最近見たテストピースはありません。'));
+            }
 
-        final recentIds = snapshot.data!;
-        final recentPieces = <TestPiece>[];
-        for (final id in recentIds) {
-          try {
-            final piece = _allTestPieces.firstWhere((p) => p.id == id);
-            recentPieces.add(piece);
-          } catch (e) {
-            // ignore
-          }
-        }
+            final recentPieces = <TestPiece>[];
+            for (final id in recentIds) {
+              try {
+                final piece = _allTestPieces.firstWhere((p) => p.id == id);
+                recentPieces.add(piece);
+              } catch (e) {
+                // ignore
+              }
+            }
 
-        if (recentPieces.isEmpty) {
-          return const Center(child: Text('最近見たテストピースはありません。'));
-        }
+            if (recentPieces.isEmpty) {
+              return const Center(child: Text('最近見たテストピースはありません。'));
+            }
 
-        return Container(
-          color: Theme.of(
-            context,
-          ).colorScheme.surfaceContainerLow, // 僅かに背景色を変える
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 12.0,
-                ),
-                child: Text(
-                  '最近見たテストピース',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              SizedBox(
-                height: 240, // カルーセルの高さ
-                child: Listener(
-                  onPointerSignal: (pointerSignal) {
-                    if (pointerSignal is PointerScrollEvent) {
-                      final newOffset =
-                          _recentItemsController.offset +
-                          pointerSignal.scrollDelta.dy;
-                      if (newOffset >= 0 &&
-                          newOffset <=
-                              _recentItemsController.position.maxScrollExtent) {
-                        _recentItemsController.jumpTo(newOffset);
-                      }
-                    }
-                  },
-                  child: ScrollConfiguration(
-                    behavior: ScrollConfiguration.of(context).copyWith(
-                      dragDevices: {
-                        ui.PointerDeviceKind.touch,
-                        ui.PointerDeviceKind.mouse,
-                      },
+            return Container(
+              color: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerLow, // 僅かに背景色を変える
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 12.0,
                     ),
-                    child: ListView.builder(
-                      controller: _recentItemsController,
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                      itemCount: recentPieces.length,
-                      itemBuilder: (context, index) {
-                        final testPiece = recentPieces[index];
-                        final glazeName =
-                            _glazeMap[testPiece.glazeId]?.name ?? '不明な釉薬';
-                        final clayName =
-                            _clayMap[testPiece.clayId]?.name ?? '不明な素地';
-                        final firingAtmosphere =
-                            _atmosphereMap[testPiece.firingAtmosphereId];
-                        final firingAtmosphereName =
-                            firingAtmosphere?.name ?? '不明な雰囲気';
-                        final firingAtmosphereType =
-                            firingAtmosphere?.type ??
-                            FiringAtmosphereType.other;
-                        final firingProfileName =
-                            _profileMap[testPiece.firingProfileId]?.name ??
-                            '不明なプロファイル';
-
-                        return SizedBox(
-                          width: 160, // カードの幅
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 4.0,
-                              vertical: 6.0,
-                            ),
-                            child: TestPieceCard(
-                              testPiece: testPiece,
-                              glazeName: glazeName,
-                              clayName: clayName,
-                              firingAtmosphereName: firingAtmosphereName,
-                              firingAtmosphereType: firingAtmosphereType,
-                              firingProfileName: firingProfileName,
-                            ),
-                          ),
-                        );
-                      },
+                    child: Text(
+                      '最近見たテストピース',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
+                  SizedBox(
+                    height: 240, // カルーセルの高さ
+                    child: Listener(
+                      onPointerSignal: (pointerSignal) {
+                        if (pointerSignal is PointerScrollEvent) {
+                          final newOffset =
+                              _recentItemsController.offset +
+                              pointerSignal.scrollDelta.dy;
+                          if (newOffset >= 0 &&
+                              newOffset <=
+                                  _recentItemsController
+                                      .position
+                                      .maxScrollExtent) {
+                            _recentItemsController.jumpTo(newOffset);
+                          }
+                        }
+                      },
+                      child: ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(context).copyWith(
+                          dragDevices: {
+                            ui.PointerDeviceKind.touch,
+                            ui.PointerDeviceKind.mouse,
+                          },
+                        ),
+                        child: ListView.builder(
+                          controller: _recentItemsController,
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                          itemCount: recentPieces.length,
+                          itemBuilder: (context, index) {
+                            final testPiece = recentPieces[index];
+                            final glazeName =
+                                _glazeMap[testPiece.glazeId]?.name ?? '不明な釉薬';
+                            final clayName =
+                                _clayMap[testPiece.clayId]?.name ?? '不明な素地';
+                            final firingAtmosphere =
+                                _atmosphereMap[testPiece.firingAtmosphereId];
+                            final firingAtmosphereName =
+                                firingAtmosphere?.name ?? '不明な雰囲気';
+                            final firingAtmosphereType =
+                                firingAtmosphere?.type ??
+                                FiringAtmosphereType.other;
+                            final firingProfileName =
+                                _profileMap[testPiece.firingProfileId]?.name ??
+                                '不明なプロファイル';
+
+                            return SizedBox(
+                              width: 160, // カードの幅
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4.0,
+                                  vertical: 6.0,
+                                ),
+                                child: TestPieceCard(
+                                  testPiece: testPiece,
+                                  glazeName: glazeName,
+                                  clayName: clayName,
+                                  firingAtmosphereName: firingAtmosphereName,
+                                  firingAtmosphereType: firingAtmosphereType,
+                                  firingProfileName: firingProfileName,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
-      },
-    );
   }
 
   Widget _buildSearchResults(int crossAxisCount) {
