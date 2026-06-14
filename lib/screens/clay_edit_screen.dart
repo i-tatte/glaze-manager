@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
     show ConsumerStatefulWidget, ConsumerState;
 import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
+import 'package:glaze_manager/widgets/common/unsaved_changes_pop_scope.dart';
+import 'package:glaze_manager/widgets/common/common_app_bar_actions.dart';
 
 class ClayEditScreen extends ConsumerStatefulWidget {
   final Clay? clay;
@@ -79,46 +81,17 @@ class _ClayEditScreenState extends ConsumerState<ClayEditScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !_isDirty,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('変更を破棄しますか？'),
-            content: const Text('入力中の内容は保存されません。'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('キャンセル'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('破棄', style: TextStyle(color: Colors.red)),
-              ),
-            ],
-          ),
-        );
-        if (confirmed == true && context.mounted) {
-          Navigator.of(context).pop();
-        }
-      },
+    return UnsavedChangesPopScope(
+      isDirty: _isDirty,
       child: Scaffold(
         appBar: AppBar(
           title: Text(widget.clay == null ? '素地土の新規作成' : '素地土の編集'),
           actions: [
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: CircularProgressIndicator(),
-              )
-            else
-              IconButton(
-                icon: const Icon(Icons.save),
-                tooltip: '保存',
-                onPressed: _saveClay,
-              ),
+            CommonAppBarActions(
+              isLoading: _isLoading,
+              onDelete: null,
+              onSave: _saveClay,
+            ),
           ],
         ),
         body: Form(
