@@ -52,8 +52,6 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final firestoreService = ref.read(firestoreServiceProvider);
-
     // 関連データはアプリスコープのプロバイダから取得 (一回読みを廃止)
     final glazesAsync = ref.watch(glazesProvider);
     final glazeMap = ref.watch(glazeMapProvider);
@@ -62,23 +60,25 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
     final atmosphereMap = ref.watch(firingAtmosphereMapProvider);
     final materials = ref.watch(materialsProvider).valueOrNull ?? [];
 
-    return StreamBuilder<TestPiece>(
-      stream: firestoreService.getTestPieceStream(widget.testPiece.id!),
-      builder: (context, testPieceSnapshot) {
-        if (testPieceSnapshot.connectionState == ConnectionState.waiting ||
-            glazesAsync.isLoading) {
+    final testPieceAsync = ref.watch(
+      testPieceByIdProvider(widget.testPiece.id!),
+    );
+
+    return testPieceAsync.when(
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (error, stackTrace) => Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: Text('テストピースデータの読み込みに失敗しました。')),
+      ),
+      data: (testPiece) {
+        // 関連コレクションがまだロード中ならスピナー (旧 glazesAsync.isLoading 条件)
+        if (glazesAsync.isLoading) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        if (testPieceSnapshot.hasError || !testPieceSnapshot.hasData) {
-          return Scaffold(
-            appBar: AppBar(),
-            body: const Center(child: Text('テストピースデータの読み込みに失敗しました。')),
-          );
-        }
 
-        final testPiece = testPieceSnapshot.data!;
         final Glaze? glaze = glazeMap[testPiece.glazeId];
         final Clay? clay = clayMap[testPiece.clayId];
         final FiringProfile? firingProfile = testPiece.firingProfileId != null
