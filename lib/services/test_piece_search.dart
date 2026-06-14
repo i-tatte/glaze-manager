@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart' hide ColorSwatch;
+import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/clay.dart';
-import 'package:glaze_manager/models/color_swatch.dart';
+import 'package:glaze_manager/models/lab_color.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
@@ -113,7 +113,7 @@ List<TestPiece> filterTestPieces({
 
   // 3. 色検索 & ソート
   if (color != null) {
-    final targetColorSwatch = ColorSwatch.fromColor(color);
+    final targetLabColor = LabColor.fromColor(color);
     final List<(TestPiece, double)> matchedPieces = [];
 
     for (final testPiece in filtered) {
@@ -123,7 +123,7 @@ List<TestPiece> filterTestPieces({
 
       double minDeltaE = double.infinity;
       for (final swatch in testPiece.colorData!) {
-        final deltaE = targetColorSwatch.deltaE(swatch);
+        final deltaE = targetLabColor.deltaE(swatch);
         if (deltaE < minDeltaE) {
           minDeltaE = deltaE;
         }
