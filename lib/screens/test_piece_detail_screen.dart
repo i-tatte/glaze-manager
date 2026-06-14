@@ -1,11 +1,11 @@
 import 'dart:ui' as ui;
 import 'dart:typed_data';
-import 'package:flutter/rendering.dart' hide ColorSwatch;
+import 'package:flutter/rendering.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart' hide ColorSwatch;
+import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/clay.dart';
-import 'package:glaze_manager/models/color_swatch.dart';
+import 'package:glaze_manager/models/lab_color.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
@@ -462,7 +462,7 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
   }
 
   /// 色見本ウィジェットを生成
-  Widget _buildColorSwatches(List<ColorSwatch> colorData) {
+  Widget _buildColorSwatches(List<LabColor> colorData) {
     final significantColors = colorData
         .where((x) => x.percentage > 5.0)
         .toList();

@@ -1,21 +1,21 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
-class ColorSwatch {
+class LabColor {
   final double l;
   final double a;
   final double b;
   final double percentage;
 
-  ColorSwatch({
+  LabColor({
     required this.l,
     required this.a,
     required this.b,
     required this.percentage,
   });
 
-  factory ColorSwatch.fromMap(Map<String, dynamic> map) {
-    return ColorSwatch(
+  factory LabColor.fromMap(Map<String, dynamic> map) {
+    return LabColor(
       l: (map['L'] as num?)?.toDouble() ?? 0.0,
       a: (map['a'] as num?)?.toDouble() ?? 0.0,
       b: (map['b'] as num?)?.toDouble() ?? 0.0,
@@ -28,7 +28,7 @@ class ColorSwatch {
   }
 
   /// 2つのLab色間の色差(ΔE)をCIE76式で計算する
-  double deltaE(ColorSwatch other) {
+  double deltaE(LabColor other) {
     final deltaL = l - other.l;
     final deltaA = a - other.a;
     final deltaB = b - other.b;
@@ -73,7 +73,7 @@ class ColorSwatch {
   }
 
   /// FlutterのColor (sRGB) からLab値を生成する
-  factory ColorSwatch.fromColor(Color color) {
+  factory LabColor.fromColor(Color color) {
     // Step 1: sRGB to XYZ
     double r = color.r;
     double g = color.g;
@@ -105,6 +105,6 @@ class ColorSwatch {
     final a = 500 * (x - y);
     final bVal = 200 * (y - z);
 
-    return ColorSwatch(l: l, a: a, b: bVal, percentage: 0);
+    return LabColor(l: l, a: a, b: bVal, percentage: 0);
   }
 }

@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/models/test_piece.dart';
-import 'package:glaze_manager/models/color_swatch.dart';
+import 'package:glaze_manager/models/lab_color.dart';
 
 void main() {
   group('TestPiece Model Test', () {
@@ -17,7 +17,7 @@ void main() {
         note: 'Test description',
         createdAt: now,
         additionalGlazeIds: ['g2'],
-        colorData: [ColorSwatch(l: 50, a: 10, b: 20, percentage: 0.5)],
+        colorData: [LabColor(l: 50, a: 10, b: 20, percentage: 0.5)],
       );
       final map = testPiece.toFirestore();
       expect(map['glazeId'], 'g1');
@@ -67,7 +67,7 @@ void main() {
 
     test('constructor copies collections defensively (R-7)', () {
       final additionalGlazeIds = ['g2'];
-      final colorData = [ColorSwatch(l: 50, a: 10, b: 20, percentage: 0.5)];
+      final colorData = [LabColor(l: 50, a: 10, b: 20, percentage: 0.5)];
       final testPiece = TestPiece(
         glazeId: 'g1',
         clayId: 'c1',
@@ -78,7 +78,7 @@ void main() {
 
       // コンストラクタに渡したリストを後から変更してもモデルに影響しない
       additionalGlazeIds.add('g3');
-      colorData.add(ColorSwatch(l: 0, a: 0, b: 0, percentage: 0));
+      colorData.add(LabColor(l: 0, a: 0, b: 0, percentage: 0));
 
       expect(testPiece.additionalGlazeIds, ['g2']);
       expect(testPiece.colorData!.length, 1);

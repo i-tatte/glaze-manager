@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart' hide ColorSwatch;
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/models/clay.dart';
-import 'package:glaze_manager/models/color_swatch.dart';
+import 'package:glaze_manager/models/lab_color.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
@@ -24,7 +24,7 @@ Glaze _glaze(
   );
 }
 
-TestPiece _piece(String id, String glazeId, {List<ColorSwatch>? colorData}) {
+TestPiece _piece(String id, String glazeId, {List<LabColor>? colorData}) {
   return TestPiece(
     id: id,
     glazeId: glazeId,
@@ -136,12 +136,12 @@ void main() {
       final near = _piece(
         'near',
         'g1',
-        colorData: [ColorSwatch.fromColor(const Color(0xFFFF0000))],
+        colorData: [LabColor.fromColor(const Color(0xFFFF0000))],
       );
       final far = _piece(
         'far',
         'g2',
-        colorData: [ColorSwatch.fromColor(const Color(0xFF0000FF))], // blue
+        colorData: [LabColor.fromColor(const Color(0xFF0000FF))], // blue
       );
       final result = _filter(
         pieces: [far, near],
@@ -157,12 +157,12 @@ void main() {
       final near = _piece(
         'near',
         'g1',
-        colorData: [ColorSwatch.fromColor(const Color(0xFFFF0000))],
+        colorData: [LabColor.fromColor(const Color(0xFFFF0000))],
       );
       final far = _piece(
         'far',
         'g2',
-        colorData: [ColorSwatch.fromColor(const Color(0xFF0000FF))],
+        colorData: [LabColor.fromColor(const Color(0xFF0000FF))],
       );
       final result = _filter(
         pieces: [near, far],
@@ -178,7 +178,7 @@ void main() {
       final withColor = _piece(
         'withColor',
         'g1',
-        colorData: [ColorSwatch.fromColor(const Color(0xFFFF0000))],
+        colorData: [LabColor.fromColor(const Color(0xFFFF0000))],
       );
       final withoutColor = _piece('withoutColor', 'g2'); // colorData == null
       final result = _filter(

@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' as rp show Consumer;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/models/clay.dart';
-import 'package:glaze_manager/models/color_swatch.dart' as cs;
+import 'package:glaze_manager/models/lab_color.dart' as cs;
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
@@ -320,7 +320,7 @@ void main() {
 
         const targetColor = Color(0xFFFF0000);
         // 検索色とまったく同じ Lab を持つスウォッチ → ΔE=0 で必ずマッチする
-        final swatch = cs.ColorSwatch.fromColor(targetColor);
+        final swatch = cs.LabColor.fromColor(targetColor);
 
         final glazes = [
           Glaze(

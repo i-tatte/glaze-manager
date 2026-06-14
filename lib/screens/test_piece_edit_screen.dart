@@ -3,8 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:glaze_manager/models/clay.dart';
-import 'package:glaze_manager/models/color_swatch.dart';
-import 'package:flutter/material.dart' hide ColorSwatch;
+import 'package:glaze_manager/models/lab_color.dart';
+import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
@@ -50,7 +50,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
   String? _newImageFileName; // 新しく生成されたファイル名
   Uint8List? _newImageBytes; // 新しく生成された画像のバイトデータ
   String? _networkImageUrl; // 既存の画像のURL
-  List<ColorSwatch> _colorData = []; // 編集用の色データ
+  List<LabColor> _colorData = []; // 編集用の色データ
 
   bool _isLoading = false;
   bool _isDirty = false;
@@ -66,7 +66,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
     _selectedFiringAtmosphereId = widget.testPiece?.firingAtmosphereId;
     _selectedFiringProfileId = widget.testPiece?.firingProfileId;
     _networkImageUrl = widget.testPiece?.imageUrl;
-    _colorData = List<ColorSwatch>.from(widget.testPiece?.colorData ?? []);
+    _colorData = List<LabColor>.from(widget.testPiece?.colorData ?? []);
     _noteController.text = widget.testPiece?.note ?? '';
 
     _noteController.addListener(_markAsDirty);
@@ -101,8 +101,8 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
       final newFileName = '$uuid$extension';
 
       // ファイル名とバイトデータを受け取る
-      final cropResult =
-          await Navigator.of(context).push<({String fileName, Uint8List bytes})>(
+      final cropResult = await Navigator.of(context)
+          .push<({String fileName, Uint8List bytes})>(
             MaterialPageRoute(
               builder: (context) =>
                   ImageCropScreen(image: image, outputFileName: newFileName),
@@ -155,7 +155,8 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
       final hasNewImage = _newImageFileName != null && _newImageBytes != null;
 
       // 新規作成時もアップロードパスにドキュメントIDを含めるため、先にIDを確定する
-      final docId = widget.testPiece?.id ?? firestoreService.createTestPieceId();
+      final docId =
+          widget.testPiece?.id ?? firestoreService.createTestPieceId();
 
       String? imagePath;
       // 新規画像がある場合、アップロード先のパスを事前に決定
@@ -180,7 +181,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
         thumbnailUrl: widget.testPiece?.thumbnailUrl, // 既存のURLを維持
         firingAtmosphereId: _selectedFiringAtmosphereId,
         // 新規画像がある場合はCloud Functionの色解析結果で上書きされるため空にする
-        colorData: hasNewImage ? [] : List<ColorSwatch>.of(_colorData),
+        colorData: hasNewImage ? [] : List<LabColor>.of(_colorData),
         firingProfileId: _selectedFiringProfileId,
         note: _noteController.text.trim().isEmpty
             ? null
@@ -621,7 +622,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
     return [
       Text('テストピースの色', style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 8),
-      _buildColorSwatches(),
+      _buildLabColores(),
       const SizedBox(height: 8),
       OutlinedButton.icon(
         icon: const Icon(Icons.add),
@@ -632,7 +633,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
   }
 
   /// 色見本ウィジェットを生成
-  Widget _buildColorSwatches() {
+  Widget _buildLabColores() {
     if (_colorData.isEmpty) {
       return const Text('色が登録されていません。');
     }
@@ -690,12 +691,10 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
 
     if (confirmed == true) {
       // RGB to Lab 変換
-      final lab = ColorSwatch.fromColor(selectedColor);
+      final lab = LabColor.fromColor(selectedColor);
       setState(() {
         // percentageは手動追加では0とする
-        _colorData.add(
-          ColorSwatch(l: lab.l, a: lab.a, b: lab.b, percentage: 0),
-        );
+        _colorData.add(LabColor(l: lab.l, a: lab.a, b: lab.b, percentage: 0));
         _markAsDirty();
       });
     }
