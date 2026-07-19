@@ -5,6 +5,7 @@ import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/screens/firing_atmosphere_edit_screen.dart';
+import 'package:glaze_manager/widgets/common/empty_list_placeholder.dart';
 
 class FiringAtmosphereListScreen extends ConsumerWidget {
   const FiringAtmosphereListScreen({super.key});
@@ -24,11 +25,8 @@ class FiringAtmosphereListScreen extends ConsumerWidget {
             error: (error, _) => Center(child: Text('エラーが発生しました: $error')),
             data: (atmospheres) {
               if (atmospheres.isEmpty) {
-                return const Center(
-                  child: Text(
-                    '焼成雰囲気が登録されていません。\n右下のボタンから追加してください。',
-                    textAlign: TextAlign.center,
-                  ),
+                return const EmptyListPlaceholder(
+                  message: '焼成雰囲気が登録されていません。\n右下のボタンから追加してください。',
                 );
               }
 

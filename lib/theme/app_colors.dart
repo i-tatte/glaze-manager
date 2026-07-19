@@ -7,7 +7,9 @@ class AppColors {
   static const Color lightPrimary = Color(0xFF6D5E56);
   static const Color lightSecondary = Color(0xFFA89F91);
   static const Color lightTextPrimary = Color(0xFF2D2A26);
-  static const Color lightTextSecondary = Color(0xFF75706B);
+  // 補助テキスト。背景 lightBackground (0xFFF9F7F5) に対して
+  // WCAG AA (4.5:1) を満たすコントラストを維持すること。
+  static const Color lightTextSecondary = Color(0xFF5C5751);
   static const Color lightError = Color(0xFFBA1A1A);
 
   // Dark Mode Colors

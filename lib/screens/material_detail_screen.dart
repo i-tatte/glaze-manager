@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
 import 'package:glaze_manager/models/material.dart' as app;
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/material_edit_screen.dart';
+import 'package:glaze_manager/widgets/common/material_category_chip.dart';
+import 'package:glaze_manager/widgets/common/striped_data_table.dart';
 
 class MaterialDetailScreen extends ConsumerStatefulWidget {
   final app.Material material;
@@ -37,18 +39,7 @@ class _MaterialDetailScreenState extends ConsumerState<MaterialDetailScreen> {
                   child: Text(material.name, overflow: TextOverflow.ellipsis),
                 ),
                 const SizedBox(width: 8),
-                Chip(
-                  label: Text(material.category.displayName),
-                  labelStyle: const TextStyle(color: Colors.white),
-                  backgroundColor:
-                      material.category == app.MaterialCategory.pigment
-                      ? Colors.pink
-                      : material.category == app.MaterialCategory.additive
-                      ? Colors.blue
-                      : Colors.green,
-                  padding: const EdgeInsets.symmetric(horizontal: 3.0),
-                  visualDensity: VisualDensity.compact,
-                ),
+                MaterialCategoryChip(category: material.category),
               ],
             ),
             actions: [
@@ -74,33 +65,15 @@ class _MaterialDetailScreenState extends ConsumerState<MaterialDetailScreen> {
               if (material.components.isEmpty)
                 const Text('化学成分が登録されていません。')
               else
-                DataTable(
-                  columns: const [
-                    DataColumn(label: Text('成分名')),
-                    DataColumn(label: Text('量 (%)'), numeric: true),
-                  ],
+                StripedDataTable(
+                  columnLabels: const ['成分名', '量 (%)'],
                   rows: material.components.entries
-                      .toList()
-                      .asMap()
-                      .entries
-                      .map((indexedEntry) {
-                        final index = indexedEntry.key;
-                        final entry = indexedEntry.value;
-                        return DataRow(
-                          color: WidgetStateProperty.resolveWith<Color?>((
-                            states,
-                          ) {
-                            if (index.isEven) {
-                              return Colors.grey.withValues(alpha: 0.1);
-                            }
-                            return null;
-                          }),
-                          cells: [
-                            DataCell(Text(entry.key)),
-                            DataCell(Text(entry.value.toString())),
-                          ],
-                        );
-                      })
+                      .map(
+                        (entry) => StripedDataRow([
+                          entry.key,
+                          entry.value.toString(),
+                        ]),
+                      )
                       .toList(),
                 ),
             ],

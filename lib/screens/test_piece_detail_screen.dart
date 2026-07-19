@@ -2,7 +2,6 @@ import 'dart:ui' as ui;
 import 'dart:typed_data';
 import 'package:flutter/rendering.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/lab_color.dart';
@@ -17,6 +16,9 @@ import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
 import 'package:glaze_manager/screens/mixing_calculator_screen.dart';
 import 'package:glaze_manager/widgets/firing_chart.dart';
 import 'package:glaze_manager/screens/search_screen.dart';
+import 'package:glaze_manager/widgets/common/app_network_image.dart';
+import 'package:glaze_manager/widgets/common/info_tile.dart';
+import 'package:glaze_manager/widgets/common/recipe_table.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     show ConsumerStatefulWidget, ConsumerState, AsyncValueX;
 
@@ -225,27 +227,11 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
                         : null,
                     child: RepaintBoundary(
                       key: _imageKey,
-                      child: (testPiece.imageUrl != null)
-                          ? CachedNetworkImage(
-                              imageUrl: testPiece.imageUrl!,
-                              fit: BoxFit.contain,
-                              placeholder: (context, url) => const Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                              errorWidget: (context, url, error) => const Icon(
-                                Icons.broken_image_outlined,
-                                size: 50,
-                                color: Colors.grey,
-                              ),
-                            )
-                          : Container(
-                              color: Colors.grey[200],
-                              child: const Icon(
-                                Icons.photo,
-                                size: 60,
-                                color: Colors.grey,
-                              ),
-                            ),
+                      child: AppNetworkImage(
+                        url: testPiece.imageUrl,
+                        fit: BoxFit.contain,
+                        iconSize: 60,
+                      ),
                     ),
                   ),
                   Positioned(
@@ -342,13 +328,13 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            _buildRecipeTable(glaze.recipe, materials),
+            RecipeTable(recipe: glaze.recipe, materials: materials),
             const Divider(height: 32),
           ],
 
-          _buildInfoTile(
-            '釉薬名 (メイン)',
-            glaze.name, // glazeはnullでないことが確認済み
+          InfoTile(
+            label: '釉薬名 (メイン)',
+            value: glaze.name, // glazeはnullでないことが確認済み
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -382,10 +368,10 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
               ),
             ),
           ],
-          _buildInfoTile('素地土名', clay?.name ?? '未設定'),
-          _buildInfoTile(
-            '焼成雰囲気',
-            firingAtmosphere?.name ?? '未設定',
+          InfoTile(label: '素地土名', value: clay?.name ?? '未設定'),
+          InfoTile(
+            label: '焼成雰囲気',
+            value: firingAtmosphere?.name ?? '未設定',
             tooltip: '焼成時の窯の雰囲気（酸化・還元など）です。',
           ),
           const Divider(height: 32),
@@ -414,7 +400,7 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
                 firingProfile.curveData!.isNotEmpty)
               FiringChart(curveData: firingProfile.curveData!),
           ] else
-            _buildInfoTile('焼成プロファイル', '未設定'),
+            const InfoTile(label: '焼成プロファイル', value: '未設定'),
 
           if (testPiece.note != null && testPiece.note!.isNotEmpty) ...[
             const Divider(height: 32),
@@ -424,40 +410,6 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
           ],
         ],
       ),
-    );
-  }
-
-  Widget _buildRecipeTable(
-    Map<String, double> recipe,
-    List<m.Material> materials,
-  ) {
-    if (recipe.isEmpty) return const SizedBox.shrink();
-
-    final materialMap = {for (var m in materials) m.id!: m.name};
-    final sortedEntries = recipe.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value)); // 量の多い順
-
-    return Table(
-      border: TableBorder.all(color: Colors.grey.shade300),
-      columnWidths: const {0: FlexColumnWidth(2), 1: FlexColumnWidth(1)},
-      children: sortedEntries.map((entry) {
-        final materialName = materialMap[entry.key] ?? '不明な原料';
-        return TableRow(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(materialName),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(
-                '${entry.value.toStringAsFixed(1)}g',
-                textAlign: TextAlign.right,
-              ),
-            ),
-          ],
-        );
-      }).toList(),
     );
   }
 
@@ -491,54 +443,6 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
           ),
         );
       }).toList(),
-    );
-  }
-
-  Widget _buildInfoTile(
-    String label,
-    String value, {
-    VoidCallback? onTap,
-    String? tooltip,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(label, style: Theme.of(context).textTheme.labelLarge),
-              if (tooltip != null) ...[
-                const SizedBox(width: 4),
-                Tooltip(
-                  message: tooltip,
-                  triggerMode: TooltipTriggerMode.tap,
-                  child: const Icon(
-                    Icons.info_outline,
-                    size: 16,
-                    color: Colors.grey,
-                  ),
-                ),
-              ],
-            ],
-          ),
-          InkWell(
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4.0),
-              child: Text(
-                value,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: onTap != null
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
-                  decoration: onTap != null ? TextDecoration.underline : null,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -705,14 +609,10 @@ class _FullScreenImageScreenState extends State<_FullScreenImageScreen> {
                     panEnabled: true,
                     minScale: 0.8,
                     maxScale: 4.0,
-                    child: CachedNetworkImage(
-                      imageUrl: widget.testPiece.imageUrl!,
+                    child: AppNetworkImage(
+                      url: widget.testPiece.imageUrl,
                       fit: BoxFit.contain,
-                      placeholder: (context, url) =>
-                          const Center(child: CircularProgressIndicator()),
-                      errorWidget: (context, url, error) => const Center(
-                        child: Icon(Icons.error, color: Colors.red, size: 50),
-                      ),
+                      iconSize: 50,
                     ),
                   ),
                 ),

@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
-import 'package:glaze_manager/services/settings_service.dart';
 import 'package:glaze_manager/widgets/test_piece_grid.dart';
 import 'package:glaze_manager/widgets/common/empty_list_placeholder.dart';
-import 'package:provider/provider.dart' show WatchContext;
 
 class TestPieceListScreen extends ConsumerStatefulWidget {
   final PageStorageKey? pageStorageKey;
@@ -33,7 +31,7 @@ class TestPieceListScreenState extends ConsumerState<TestPieceListScreen> {
     final clayMap = ref.watch(clayMapProvider);
     final atmosphereMap = ref.watch(firingAtmosphereMapProvider);
     final profileMap = ref.watch(firingProfileMapProvider);
-    final crossAxisCount = context.watch<SettingsService>().gridCrossAxisCount;
+    final crossAxisCount = ref.watch(settingsServiceProvider).gridCrossAxisCount;
 
     return Scaffold(
       body: Stack(

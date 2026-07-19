@@ -90,7 +90,7 @@
 
 ---
 
-## R-14 🛑 provider パッケージの完全撤去（`SettingsService` / `AuthService` の Riverpod 化）
+## R-14 ✅ provider パッケージの完全撤去 — **実施済み (2026-07-20)**
 
 ### 現状
 - `lib/main.dart` の `MultiProvider` で `ChangeNotifierProvider<SettingsService>` と
@@ -137,17 +137,15 @@
 
 ---
 
-## R-15 🛑 オフライン時の保存 UX
+## R-15 ✅ オフライン時の保存 UX — **実施済み (2026-06-15, `2c82f71` / `1c10c8a`)**
 
 ### 現状
-- すべての保存フローが Firestore 書き込みを `await` する
-  （例: `glaze_edit_screen.dart` の `_saveGlaze`、`clay_edit_screen.dart` `_saveClay`、
-  `test_piece_edit_screen.dart` `_saveTestPiece`）。
-- `cloud_firestore` の write `Future` は**サーバー ACK まで完了しない**仕様。
-  オフラインでは書き込みはローカルキューに乗り、リスナー（プロバイダ）には即反映されるが、
-  `await` は解決されないため、**保存ボタンが無限スピナーのまま画面が pop されない**可能性が高い。
-- `README` はオフライン編集を必須要件としており、矛盾しうる（`refactor-instructions.md` §9 Q2）。
-- **本リファクタではコードを変更していない**（要オーナー確認）。
+- ~~すべての保存フローが Firestore 書き込みを `await` する~~
+- **全 6 編集画面で楽観的 pop を実装済み。** 書き込み Future を await せず即 `navigator.pop()` し、
+  失敗時はルートの `ScaffoldMessenger` で SnackBar 通知。
+- テストピースは §2.3 順序制約を `writeFuture.then(() => upload)` の Future チェーンで維持
+  （サーバー ACK 後にアップロード開始、UI はブロックしない）。
+- 不要になった `_isLoading` フィールドを 6 画面から削除、`CommonAppBarActions.isLoading` をデフォルト `false` に変更。
 
 ### 選択肢（オーナーの Q2 回答後に 1 つを選ぶ）
 1. **楽観的 pop**: 書き込みの `Future` を `await` せず（`unawaited`）に即 pop。失敗はルートの
@@ -182,12 +180,12 @@
 
 ---
 
-## R-16 🔶 Cloud Functions（`functions/main.py`）の細部 — **モジュール分割のみ実施済み (2026-06-15, `e2600db`)**
+## R-16 ✅ Cloud Functions（`functions/main.py`）の細部 — **完了 (`e2600db` / `1ca6ea6`)**
 
 ### 現状
 - ~~引き継ぎコード処理と画像パイプラインが 1 ファイルに同居。~~ → **`transfer_codes.py` / `image_pipeline.py` に分割済み。エミュレータで 3 関数の正常ロードを確認。**
-- `firebaseStorageDownloadTokens` メタデータの手動生成（非公式 API 依存、計画書 M-9）は未対応。
-- 色解析パラメータ（K-Means のクラスタ数・サムネイル 200px 等）のハードコードは未対応。
+- ~~`firebaseStorageDownloadTokens` メタデータの手動生成（非公式 API 依存）。~~ → **`_make_download_url` ヘルパーに集約、`urllib.parse.quote` で URL エンコーディングを正規化。**
+- ~~色解析パラメータ（K-Means のクラスタ数・サムネイル 200px 等）のハードコード。~~ → **モジュール定数 (`THUMBNAIL_SIZE`, `ANALYSIS_RESIZE`, `K_INIT`, `MERGE_THRESHOLD`, `LIGHTNESS_WEIGHT`, `CROP_CENTER_RATIO`) に抽出。**
 
 ### 選択肢
 1. 現状維持。
@@ -216,7 +214,7 @@
 
 | 質問 | 内容 | 本リファクタでの扱い |
 |---|---|---|
-| **Q1** | `firestore.indexes.json` はデプロイ済みか（複合インデックス前提のサーバーソート） | **リポジトリからは確認不能**。コードは変更せず、最終報告で再掲（要オーナー確認）。 |
-| **Q2** | オフライン保存は完了するか（R-15） | 実機確認待ち。再現する場合の方針は R-15 の「楽観的 pop」を推奨。**承認まで実装しない。** |
+| **Q1** | `firestore.indexes.json` はデプロイ済みか（複合インデックス前提のサーバーソート） | **✅ デプロイ確認済み (2026-06-15)。** `firebase deploy --only firestore:indexes` で反映。本番側に未管理インデックスが 1 件あり（削除不要）。 |
+| **Q2** | オフライン保存は完了するか（R-15） | **✅ Android 実機で無限スピナー再現確認。楽観的 pop で解決済み (`2c82f71`)。** |
 | **Q3** | `FirestoreService` ファサードは維持でよいか（R-12） | **✅ 維持で確定。** オーナー承認済み。 |
 | **Q4** | `ColorSwatch` → `LabColor` リネーム実施可否（R-13） | **✅ 実施済み。** `7bac40f` で完了。シリアライズキー不変・analyze/test 全パス。 |

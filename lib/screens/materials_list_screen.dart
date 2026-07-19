@@ -7,6 +7,7 @@ import 'package:glaze_manager/screens/material_edit_screen.dart';
 import 'package:glaze_manager/screens/material_detail_screen.dart';
 import 'package:glaze_manager/widgets/common/common_search_bar.dart';
 import 'package:glaze_manager/widgets/common/empty_list_placeholder.dart';
+import 'package:glaze_manager/widgets/common/material_category_chip.dart';
 
 class MaterialsListScreen extends ConsumerStatefulWidget {
   final PageStorageKey? pageStorageKey;
@@ -253,97 +254,90 @@ class MaterialsListScreenState extends ConsumerState<MaterialsListScreen> {
   }
 
   /// 通常表示用のタイル
+  /// 釉薬一覧と同じ「Card + ListTile」方式 (見た目はcardThemeで一元管理)
   Widget _buildNormalTile(BuildContext context, app.Material material) {
-    return ListTile(
-      title: Row(
-        children: [
-          Text(material.name),
-          const SizedBox(width: 8),
-          Chip(
-            label: Text(
-              material.category.displayName,
-              style: const TextStyle(fontSize: 12, color: Colors.white),
+    return Card(
+      child: ListTile(
+        title: Row(
+          children: [
+            Text(material.name),
+            const SizedBox(width: 8),
+            MaterialCategoryChip(category: material.category),
+          ],
+        ),
+        subtitle: Text(
+          material.components.keys.join(', '),
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => MaterialDetailScreen(material: material),
             ),
-            backgroundColor: material.category == app.MaterialCategory.pigment
-                ? Colors.pink
-                : material.category == app.MaterialCategory.additive
-                ? Colors.blue
-                : Colors.green,
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-          ),
-        ],
+          );
+        },
       ),
-      subtitle: Text(
-        material.components.keys.join(', '),
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => MaterialDetailScreen(material: material),
-          ),
-        );
-      },
     );
   }
 
-  /// 編集モード用のタイル
+  /// 編集モード用のタイル (通常タイルと同じCard囲みで表示の連続性を保つ)
   Widget _buildEditableTile(BuildContext context, app.Material material) {
     final firestoreService = ref.read(firestoreServiceProvider);
-    return ListTile(
+    return Card(
       key: ValueKey(material.id),
-      leading: IconButton(
-        icon: const Icon(Icons.remove_circle, color: Colors.red),
-        onPressed: () async {
-          // この原料を使用している釉薬の数を集計して警告に含める
-          final glazes = await ref.read(glazesProvider.future);
-          final usedCount = glazes
-              .where((g) => g.recipe.containsKey(material.id))
-              .length;
-          final warning = usedCount > 0
-              ? '\n\nこの原料は$usedCount件の釉薬のレシピで使用されています。\n削除すると、それらのレシピでは「不明な原料」と表示されます。'
-              : '';
+      child: ListTile(
+        leading: IconButton(
+          icon: const Icon(Icons.remove_circle, color: Colors.red),
+          onPressed: () async {
+            // この原料を使用している釉薬の数を集計して警告に含める
+            final glazes = await ref.read(glazesProvider.future);
+            final usedCount = glazes
+                .where((g) => g.recipe.containsKey(material.id))
+                .length;
+            final warning = usedCount > 0
+                ? '\n\nこの原料は$usedCount件の釉薬のレシピで使用されています。\n削除すると、それらのレシピでは「不明な原料」と表示されます。'
+                : '';
 
-          if (!context.mounted) return;
-          // 削除確認ダイアログ
-          final confirmed = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('削除の確認'),
-              content: Text('「${material.name}」を本当に削除しますか？$warning'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('キャンセル'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('削除'),
-                ),
-              ],
+            if (!context.mounted) return;
+            // 削除確認ダイアログ
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('削除の確認'),
+                content: Text('「${material.name}」を本当に削除しますか？$warning'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('キャンセル'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('削除'),
+                  ),
+                ],
+              ),
+            );
+            if (confirmed == true) {
+              await firestoreService.deleteMaterial(material.id!);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('「${material.name}」を削除しました。')),
+                );
+              }
+            }
+          },
+        ),
+        title: Text(material.name),
+        trailing: const Icon(Icons.edit_note),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => MaterialEditScreen(material: material),
             ),
           );
-          if (confirmed == true) {
-            await firestoreService.deleteMaterial(material.id!);
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('「${material.name}」を削除しました。')),
-              );
-            }
-          }
         },
       ),
-      title: Text(material.name),
-      trailing: const Icon(Icons.edit_note),
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => MaterialEditScreen(material: material),
-          ),
-        );
-      },
     );
   }
 }

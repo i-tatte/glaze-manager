@@ -1,19 +1,19 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:glaze_manager/services/auth_service.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 
 enum AuthFormType { login, register }
 
-class EmailPasswordLoginScreen extends StatefulWidget {
+class EmailPasswordLoginScreen extends ConsumerStatefulWidget {
   const EmailPasswordLoginScreen({super.key});
 
   @override
-  State<EmailPasswordLoginScreen> createState() =>
+  ConsumerState<EmailPasswordLoginScreen> createState() =>
       _EmailPasswordLoginScreenState();
 }
 
-class _EmailPasswordLoginScreenState extends State<EmailPasswordLoginScreen> {
+class _EmailPasswordLoginScreenState extends ConsumerState<EmailPasswordLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -43,7 +43,7 @@ class _EmailPasswordLoginScreenState extends State<EmailPasswordLoginScreen> {
 
     final navigator = Navigator.of(context);
     try {
-      final authService = context.read<AuthService>();
+      final authService = ref.read(authServiceProvider);
       final email = _emailController.text.trim();
       final password = _passwordController.text.trim();
 

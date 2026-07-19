@@ -1,9 +1,9 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/screens/test_piece_detail_screen.dart';
-import 'package:glaze_manager/theme/app_colors.dart';
+import 'package:glaze_manager/theme/atmosphere_card_color.dart';
+import 'package:glaze_manager/widgets/common/app_network_image.dart';
 
 class TestPieceCard extends StatelessWidget {
   // TestPieceオブジェクトと、それに関連する釉薬名を受け取る
@@ -26,25 +26,10 @@ class TestPieceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    Color? cardColor;
-
-    // 焼成雰囲気による色分け
-    switch (firingAtmosphereType) {
-      case FiringAtmosphereType.oxidation:
-        cardColor = isDark
-            ? AppColors.oxidationCardDark
-            : AppColors.oxidationCardLight;
-        break;
-      case FiringAtmosphereType.reduction:
-        cardColor = isDark
-            ? AppColors.reductionCardDark
-            : AppColors.reductionCardLight;
-        break;
-      case FiringAtmosphereType.other:
-        cardColor = null; // デフォルト色
-        break;
-    }
+    // 焼成雰囲気による色分け (nullの場合はテーマのデフォルト)
+    final cardColor = firingAtmosphereType.cardColor(
+      Theme.of(context).brightness,
+    );
 
     return Card(
       clipBehavior: Clip.antiAlias, // カードの角を丸くするために必要
@@ -69,32 +54,8 @@ class TestPieceCard extends StatelessWidget {
               aspectRatio: 1.0,
               child: Hero(
                 tag: 'testPieceImage_${testPiece.id}',
-                child: Builder(
-                  builder: (context) {
-                    final displayUrl =
-                        testPiece.thumbnailUrl ?? testPiece.imageUrl;
-                    if (displayUrl == null) {
-                      return Container(
-                        color: Colors.grey[200],
-                        child: const Icon(
-                          Icons.photo,
-                          size: 40,
-                          color: Colors.grey,
-                        ),
-                      );
-                    }
-                    return CachedNetworkImage(
-                      imageUrl: displayUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) =>
-                          const Center(child: CircularProgressIndicator()),
-                      errorWidget: (context, url, error) => const Icon(
-                        Icons.broken_image,
-                        size: 40,
-                        color: Colors.grey,
-                      ),
-                    );
-                  },
+                child: AppNetworkImage(
+                  url: testPiece.thumbnailUrl ?? testPiece.imageUrl,
                 ),
               ),
             ),

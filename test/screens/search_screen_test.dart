@@ -1,7 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
-import 'package:flutter_riverpod/flutter_riverpod.dart' as rp show Consumer;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/models/clay.dart';
@@ -12,10 +11,7 @@ import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as m;
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/screens/search_screen.dart';
-import 'package:glaze_manager/services/firestore_service.dart';
-import 'package:glaze_manager/services/settings_service.dart';
 import 'package:mockito/mockito.dart';
-import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'main_tab_screen_test.mocks.dart';
@@ -42,16 +38,9 @@ void main() {
         authStateChangesProvider.overrideWith(
           (ref) => Stream<User?>.value(null),
         ),
+        settingsServiceProvider.overrideWith((_) => mockSettingsService),
       ],
-      child: MultiProvider(
-        providers: [
-          Provider<FirestoreService>(create: (_) => mockFirestoreService),
-          ChangeNotifierProvider<SettingsService>.value(
-            value: mockSettingsService,
-          ),
-        ],
-        child: MaterialApp(home: child),
-      ),
+      child: MaterialApp(home: child),
     );
   }
 
@@ -373,7 +362,7 @@ void main() {
         // provider は既に値を持っており、ref.listen は発火しない。
         await tester.pumpWidget(
           createTestableWidget(
-            rp.Consumer(
+            Consumer(
               builder: (context, ref, _) {
                 ref.watch(testPiecesProvider);
                 return Scaffold(

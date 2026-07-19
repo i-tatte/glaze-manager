@@ -8,12 +8,23 @@ import 'package:glaze_manager/screens/glaze_detail_screen.dart';
 import 'package:glaze_manager/widgets/tag_management_widget.dart';
 import 'package:glaze_manager/widgets/common/common_search_bar.dart';
 import 'package:glaze_manager/widgets/common/empty_list_placeholder.dart';
+import 'package:glaze_manager/widgets/common/tag_chip.dart';
 
 enum SortOption { name, createdAt }
 
 class GlazeListScreen extends ConsumerStatefulWidget {
   final PageStorageKey? pageStorageKey;
-  const GlazeListScreen({super.key, this.pageStorageKey});
+
+  /// 初期状態で適用するタグフィルタ。
+  /// タブ外から単独画面としてpushされる文脈 (釉薬詳細のタグタップ等) で使う。
+  /// 空でない場合はタブ内表示ではないため、自前のAppBarを表示する。
+  final List<String> initialTags;
+
+  const GlazeListScreen({
+    super.key,
+    this.pageStorageKey,
+    this.initialTags = const [],
+  });
 
   @override
   ConsumerState<GlazeListScreen> createState() => GlazeListScreenState();
@@ -30,6 +41,7 @@ class GlazeListScreenState extends ConsumerState<GlazeListScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedTags.addAll(widget.initialTags);
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -278,6 +290,10 @@ class GlazeListScreenState extends ConsumerState<GlazeListScreen> {
     final allTags = ref.watch(tagsProvider).valueOrNull ?? <String>[];
 
     return Scaffold(
+      // タブ内表示ではタイトルはMainTabScreenのAppBarが担う
+      appBar: widget.initialTags.isEmpty
+          ? null
+          : AppBar(title: const Text('釉薬一覧')),
       body: Stack(
         children: [
           Column(
@@ -323,15 +339,13 @@ class GlazeListScreenState extends ConsumerState<GlazeListScreen> {
                         const SizedBox(width: 8),
                     itemBuilder: (context, index) {
                       final tag = _selectedTags[index];
-                      return Chip(
-                        label: Text(tag),
+                      return TagChip(
+                        label: tag,
                         onDeleted: () {
                           setState(() {
                             _selectedTags.remove(tag);
                           });
                         },
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
                       );
                     },
                   ),
@@ -383,33 +397,7 @@ class GlazeListScreenState extends ConsumerState<GlazeListScreen> {
                                         spacing: 4.0,
                                         runSpacing: 4.0,
                                         children: glaze.tags
-                                            .map(
-                                              (tag) => Chip(
-                                                label: Text(
-                                                  tag,
-                                                  style: TextStyle(
-                                                    color: Theme.of(
-                                                      context,
-                                                    ).colorScheme.onPrimary,
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                                backgroundColor: Theme.of(
-                                                  context,
-                                                ).colorScheme.primary,
-                                                visualDensity:
-                                                    VisualDensity.compact,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 4.0,
-                                                    ),
-                                                side: BorderSide.none,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
-                                                ),
-                                              ),
-                                            )
+                                            .map((tag) => TagChip(label: tag))
                                             .toList(),
                                       ),
                                     ),

@@ -8,6 +8,7 @@ import 'package:dropdown_search/dropdown_search.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:glaze_manager/widgets/common/unsaved_changes_pop_scope.dart';
 import 'package:glaze_manager/widgets/common/common_app_bar_actions.dart';
+import 'package:glaze_manager/widgets/common/tag_chip.dart';
 
 class GlazeEditScreen extends ConsumerStatefulWidget {
   final Glaze? glaze;
@@ -383,8 +384,8 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           ..._tags.map(
-            (tag) => Chip(
-              label: Text(tag),
+            (tag) => TagChip(
+              label: tag,
               onDeleted: () {
                 setState(() {
                   _tags.remove(tag);

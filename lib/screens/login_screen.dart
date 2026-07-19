@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/services/auth_service.dart';
-import 'package:provider/provider.dart';
 import 'package:glaze_manager/screens/email_password_login_screen.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
 // サインイン方法を識別するためのenum
 enum AuthMethod { anonymous, google }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _isLoading = false;
 
   @override
@@ -171,7 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
+      final authService = ref.read(authServiceProvider);
       await authService.signInWithTransferCode(code);
       // 成功時はAuthWrapperが画面遷移をハンドルする
     } on TransferCodeException catch (e) {
@@ -245,7 +246,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
+      final authService = ref.read(authServiceProvider);
       switch (method) {
         case AuthMethod.anonymous:
           await authService.signInAnonymously();

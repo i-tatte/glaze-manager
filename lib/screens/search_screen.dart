@@ -2,22 +2,20 @@ import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    show ConsumerStatefulWidget, ConsumerState, AsyncValueX;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
-import 'package:glaze_manager/services/settings_service.dart';
 import 'package:glaze_manager/services/test_piece_search.dart';
+import 'package:glaze_manager/widgets/common/tag_chip.dart';
 import 'package:glaze_manager/widgets/test_piece_grid.dart';
 import 'package:glaze_manager/widgets/tag_management_widget.dart';
 import 'package:glaze_manager/widgets/test_piece_card.dart';
 import 'package:glaze_manager/widgets/test_piece_list_tile.dart';
 import 'package:glaze_manager/screens/test_piece_detail_screen.dart';
-import 'package:provider/provider.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   final PageStorageKey? pageStorageKey;
@@ -275,7 +273,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final crossAxisCount = context.watch<SettingsService>().gridCrossAxisCount;
+    final crossAxisCount = ref.watch(settingsServiceProvider).gridCrossAxisCount;
     final testPiecesAsync = ref.watch(testPiecesProvider);
 
     // データ更新で再ビルドさせるための監視。
@@ -389,9 +387,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           },
                         ),
                       ..._selectedTags.map((tag) {
-                        return Chip(
-                          avatar: const Icon(Icons.label, size: 18),
-                          label: Text(tag),
+                        return TagChip(
+                          label: tag,
                           onDeleted: () {
                             setState(() {
                               _selectedTags.remove(tag);

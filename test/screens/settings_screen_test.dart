@@ -1,11 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/settings_screen.dart';
-import 'package:glaze_manager/services/auth_service.dart';
-import 'package:glaze_manager/services/settings_service.dart';
 import 'package:mockito/mockito.dart';
-import 'package:provider/provider.dart';
 
 import 'main_tab_screen_test.mocks.dart';
 
@@ -29,12 +28,10 @@ void main() {
   });
 
   Widget createTestableWidget(Widget child) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider<SettingsService>.value(
-          value: mockSettingsService,
-        ),
-        Provider<AuthService>.value(value: mockAuthService),
+    return ProviderScope(
+      overrides: [
+        settingsServiceProvider.overrideWith((_) => mockSettingsService),
+        authServiceProvider.overrideWithValue(mockAuthService),
       ],
       child: MaterialApp(home: Scaffold(body: child)),
     );

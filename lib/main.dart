@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:glaze_manager/screens/auth_wrapper.dart';
-import 'package:glaze_manager/services/auth_service.dart';
-import 'package:glaze_manager/services/settings_service.dart';
-import 'firebase_options.dart'; // flutterfire configure で生成されたファイル
-import 'package:provider/provider.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'firebase_options.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
+import 'package:glaze_manager/screens/auth_wrapper.dart';
 import 'package:glaze_manager/theme/app_theme.dart';
+import 'package:glaze_manager/widgets/common/mouse_back_listener.dart';
+
+/// マウスの戻るボタンからNavigatorを操作するためのルートNavigatorキー
+final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   // Flutterのウィジェットバインディングを初期化
@@ -23,42 +25,32 @@ void main() async {
     persistenceEnabled: true,
   );
 
-  // Riverpod (新データ層) と provider (既存サービス) は移行期間中併用する
-  runApp(const ProviderScope(child: AppProviders()));
+  runApp(const ProviderScope(child: GlazeManagerApp()));
 }
 
-class AppProviders extends StatelessWidget {
-  const AppProviders({super.key});
+class GlazeManagerApp extends ConsumerWidget {
+  const GlazeManagerApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        // FirestoreService / StorageService は Riverpod
-        // (lib/providers/data_providers.dart) に移行済み。
-        // SettingsService / AuthService は移行が済むまで provider で提供する。
-        ChangeNotifierProvider<SettingsService>(
-          create: (_) => SettingsService(),
-        ),
-        Provider<AuthService>(create: (_) => AuthService()),
-      ],
-      child: Consumer<SettingsService>(
-        builder: (context, settings, child) {
-          return MaterialApp(
-            title: 'Glaze Manager',
-            theme: AppTheme.light,
-            darkTheme: AppTheme.dark,
-            themeMode: settings.themeMode,
-            home: const AuthWrapper(),
-            localizationsDelegates: const [
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            supportedLocales: const [Locale('ja', 'JP')],
-          );
-        },
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsServiceProvider);
+    return MaterialApp(
+      title: 'Glaze Manager',
+      navigatorKey: _rootNavigatorKey,
+      builder: (context, child) => MouseBackListener(
+        navigatorKey: _rootNavigatorKey,
+        child: child!,
       ),
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: settings.themeMode,
+      home: const AuthWrapper(),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('ja', 'JP')],
     );
   }
 }

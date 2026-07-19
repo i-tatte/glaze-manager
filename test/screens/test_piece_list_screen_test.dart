@@ -1,6 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
@@ -9,9 +9,7 @@ import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/test_piece_list_screen.dart';
-import 'package:glaze_manager/services/settings_service.dart';
 import 'package:mockito/mockito.dart';
-import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'main_tab_screen_test.mocks.dart';
@@ -35,21 +33,13 @@ void main() {
   Widget createTestableWidget(Widget child) {
     return ProviderScope(
       overrides: [
-        // データ層はモックのFirestoreServiceから供給する
         firestoreServiceProvider.overrideWithValue(mockFirestoreService),
-        // 実Firebaseに触れないよう認証ストリームを差し替える
         authStateChangesProvider.overrideWith(
           (ref) => Stream<User?>.value(null),
         ),
+        settingsServiceProvider.overrideWith((_) => mockSettingsService),
       ],
-      child: MultiProvider(
-        providers: [
-          ChangeNotifierProvider<SettingsService>.value(
-            value: mockSettingsService,
-          ),
-        ],
-        child: MaterialApp(home: child),
-      ),
+      child: MaterialApp(home: child),
     );
   }
 

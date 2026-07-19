@@ -90,7 +90,8 @@ void main() {
       expect(find.text('Test Description'), findsOneWidget);
       expect(find.text('tag1'), findsOneWidget);
       expect(find.text('Material 1'), findsOneWidget);
-      expect(find.text('50.0'), findsOneWidget);
+      // RecipeTable は整数値を小数点なしで表示する
+      expect(find.text('50'), findsOneWidget);
       expect(find.text('テストピース'), findsOneWidget);
     });
   });

@@ -1,155 +1,147 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/services/auth_service.dart';
-import 'package:glaze_manager/services/settings_service.dart';
 import 'package:glaze_manager/screens/firing_profile_list_screen.dart';
-import 'package:provider/provider.dart';
 import 'package:glaze_manager/screens/clay_list_screen.dart';
 import 'package:glaze_manager/screens/firing_atmosphere_list_screen.dart';
 import 'package:glaze_manager/screens/help_screen.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends ConsumerWidget {
   final PageStorageKey? pageStorageKey;
   const SettingsScreen({super.key, this.pageStorageKey});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<SettingsService>(
-      builder: (context, settings, child) {
-        return ListView(
-          children: [
-            const _SectionHeader(title: 'アカウント'),
-            const _AccountSection(),
-            const Divider(),
-            const _SectionHeader(title: '表示'),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsServiceProvider);
+    return ListView(
+      children: [
+        const _SectionHeader(title: 'アカウント'),
+        const _AccountSection(),
+        const Divider(),
+        const _SectionHeader(title: '表示'),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Column(
+            children: [
+              _GridCountSlider(
+                key: ValueKey(settings.gridCrossAxisCount),
+                initialValue: settings.gridCrossAxisCount,
+                maxValue: settings.maxGridCrossAxisCount,
+                onChanged: (newValue) {
+                  settings.setGridCrossAxisCount(newValue);
+                },
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _GridCountSlider(
-                    key: ValueKey(settings.gridCrossAxisCount),
-                    initialValue: settings.gridCrossAxisCount,
-                    maxValue: settings.maxGridCrossAxisCount,
-                    onChanged: (newValue) {
-                      settings.setGridCrossAxisCount(newValue);
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('テーマ'),
-                      SizedBox(
-                        width: 200, // 幅を制限してバランスを取る
-                        child: InputDecorator(
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
+                  const Text('テーマ'),
+                  SizedBox(
+                    width: 200,
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        isDense: true,
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<ThemeMode>(
+                          value: settings.themeMode,
+                          isExpanded: true,
+                          onChanged: (ThemeMode? newMode) {
+                            if (newMode != null) {
+                              settings.setThemeMode(newMode);
+                            }
+                          },
+                          items: const [
+                            DropdownMenuItem(
+                              value: ThemeMode.system,
+                              child: Text('システム設定に従う'),
                             ),
-                            isDense: true,
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<ThemeMode>(
-                              value: settings.themeMode,
-                              isExpanded: true,
-                              onChanged: (ThemeMode? newMode) {
-                                if (newMode != null) {
-                                  settings.setThemeMode(newMode);
-                                }
-                              },
-                              items: const [
-                                DropdownMenuItem(
-                                  value: ThemeMode.system,
-                                  child: Text('システム設定に従う'),
-                                ),
-                                DropdownMenuItem(
-                                  value: ThemeMode.light,
-                                  child: Text('ライトモード'),
-                                ),
-                                DropdownMenuItem(
-                                  value: ThemeMode.dark,
-                                  child: Text('ダークモード'),
-                                ),
-                              ],
+                            DropdownMenuItem(
+                              value: ThemeMode.light,
+                              child: Text('ライトモード'),
                             ),
-                          ),
+                            DropdownMenuItem(
+                              value: ThemeMode.dark,
+                              child: Text('ダークモード'),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
-            ),
-            const Divider(),
-            const _SectionHeader(title: 'データ管理'),
-            ListTile(
-              title: const Text('焼成プロファイルの管理'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const FiringProfileListScreen(),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              title: const Text('焼成雰囲気の管理'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const FiringAtmosphereListScreen(),
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              title: const Text('素地土名の管理'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const ClayListScreen(),
-                  ),
-                );
-              },
-            ),
-            const Divider(),
-            const _SectionHeader(title: 'サポート'),
-            ListTile(
-              title: const Text('ヘルプ / FAQ'),
-              trailing: const Icon(Icons.help_outline),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const HelpScreen()),
-                );
-              },
-            ),
-          ],
-        );
-      },
+            ],
+          ),
+        ),
+        const Divider(),
+        const _SectionHeader(title: 'データ管理'),
+        ListTile(
+          title: const Text('焼成プロファイルの管理'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const FiringProfileListScreen(),
+              ),
+            );
+          },
+        ),
+        ListTile(
+          title: const Text('焼成雰囲気の管理'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const FiringAtmosphereListScreen(),
+              ),
+            );
+          },
+        ),
+        ListTile(
+          title: const Text('素地土名の管理'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const ClayListScreen(),
+              ),
+            );
+          },
+        ),
+        const Divider(),
+        const _SectionHeader(title: 'サポート'),
+        ListTile(
+          title: const Text('ヘルプ / FAQ'),
+          trailing: const Icon(Icons.help_outline),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => const HelpScreen()),
+            );
+          },
+        ),
+      ],
     );
   }
 }
 
 /// アカウント状態の表示と、匿名アカウントの連携・引き継ぎコード発行を行うセクション
-class _AccountSection extends StatefulWidget {
+class _AccountSection extends ConsumerStatefulWidget {
   const _AccountSection();
 
   @override
-  State<_AccountSection> createState() => _AccountSectionState();
+  ConsumerState<_AccountSection> createState() => _AccountSectionState();
 }
 
-class _AccountSectionState extends State<_AccountSection> {
+class _AccountSectionState extends ConsumerState<_AccountSection> {
   bool _isBusy = false;
 
   String _describeUser(User user) {
@@ -167,7 +159,7 @@ class _AccountSectionState extends State<_AccountSection> {
 
   @override
   Widget build(BuildContext context) {
-    final authService = context.read<AuthService>();
+    final authService = ref.watch(authServiceProvider);
     return StreamBuilder<User?>(
       stream: authService.user,
       builder: (context, snapshot) {
@@ -222,7 +214,7 @@ class _AccountSectionState extends State<_AccountSection> {
   }
 
   Future<void> _linkWithGoogle() async {
-    final authService = context.read<AuthService>();
+    final authService = ref.read(authServiceProvider);
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _isBusy = true);
     try {
@@ -306,7 +298,7 @@ class _AccountSectionState extends State<_AccountSection> {
 
     if (confirmed != true || !mounted) return;
 
-    final authService = context.read<AuthService>();
+    final authService = ref.read(authServiceProvider);
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _isBusy = true);
     try {
@@ -327,7 +319,7 @@ class _AccountSectionState extends State<_AccountSection> {
   }
 
   Future<void> _issueTransferCode() async {
-    final authService = context.read<AuthService>();
+    final authService = ref.read(authServiceProvider);
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _isBusy = true);
     try {

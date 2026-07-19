@@ -1,6 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/models/clay.dart';
@@ -17,7 +17,6 @@ import 'package:glaze_manager/services/settings_service.dart';
 import 'package:glaze_manager/services/storage_service.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
-import 'package:provider/provider.dart';
 
 import 'main_tab_screen_test.mocks.dart';
 
@@ -28,14 +27,12 @@ void main() {
   // モックオブジェクトのインスタンスを作成
   late MockAuthService mockAuthService;
   late MockFirestoreService mockFirestoreService;
-  late MockStorageService mockStorageService;
   late MockSettingsService mockSettingsService;
 
   // 各テストの前に実行されるセットアップ処理
   setUp(() {
     mockAuthService = MockAuthService();
     mockFirestoreService = MockFirestoreService();
-    mockStorageService = MockStorageService();
     mockSettingsService = MockSettingsService();
 
     // モックのデフォルトの振る舞いを設定
@@ -63,10 +60,8 @@ void main() {
     ).thenAnswer((_) => Stream.value(<FiringProfile>[]));
 
     // SettingsServiceのgetterをスタブ
-    when(mockSettingsService.gridCrossAxisCount).thenReturn(4); // デフォルト値として4を設定
-    when(
-      mockSettingsService.maxGridCrossAxisCount,
-    ).thenReturn(10); // デフォルト値として10を設定
+    when(mockSettingsService.gridCrossAxisCount).thenReturn(4);
+    when(mockSettingsService.maxGridCrossAxisCount).thenReturn(10);
     when(mockSettingsService.themeMode).thenReturn(ThemeMode.system);
 
     // ChangeNotifierのメソッドをスタブ
@@ -87,18 +82,10 @@ void main() {
         authStateChangesProvider.overrideWith(
           (ref) => Stream<User?>.value(null),
         ),
+        settingsServiceProvider.overrideWith((_) => mockSettingsService),
+        authServiceProvider.overrideWithValue(mockAuthService),
       ],
-      child: MultiProvider(
-        providers: [
-          ChangeNotifierProvider<SettingsService>(
-            create: (_) => mockSettingsService,
-          ),
-          Provider<AuthService>(create: (_) => mockAuthService),
-          Provider<FirestoreService>(create: (_) => mockFirestoreService),
-          Provider<StorageService>(create: (_) => mockStorageService),
-        ],
-        child: MaterialApp(home: child),
-      ),
+      child: MaterialApp(home: child),
     );
   }
 

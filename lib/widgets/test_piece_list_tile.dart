@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/test_piece.dart';
-import 'package:glaze_manager/theme/app_colors.dart';
+import 'package:glaze_manager/theme/atmosphere_card_color.dart';
+import 'package:glaze_manager/widgets/common/app_network_image.dart';
 
 class TestPieceListTile extends StatelessWidget {
   final TestPiece testPiece;
@@ -25,23 +26,10 @@ class TestPieceListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    Color? cardColor;
-    switch (firingAtmosphereType) {
-      case FiringAtmosphereType.oxidation:
-        cardColor = isDark
-            ? AppColors.oxidationCardDark
-            : AppColors.oxidationCardLight;
-        break;
-      case FiringAtmosphereType.reduction:
-        cardColor = isDark
-            ? AppColors.reductionCardDark
-            : AppColors.reductionCardLight;
-        break;
-      case FiringAtmosphereType.other:
-        cardColor = null;
-        break;
-    }
+    // 焼成雰囲気による色分け (nullの場合はテーマのデフォルト)
+    final cardColor = firingAtmosphereType.cardColor(
+      Theme.of(context).brightness,
+    );
 
     return Card(
       color: cardColor,
@@ -56,25 +44,13 @@ class TestPieceListTile extends StatelessWidget {
               // Thumbnail (80pxの表示にはサムネイルで十分。原寸は詳細画面のみ)
               ClipRRect(
                 borderRadius: BorderRadius.circular(8.0),
-                child: (testPiece.thumbnailUrl ?? testPiece.imageUrl) != null
-                    ? Image.network(
-                        (testPiece.thumbnailUrl ?? testPiece.imageUrl)!,
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          width: 80,
-                          height: 80,
-                          color: Colors.grey[300],
-                          child: const Icon(Icons.broken_image),
-                        ),
-                      )
-                    : Container(
-                        width: 80,
-                        height: 80,
-                        color: Colors.grey[300],
-                        child: const Icon(Icons.image),
-                      ),
+                child: SizedBox(
+                  width: 80,
+                  height: 80,
+                  child: AppNetworkImage(
+                    url: testPiece.thumbnailUrl ?? testPiece.imageUrl,
+                  ),
+                ),
               ),
               const SizedBox(width: 16),
               // Details

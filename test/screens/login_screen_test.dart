@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/login_screen.dart';
-import 'package:glaze_manager/services/auth_service.dart';
 import 'package:mockito/mockito.dart';
-import 'package:provider/provider.dart';
 
 import 'main_tab_screen_test.mocks.dart';
 
@@ -28,8 +28,8 @@ void main() {
   });
 
   Widget createTestableWidget(Widget child) {
-    return Provider<AuthService>(
-      create: (_) => mockAuthService,
+    return ProviderScope(
+      overrides: [authServiceProvider.overrideWithValue(mockAuthService)],
       child: MaterialApp(home: child),
     );
   }

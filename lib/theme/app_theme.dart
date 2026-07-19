@@ -68,7 +68,9 @@ class AppTheme {
           fontWeight: FontWeight.w600,
         ),
         bodyLarge: TextStyle(color: AppColors.lightTextPrimary),
-        bodyMedium: TextStyle(color: AppColors.lightTextSecondary),
+        // bodyMedium はFlutterの本文デフォルトスタイル (DataTableの中身や
+        // ListTileのsubtitle等)。補助色ではなく主文字色で視認性を確保する。
+        bodyMedium: TextStyle(color: AppColors.lightTextPrimary),
         bodySmall: TextStyle(color: AppColors.lightTextSecondary),
         labelLarge: TextStyle(
           color: AppColors.lightTextPrimary,
@@ -169,7 +171,8 @@ class AppTheme {
           fontWeight: FontWeight.w600,
         ),
         bodyLarge: TextStyle(color: AppColors.darkTextPrimary),
-        bodyMedium: TextStyle(color: AppColors.darkTextSecondary),
+        // ライトテーマと同じ理由で bodyMedium は主文字色にする。
+        bodyMedium: TextStyle(color: AppColors.darkTextPrimary),
         bodySmall: TextStyle(color: AppColors.darkTextSecondary),
         labelLarge: TextStyle(
           color: AppColors.darkTextPrimary,

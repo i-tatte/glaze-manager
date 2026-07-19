@@ -5,6 +5,7 @@ import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/screens/firing_profile_edit_screen.dart';
+import 'package:glaze_manager/widgets/common/empty_list_placeholder.dart';
 
 class FiringProfileListScreen extends ConsumerWidget {
   const FiringProfileListScreen({super.key});
@@ -24,11 +25,8 @@ class FiringProfileListScreen extends ConsumerWidget {
             error: (error, _) => Center(child: Text('エラーが発生しました: $error')),
             data: (profiles) {
               if (profiles.isEmpty) {
-                return const Center(
-                  child: Text(
-                    '焼成プロファイルが登録されていません。\n右下のボタンから追加してください。',
-                    textAlign: TextAlign.center,
-                  ),
+                return const EmptyListPlaceholder(
+                  message: '焼成プロファイルが登録されていません。\n右下のボタンから追加してください。',
                 );
               }
 

@@ -5,9 +5,13 @@ import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as app;
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/glaze_edit_screen.dart';
-import 'package:glaze_manager/screens/material_detail_screen.dart';
+import 'package:glaze_manager/screens/glaze_list_screen.dart';
 import 'package:glaze_manager/screens/mixing_calculator_screen.dart';
 import 'package:glaze_manager/screens/test_piece_detail_screen.dart';
+import 'package:glaze_manager/widgets/common/app_network_image.dart';
+import 'package:glaze_manager/widgets/common/info_tile.dart';
+import 'package:glaze_manager/widgets/common/recipe_table.dart';
+import 'package:glaze_manager/widgets/common/tag_chip.dart';
 
 class GlazeDetailScreen extends ConsumerWidget {
   final Glaze glaze;
@@ -77,7 +81,7 @@ class GlazeDetailScreen extends ConsumerWidget {
         const SizedBox(height: 8),
         if (glaze.registeredName != null &&
             glaze.registeredName!.isNotEmpty) ...[
-          _buildInfoTile(context, '登録名', glaze.registeredName!),
+          InfoTile(label: '登録名', value: glaze.registeredName!),
           const Divider(height: 32),
         ],
         if (glaze.tags.isNotEmpty) ...[
@@ -85,7 +89,7 @@ class GlazeDetailScreen extends ConsumerWidget {
           const Divider(height: 32),
         ],
         if (glaze.description != null && glaze.description!.isNotEmpty) ...[
-          _buildInfoTile(context, '備考', glaze.description!),
+          InfoTile(label: '備考', value: glaze.description!),
           const Divider(height: 32),
         ],
         Row(
@@ -121,48 +125,7 @@ class GlazeDetailScreen extends ConsumerWidget {
         if (glaze.recipe.isEmpty)
           const Text('レシピが登録されていません。')
         else
-          DataTable(
-            columns: const [
-              DataColumn(label: Text('原料')),
-              DataColumn(label: Text('配合(g)'), numeric: true),
-            ],
-            rows: glaze.recipe.entries.toList().asMap().entries.map((
-              indexedEntry,
-            ) {
-              final index = indexedEntry.key;
-              final entry = indexedEntry.value;
-              final materialName =
-                  materialMap[entry.key] ?? '不明な原料(ID:${entry.key})';
-              return DataRow(
-                color: WidgetStateProperty.resolveWith<Color?>((states) {
-                  if (index.isOdd) {
-                    return Colors.grey.withAlpha(25); // 0.1 * 255
-                  }
-                  return null; // 偶数行はデフォルト
-                }),
-                cells: [
-                  DataCell(Text(materialName)),
-                  DataCell(Text(entry.value.toString())),
-                ],
-                onSelectChanged: (value) {
-                  // 原料詳細画面へ遷移
-                  final materialIndex = materials.indexWhere(
-                    (m) => m.id == entry.key,
-                  );
-                  if (materialIndex != -1) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => MaterialDetailScreen(
-                          material: materials[materialIndex],
-                        ),
-                      ),
-                    );
-                  }
-                },
-              );
-            }).toList(),
-            showCheckboxColumn: false,
-          ),
+          RecipeTable(recipe: glaze.recipe, materials: materials),
         const SizedBox(height: 24),
         const Divider(height: 32),
         _buildTestPiecesSection(context, ref, glaze.id!),
@@ -220,46 +183,14 @@ class GlazeDetailScreen extends ConsumerWidget {
                                   aspectRatio: 1,
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(8.0),
-                                    child: Builder(
-                                      builder: (context) {
-                                        final url =
-                                            (testPiece.thumbnailUrl != null &&
-                                                testPiece
-                                                    .thumbnailUrl!
-                                                    .isNotEmpty)
-                                            ? testPiece.thumbnailUrl
-                                            : testPiece.imageUrl;
-                                        if (url != null && url.isNotEmpty) {
-                                          return Image.network(
-                                            url,
-                                            fit: BoxFit.cover,
-                                            loadingBuilder:
-                                                (
-                                                  context,
-                                                  child,
-                                                  loadingProgress,
-                                                ) {
-                                                  if (loadingProgress == null) {
-                                                    return child;
-                                                  }
-                                                  return const Center(
-                                                    child:
-                                                        CircularProgressIndicator(),
-                                                  );
-                                                },
-                                            errorBuilder:
-                                                (context, error, stackTrace) {
-                                                  return const Icon(
-                                                    Icons.error,
-                                                  );
-                                                },
-                                          );
-                                        } else {
-                                          return const Icon(
-                                            Icons.image_not_supported,
-                                          );
-                                        }
-                                      },
+                                    child: AppNetworkImage(
+                                      url:
+                                          (testPiece.thumbnailUrl != null &&
+                                              testPiece
+                                                  .thumbnailUrl!
+                                                  .isNotEmpty)
+                                          ? testPiece.thumbnailUrl
+                                          : testPiece.imageUrl,
                                     ),
                                   ),
                                 ),
@@ -277,20 +208,6 @@ class GlazeDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildInfoTile(BuildContext context, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 4),
-          Text(value, style: Theme.of(context).textTheme.bodyLarge),
-        ],
-      ),
-    );
-  }
-
   Widget _buildTagsSection(BuildContext context, List<String> tags) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -303,9 +220,17 @@ class GlazeDetailScreen extends ConsumerWidget {
             spacing: 8.0,
             runSpacing: 4.0,
             children: tags.map((tag) {
-              return Chip(
-                label: Text(tag, style: const TextStyle(color: Colors.white)),
-                backgroundColor: Theme.of(context).primaryColor,
+              // タップでそのタグのフィルタを適用した釉薬一覧へ
+              return TagChip(
+                label: tag,
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          GlazeListScreen(initialTags: [tag]),
+                    ),
+                  );
+                },
               );
             }).toList(),
           ),

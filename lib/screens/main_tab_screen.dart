@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:glaze_manager/services/app_exit.dart';
 import 'package:glaze_manager/screens/glaze_list_screen.dart';
 import 'package:glaze_manager/screens/materials_list_screen.dart';
 import 'package:glaze_manager/screens/settings_screen.dart';
 import 'package:glaze_manager/screens/search_screen.dart';
 import 'package:glaze_manager/screens/test_piece_list_screen.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'
-    show ConsumerStatefulWidget, ConsumerState;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/services/glaze_import_service.dart';
-import 'package:glaze_manager/services/auth_service.dart';
-import 'package:provider/provider.dart' show ReadContext;
 
 /// タブの識別子。位置 (インデックス) ではなくこの値で分岐することで、
 /// タブの追加・並び替えに強くする。
@@ -56,6 +54,12 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
 
   // PageStorageKeyを管理するためのバケット
   final PageStorageBucket _bucket = PageStorageBucket();
+
+  // 「もう一度戻るで終了」の判定用。前回の戻る操作の時刻。
+  DateTime? _lastBackPressed;
+
+  /// 2回目の戻る操作をこの時間内に行うとアプリを終了する
+  static const _backExitWindow = Duration(seconds: 2);
 
   _MainTab get _selectedTab => _tabs[_selectedIndex].tab;
 
@@ -124,6 +128,30 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
         screen: SettingsScreen(pageStorageKey: PageStorageKey('settings')),
       ),
     ];
+  }
+
+  /// 戻るジェスチャの制御。
+  /// テストピース一覧以外のタブでは、まずテストピース一覧タブへ戻る。
+  /// テストピース一覧では1回目でトーストを出し、2秒以内の2回目で終了する。
+  void _handleBackGesture() {
+    if (_selectedTab != _MainTab.testPieces) {
+      _onItemTapped(_tabs.indexWhere((t) => t.tab == _MainTab.testPieces));
+      return;
+    }
+    final now = DateTime.now();
+    if (_lastBackPressed != null &&
+        now.difference(_lastBackPressed!) <= _backExitWindow) {
+      exitApp();
+      return;
+    }
+    _lastBackPressed = now;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('もう一度戻るとアプリを終了します'),
+        duration: _backExitWindow,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   void _onItemTapped(int index) {
@@ -320,7 +348,7 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
       ),
     );
     if (confirmed == true && mounted) {
-      await context.read<AuthService>().signOut();
+      await ref.read(authServiceProvider).signOut();
     }
   }
 
@@ -336,20 +364,27 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
             onInvoke: (RefreshIntent intent) => _handleRefresh(),
           ),
         },
-        child: Scaffold(
-          appBar: AppBar(
-            title: Text(_tabs[_selectedIndex].title),
-            actions: _buildAppBarActions(),
-          ),
-          body: PageStorage(
-            bucket: _bucket,
-            child: _tabs[_selectedIndex].screen,
-          ),
-          bottomNavigationBar: BottomNavigationBar(
-            items: _tabs.map((t) => t.navItem).toList(),
-            currentIndex: _selectedIndex,
-            onTap: _onItemTapped,
-            type: BottomNavigationBarType.fixed, // タブが4つ以上でもレイアウトを維持
+        child: PopScope(
+          // popさせずに自前で「タブを戻る → 2回戻るで終了」を制御する
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _handleBackGesture();
+          },
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text(_tabs[_selectedIndex].title),
+              actions: _buildAppBarActions(),
+            ),
+            body: PageStorage(
+              bucket: _bucket,
+              child: _tabs[_selectedIndex].screen,
+            ),
+            bottomNavigationBar: BottomNavigationBar(
+              items: _tabs.map((t) => t.navItem).toList(),
+              currentIndex: _selectedIndex,
+              onTap: _onItemTapped,
+              type: BottomNavigationBarType.fixed, // タブが4つ以上でもレイアウトを維持
+            ),
           ),
         ),
       ),
