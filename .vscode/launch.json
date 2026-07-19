@@ -5,21 +5,30 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "glaze_manager",
-            "request": "launch",
-            "type": "dart"
-        },
-        {
-            "name": "glaze_manager (profile mode)",
+            "name": "Android",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "profile"
+            "args": ["--dart-define-from-file=firebase_config.json"]
         },
         {
-            "name": "glaze_manager (release mode)",
+            "name": "Windows",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "release"
+            "args": ["-d", "windows", "--dart-define-from-file=firebase_config.json"]
+        },
+        {
+            "name": "Android (release)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release",
+            "args": ["--dart-define-from-file=firebase_config.json"]
+        },
+        {
+            "name": "Windows (release)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release",
+            "args": ["-d", "windows", "--dart-define-from-file=firebase_config.json"]
         }
     ]
 }

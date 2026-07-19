@@ -26,13 +26,17 @@
 
 - Flutter SDK ^3.9.2
 - Firebase プロジェクト（Blaze プラン）
-- `lib/firebase_options.dart`（`flutterfire configure` で生成）
+
+### Firebase 設定
+
+1. `firebase_config.example.json` を `firebase_config.json` にコピー
+2. [Firebase Console](https://console.firebase.google.com/) から各プラットフォームの API キーを取得して記入
 
 ### ビルド・実行
 
 ```bash
 flutter pub get
-flutter run
+flutter run --dart-define-from-file=firebase_config.json
 ```
 
 ### テスト

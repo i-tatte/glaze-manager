@@ -134,3 +134,8 @@ firestore-debug.log
 firebase-debug.log
 ui-debug.log
 rules_test/node_modules/
+
+# Secrets / per-machine config
+*.keystore
+*.jks
+firebase_config.json
