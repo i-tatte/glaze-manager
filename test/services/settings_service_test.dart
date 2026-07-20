@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glaze_manager/models/test_piece_group_key.dart';
 import 'package:glaze_manager/services/settings_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -38,6 +39,30 @@ void main() {
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('gridCrossAxisCount'), 5);
+    });
+
+    test('testPieceGroupKey defaults to none and persists by name', () async {
+      SharedPreferences.setMockInitialValues({});
+      final settings = SettingsService();
+      await Future.delayed(Duration(milliseconds: 10));
+
+      expect(settings.testPieceGroupKey, TestPieceGroupKey.none);
+
+      await settings.setTestPieceGroupKey(TestPieceGroupKey.colorHue);
+      expect(settings.testPieceGroupKey, TestPieceGroupKey.colorHue);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('testPieceGroupKey'), 'colorHue');
+    });
+
+    test('testPieceGroupKey falls back to none for unknown saved value', () async {
+      SharedPreferences.setMockInitialValues({
+        'testPieceGroupKey': 'obsoleteValue',
+      });
+      final settings = SettingsService();
+      await Future.delayed(Duration(milliseconds: 50));
+
+      expect(settings.testPieceGroupKey, TestPieceGroupKey.none);
     });
 
     test('clamps values', () async {

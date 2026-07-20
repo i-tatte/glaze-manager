@@ -5,16 +5,17 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _i12;
 import 'dart:typed_data' as _i22;
-import 'dart:ui' as _i25;
+import 'dart:ui' as _i26;
 
 import 'package:firebase_auth/firebase_auth.dart' as _i2;
-import 'package:flutter/material.dart' as _i24;
+import 'package:flutter/material.dart' as _i25;
 import 'package:glaze_manager/models/clay.dart' as _i20;
 import 'package:glaze_manager/models/firing_atmosphere.dart' as _i19;
 import 'package:glaze_manager/models/firing_profile.dart' as _i18;
 import 'package:glaze_manager/models/glaze.dart' as _i16;
 import 'package:glaze_manager/models/material.dart' as _i15;
 import 'package:glaze_manager/models/test_piece.dart' as _i17;
+import 'package:glaze_manager/models/test_piece_group_key.dart' as _i24;
 import 'package:glaze_manager/repositories/clay_repository.dart' as _i6;
 import 'package:glaze_manager/repositories/firing_atmosphere_repository.dart'
     as _i8;
@@ -854,6 +855,14 @@ class MockSettingsService extends _i1.Mock implements _i23.SettingsService {
           as int);
 
   @override
+  _i24.TestPieceGroupKey get testPieceGroupKey =>
+      (super.noSuchMethod(
+            Invocation.getter(#testPieceGroupKey),
+            returnValue: _i24.TestPieceGroupKey.none,
+          )
+          as _i24.TestPieceGroupKey);
+
+  @override
   int get maxGridCrossAxisCount =>
       (super.noSuchMethod(
             Invocation.getter(#maxGridCrossAxisCount),
@@ -862,12 +871,12 @@ class MockSettingsService extends _i1.Mock implements _i23.SettingsService {
           as int);
 
   @override
-  _i24.ThemeMode get themeMode =>
+  _i25.ThemeMode get themeMode =>
       (super.noSuchMethod(
             Invocation.getter(#themeMode),
-            returnValue: _i24.ThemeMode.system,
+            returnValue: _i25.ThemeMode.system,
           )
-          as _i24.ThemeMode);
+          as _i25.ThemeMode);
 
   @override
   bool get hasListeners =>
@@ -884,7 +893,16 @@ class MockSettingsService extends _i1.Mock implements _i23.SettingsService {
           as _i12.Future<void>);
 
   @override
-  _i12.Future<void> setThemeMode(_i24.ThemeMode? mode) =>
+  _i12.Future<void> setTestPieceGroupKey(_i24.TestPieceGroupKey? key) =>
+      (super.noSuchMethod(
+            Invocation.method(#setTestPieceGroupKey, [key]),
+            returnValue: _i12.Future<void>.value(),
+            returnValueForMissingStub: _i12.Future<void>.value(),
+          )
+          as _i12.Future<void>);
+
+  @override
+  _i12.Future<void> setThemeMode(_i25.ThemeMode? mode) =>
       (super.noSuchMethod(
             Invocation.method(#setThemeMode, [mode]),
             returnValue: _i12.Future<void>.value(),
@@ -893,13 +911,13 @@ class MockSettingsService extends _i1.Mock implements _i23.SettingsService {
           as _i12.Future<void>);
 
   @override
-  void addListener(_i25.VoidCallback? listener) => super.noSuchMethod(
+  void addListener(_i26.VoidCallback? listener) => super.noSuchMethod(
     Invocation.method(#addListener, [listener]),
     returnValueForMissingStub: null,
   );
 
   @override
-  void removeListener(_i25.VoidCallback? listener) => super.noSuchMethod(
+  void removeListener(_i26.VoidCallback? listener) => super.noSuchMethod(
     Invocation.method(#removeListener, [listener]),
     returnValueForMissingStub: null,
   );

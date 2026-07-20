@@ -7,6 +7,7 @@ import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
+import 'package:glaze_manager/models/test_piece_group_key.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/test_piece_list_screen.dart';
 import 'package:mockito/mockito.dart';
@@ -24,6 +25,9 @@ void main() {
 
     // SettingsServiceのモック設定
     when(mockSettingsService.gridCrossAxisCount).thenReturn(2);
+    when(
+      mockSettingsService.testPieceGroupKey,
+    ).thenReturn(TestPieceGroupKey.none);
     when(mockSettingsService.themeMode).thenReturn(ThemeMode.system);
     // ChangeNotifierのスタブ
     when(mockSettingsService.addListener(any)).thenReturn(null);

@@ -1,13 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:glaze_manager/models/test_piece_group_key.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
+import 'package:glaze_manager/utils/test_piece_grouping.dart';
+import 'package:glaze_manager/widgets/sectioned_test_piece_grid.dart';
 import 'package:glaze_manager/widgets/test_piece_grid.dart';
 import 'package:glaze_manager/widgets/common/empty_list_placeholder.dart';
 
 class TestPieceListScreen extends ConsumerStatefulWidget {
   final PageStorageKey? pageStorageKey;
   const TestPieceListScreen({super.key, this.pageStorageKey});
+
+  // AppBarに表示するグループ表示切替ボタンを生成する静的メソッド
+  // MainTabScreenから呼び出される (MaterialsListScreen.buildActions と同じ流儀)
+  static Widget buildGroupKeySelector(WidgetRef ref) {
+    final settings = ref.watch(settingsServiceProvider);
+    final current = settings.testPieceGroupKey;
+    return PopupMenuButton<TestPieceGroupKey>(
+      icon: const Icon(Icons.workspaces_outlined),
+      tooltip: 'グループ表示',
+      onSelected: settings.setTestPieceGroupKey,
+      itemBuilder: (context) => [
+        for (final key in TestPieceGroupKey.values)
+          CheckedPopupMenuItem(
+            value: key,
+            checked: key == current,
+            child: Text(key.label),
+          ),
+      ],
+    );
+  }
 
   @override
   ConsumerState<TestPieceListScreen> createState() =>
@@ -31,7 +54,9 @@ class TestPieceListScreenState extends ConsumerState<TestPieceListScreen> {
     final clayMap = ref.watch(clayMapProvider);
     final atmosphereMap = ref.watch(firingAtmosphereMapProvider);
     final profileMap = ref.watch(firingProfileMapProvider);
-    final crossAxisCount = ref.watch(settingsServiceProvider).gridCrossAxisCount;
+    final settings = ref.watch(settingsServiceProvider);
+    final crossAxisCount = settings.gridCrossAxisCount;
+    final groupKey = settings.testPieceGroupKey;
 
     return Scaffold(
       body: Stack(
@@ -46,8 +71,27 @@ class TestPieceListScreenState extends ConsumerState<TestPieceListScreen> {
                   message: 'テストピースが登録されていません。\n右下のボタンから追加してください。',
                 );
               }
-              return TestPieceGrid(
-                testPieces: testPieces,
+              if (groupKey == TestPieceGroupKey.none) {
+                return TestPieceGrid(
+                  testPieces: testPieces,
+                  glazeMap: glazeMap,
+                  clayMap: clayMap,
+                  firingAtmosphereMap: atmosphereMap,
+                  firingProfileMap: profileMap,
+                  crossAxisCount: crossAxisCount,
+                  onRefresh: handleRefresh,
+                );
+              }
+              // グループ化は高々数百件のO(n)処理なので build 内の同期呼び出しで足りる
+              final groups = groupTestPieces(
+                pieces: testPieces,
+                key: groupKey,
+                clayMap: clayMap,
+                atmosphereMap: atmosphereMap,
+                profileMap: profileMap,
+              );
+              return SectionedTestPieceGrid(
+                groups: groups,
                 glazeMap: glazeMap,
                 clayMap: clayMap,
                 firingAtmosphereMap: atmosphereMap,

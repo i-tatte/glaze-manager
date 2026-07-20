@@ -24,13 +24,18 @@ Glaze _glaze(
   );
 }
 
-TestPiece _piece(String id, String glazeId, {List<LabColor>? colorData}) {
+TestPiece _piece(
+  String id,
+  String glazeId, {
+  List<LabColor>? colorData,
+  Timestamp? createdAt,
+}) {
   return TestPiece(
     id: id,
     glazeId: glazeId,
     clayId: 'c1',
     colorData: colorData,
-    createdAt: Timestamp.now(),
+    createdAt: createdAt ?? Timestamp.now(),
   );
 }
 
@@ -41,6 +46,7 @@ List<TestPiece> _filter({
   List<String> selectedTags = const [],
   Color? color,
   double deltaEThreshold = 30.0,
+  TestPieceSortOrder sortOrder = TestPieceSortOrder.relevance,
   required Map<String, Glaze> glazeMap,
   Map<String, String> materialMap = const {},
 }) {
@@ -50,6 +56,7 @@ List<TestPiece> _filter({
     selectedTags: selectedTags,
     color: color,
     deltaEThreshold: deltaEThreshold,
+    sortOrder: sortOrder,
     glazeMap: glazeMap,
     clayMap: const <String, Clay>{},
     atmosphereMap: const <String, FiringAtmosphere>{},
@@ -147,9 +154,31 @@ void main() {
         pieces: [far, near],
         color: target,
         deltaEThreshold: 200.0, // 両方含む十分大きい閾値
+        sortOrder: TestPieceSortOrder.colorDistance,
         glazeMap: glazeMap,
       );
       expect(result, [near, far]);
+    });
+
+    test('color search with relevance keeps the incoming order', () {
+      const target = Color(0xFFFF0000); // red
+      final near = _piece(
+        'near',
+        'g1',
+        colorData: [LabColor.fromColor(const Color(0xFFFF0000))],
+      );
+      final far = _piece(
+        'far',
+        'g2',
+        colorData: [LabColor.fromColor(const Color(0xFF0000FF))],
+      );
+      final result = _filter(
+        pieces: [far, near],
+        color: target,
+        deltaEThreshold: 200.0,
+        glazeMap: glazeMap,
+      );
+      expect(result, [far, near]); // ΔEソートされず入力順のまま
     });
 
     test('color search drops pieces beyond the deltaE threshold', () {
@@ -171,6 +200,55 @@ void main() {
         glazeMap: glazeMap,
       );
       expect(result, [near]);
+    });
+
+    test('newest / oldest sort by createdAt', () {
+      final older = _piece(
+        'older',
+        'g1',
+        createdAt: Timestamp.fromMillisecondsSinceEpoch(1000),
+      );
+      final newer = _piece(
+        'newer',
+        'g2',
+        createdAt: Timestamp.fromMillisecondsSinceEpoch(2000),
+      );
+      expect(
+        _filter(
+          pieces: [older, newer],
+          sortOrder: TestPieceSortOrder.newest,
+          glazeMap: glazeMap,
+        ),
+        [newer, older],
+      );
+      expect(
+        _filter(
+          pieces: [newer, older],
+          sortOrder: TestPieceSortOrder.oldest,
+          glazeMap: glazeMap,
+        ),
+        [older, newer],
+      );
+    });
+
+    test('newest sort does not mutate the input list', () {
+      final older = _piece(
+        'older',
+        'g1',
+        createdAt: Timestamp.fromMillisecondsSinceEpoch(1000),
+      );
+      final newer = _piece(
+        'newer',
+        'g2',
+        createdAt: Timestamp.fromMillisecondsSinceEpoch(2000),
+      );
+      final input = [older, newer];
+      _filter(
+        pieces: input,
+        sortOrder: TestPieceSortOrder.newest,
+        glazeMap: glazeMap,
+      );
+      expect(input, [older, newer]);
     });
 
     test('pieces without color data are excluded from a color search', () {

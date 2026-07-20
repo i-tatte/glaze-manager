@@ -26,48 +26,70 @@ class TestPieceGrid extends StatelessWidget {
     this.onRefresh,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    // 画面の幅から、1アイテムあたりのおおよその幅を計算
-    final screenWidth = MediaQuery.of(context).size.width;
+  /// 単一グリッドとグループ表示 (SectionedTestPieceGrid) で同一の見た目を
+  /// 保証するための共有グリッドデレゲート。
+  static SliverGridDelegateWithMaxCrossAxisExtent gridDelegateFor(
+    double screenWidth,
+    int crossAxisCount,
+  ) {
     const padding = 8.0;
     const spacing = 8.0;
+    // 画面の幅から、1アイテムあたりのおおよその幅を計算
     final maxCardWidth =
         (screenWidth - (padding * 2) - (spacing * (crossAxisCount - 1))) /
         crossAxisCount;
+    return SliverGridDelegateWithMaxCrossAxisExtent(
+      maxCrossAxisExtent: maxCardWidth,
+      mainAxisSpacing: spacing,
+      crossAxisSpacing: spacing,
+      // 画像を正方形にし、その下にテキストの高さを加える
+      // テキスト部分のおおよその高さを80と仮定 (TestPieceCardの実装に依存、情報が増えたので高さを増やす)
+      childAspectRatio: maxCardWidth / (maxCardWidth + 80),
+    );
+  }
+
+  /// テストピース1件分のカードを、関連マスタを解決して生成する。
+  static Widget buildCard(
+    TestPiece testPiece, {
+    required Map<String, Glaze> glazeMap,
+    required Map<String, Clay> clayMap,
+    required Map<String, FiringAtmosphere> firingAtmosphereMap,
+    required Map<String, FiringProfile> firingProfileMap,
+  }) {
+    final glazeName = glazeMap[testPiece.glazeId]?.name ?? '不明な釉薬';
+    final clayName = clayMap[testPiece.clayId]?.name ?? '不明な素地';
+    final firingAtmosphere = firingAtmosphereMap[testPiece.firingAtmosphereId];
+    final firingAtmosphereName = firingAtmosphere?.name ?? '不明な雰囲気';
+    final firingAtmosphereType =
+        firingAtmosphere?.type ?? FiringAtmosphereType.other;
+    final firingProfileName =
+        firingProfileMap[testPiece.firingProfileId]?.name ?? '不明なプロファイル';
+
+    return TestPieceCard(
+      testPiece: testPiece,
+      glazeName: glazeName,
+      clayName: clayName,
+      firingAtmosphereName: firingAtmosphereName,
+      firingAtmosphereType: firingAtmosphereType,
+      firingProfileName: firingProfileName,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
 
     final grid = GridView.builder(
-      padding: const EdgeInsets.all(padding),
-      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: maxCardWidth,
-        mainAxisSpacing: spacing,
-        crossAxisSpacing: spacing,
-        // 画像を正方形にし、その下にテキストの高さを加える
-        // テキスト部分のおおよその高さを80と仮定 (TestPieceCardの実装に依存、情報が増えたので高さを増やす)
-        childAspectRatio: maxCardWidth / (maxCardWidth + 80),
-      ),
+      padding: const EdgeInsets.all(8.0),
+      gridDelegate: gridDelegateFor(screenWidth, crossAxisCount),
       itemCount: testPieces.length,
-      itemBuilder: (context, index) {
-        final testPiece = testPieces[index];
-        final glazeName = glazeMap[testPiece.glazeId]?.name ?? '不明な釉薬';
-        final clayName = clayMap[testPiece.clayId]?.name ?? '不明な素地';
-        final firingAtmosphere =
-            firingAtmosphereMap[testPiece.firingAtmosphereId];
-        final firingAtmosphereName = firingAtmosphere?.name ?? '不明な雰囲気';
-        final firingAtmosphereType =
-            firingAtmosphere?.type ?? FiringAtmosphereType.other;
-        final firingProfileName =
-            firingProfileMap[testPiece.firingProfileId]?.name ?? '不明なプロファイル';
-
-        return TestPieceCard(
-          testPiece: testPiece,
-          glazeName: glazeName,
-          clayName: clayName,
-          firingAtmosphereName: firingAtmosphereName,
-          firingAtmosphereType: firingAtmosphereType,
-          firingProfileName: firingProfileName,
-        );
-      },
+      itemBuilder: (context, index) => buildCard(
+        testPieces[index],
+        glazeMap: glazeMap,
+        clayMap: clayMap,
+        firingAtmosphereMap: firingAtmosphereMap,
+        firingProfileMap: firingProfileMap,
+      ),
     );
 
     return onRefresh != null

@@ -1,7 +1,7 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/lab_color.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +12,7 @@ import 'package:glaze_manager/models/test_piece.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     show ConsumerStatefulWidget, ConsumerState, AsyncValueX;
 import 'package:glaze_manager/providers/data_providers.dart';
+import 'package:glaze_manager/screens/color_pick_screen.dart';
 import 'package:glaze_manager/screens/image_crop_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dropdown_search/dropdown_search.dart';
@@ -113,6 +114,10 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
           _newImageFileName = cropResult.fileName;
           _newImageBytes = cropResult.bytes;
           _networkImageUrl = null; // プレビューを新しい画像に切り替える
+          // 旧画像の色は新画像には無意味なのでクリアする。
+          // 保存時に空のままなら Cloud Functions が新画像の解析結果を書き込み、
+          // スポイトで色を追加していればその色が優先される (colorData契約)。
+          _colorData = [];
           _markAsDirty();
         });
       }
@@ -167,7 +172,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
         imagePath: imagePath,
         thumbnailUrl: widget.testPiece?.thumbnailUrl,
         firingAtmosphereId: _selectedFiringAtmosphereId,
-        colorData: hasNewImage ? [] : List<LabColor>.of(_colorData),
+        colorData: List<LabColor>.of(_colorData),
         firingProfileId: _selectedFiringProfileId,
         note: _noteController.text.trim().isEmpty
             ? null
@@ -601,16 +606,25 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
 
   /// 色編集セクションのウィジェットリストを生成
   List<Widget> _buildColorSection() {
+    final hasImage = _newImageBytes != null || _networkImageUrl != null;
     return [
       Text('テストピースの色', style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 8),
       _buildLabColores(),
       const SizedBox(height: 8),
       OutlinedButton.icon(
-        icon: const Icon(Icons.add),
-        label: const Text('色を追加'),
-        onPressed: _addColor,
+        icon: const Icon(Icons.colorize),
+        label: const Text('スポイトで追加'),
+        onPressed: hasImage ? _pickColorsWithEyedropper : null,
       ),
+      if (!hasImage)
+        Padding(
+          padding: const EdgeInsets.only(top: 4.0),
+          child: Text(
+            '画像を選択するとスポイトで色を追加できます。',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
     ];
   }
 
@@ -639,46 +653,37 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
     );
   }
 
-  /// 色を追加する処理
-  Future<void> _addColor() async {
-    Color selectedColor = Colors.white;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('色の選択'),
-          // 高機能なColorPickerに変更
-          content: SingleChildScrollView(
-            child: ColorPicker(
-              pickerColor: selectedColor,
-              onColorChanged: (color) => selectedColor = color,
-              enableAlpha: false,
-              displayThumbColor: true,
-              hexInputBar: true,
-            ),
-          ),
-          actions: [
-            TextButton(
-              child: const Text('キャンセル'),
-              onPressed: () => Navigator.of(context).pop(false),
-            ),
-            TextButton(
-              child: const Text('追加'),
-              onPressed: () => Navigator.of(context).pop(true),
-            ),
-          ],
-        );
-      },
+  /// スポイト画面で画像から色を選び、色リストに追加する
+  Future<void> _pickColorsWithEyedropper() async {
+    final ImageProvider provider;
+    if (_newImageBytes != null) {
+      provider = MemoryImage(_newImageBytes!);
+    } else if (_networkImageUrl != null) {
+      provider = CachedNetworkImageProvider(_networkImageUrl!);
+    } else {
+      return;
+    }
+
+    final pickedColors = await Navigator.of(context).push<List<Color>>(
+      MaterialPageRoute(
+        builder: (context) => ColorPickScreen(
+          imageProvider: provider,
+          mode: ColorPickMode.multi,
+          // 既存の色と被っていないか画面内で確認できるよう参照表示する
+          existingColors: _colorData.map((lab) => lab.toColor()).toList(),
+        ),
+      ),
     );
 
-    if (confirmed == true) {
-      // RGB to Lab 変換
-      final lab = LabColor.fromColor(selectedColor);
-      setState(() {
-        // percentageは手動追加では0とする
+    if (pickedColors == null || pickedColors.isEmpty || !mounted) return;
+
+    setState(() {
+      for (final color in pickedColors) {
+        // RGB to Lab 変換。percentageは手動追加では0とする
+        final lab = LabColor.fromColor(color);
         _colorData.add(LabColor(l: lab.l, a: lab.a, b: lab.b, percentage: 0));
-        _markAsDirty();
-      });
-    }
+      }
+      _markAsDirty();
+    });
   }
 }

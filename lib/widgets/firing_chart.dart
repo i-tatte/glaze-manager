@@ -8,6 +8,11 @@ class FiringChart extends StatelessWidget {
   final bool isReduction;
   final int? reductionStartTemp;
   final int? reductionEndTemp;
+
+  /// データ変更時の補間アニメーション時間。
+  /// 共有画像のキャプチャなど中間フレームが写ると困る場面では Duration.zero を渡す
+  final Duration duration;
+
   // 傾きが急だと判断するしきい値 (°C/時間)。
   static const double steepSlopeThreshold = 200.0;
 
@@ -17,6 +22,7 @@ class FiringChart extends StatelessWidget {
     this.isReduction = false,
     this.reductionStartTemp,
     this.reductionEndTemp,
+    this.duration = const Duration(milliseconds: 150),
   });
 
   List<FlSpot> _parseCurveData() {
@@ -374,6 +380,7 @@ class FiringChart extends StatelessWidget {
             minY: ymin,
             maxY: ymax,
           ),
+          duration: duration,
         ),
       ),
     );

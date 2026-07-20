@@ -9,6 +9,7 @@ import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as app_material;
 import 'package:glaze_manager/models/test_piece.dart';
+import 'package:glaze_manager/models/test_piece_group_key.dart';
 import 'package:glaze_manager/screens/main_tab_screen.dart';
 import 'package:glaze_manager/screens/materials_list_screen.dart';
 import 'package:glaze_manager/services/auth_service.dart';
@@ -62,6 +63,9 @@ void main() {
     // SettingsServiceのgetterをスタブ
     when(mockSettingsService.gridCrossAxisCount).thenReturn(4);
     when(mockSettingsService.maxGridCrossAxisCount).thenReturn(10);
+    when(
+      mockSettingsService.testPieceGroupKey,
+    ).thenReturn(TestPieceGroupKey.none);
     when(mockSettingsService.themeMode).thenReturn(ThemeMode.system);
 
     // ChangeNotifierのメソッドをスタブ

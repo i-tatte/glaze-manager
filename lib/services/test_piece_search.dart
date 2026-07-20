@@ -10,22 +10,46 @@ import 'package:glaze_manager/models/test_piece.dart';
 /// Dart(ECMAScript) の \s は U+3000 を含むため、全角スペースも分割対象になる。
 final RegExp searchTermSplitter = RegExp(r'\s+');
 
-/// テストピース一覧をテキスト・タグ・色でフィルタし、色検索時は近い順に並べた
+/// 検索結果の並び順
+enum TestPieceSortOrder {
+  /// フィルタが決めた順序を維持 (テキスト検索は釉薬名等マッチ→原料名マッチの順、
+  /// 条件なしなら入力リスト順 = 作成日の新しい順)
+  relevance('関連度順'),
+
+  /// 作成日の新しい順
+  newest('作成が新しい順'),
+
+  /// 作成日の古い順
+  oldest('作成が古い順'),
+
+  /// 選択色との色差 (ΔE) が小さい順。色検索時のみ意味を持ち、
+  /// 色条件がない場合は [relevance] と同じ
+  colorDistance('色が近い順');
+
+  const TestPieceSortOrder(this.label);
+
+  /// UI 表示用ラベル
+  final String label;
+}
+
+/// テストピース一覧をテキスト・タグ・色でフィルタし、[sortOrder] に従って並べた
 /// 新しいリストを返す純関数。
 ///
 /// SearchScreen の `_applyFilters` から表示ロジック（setState 等）と分離して
-/// 抽出したもの。挙動は従来どおり:
+/// 抽出したもの。フィルタの挙動:
 ///  - テキストはスペース区切り AND、`-語` は除外語
 ///  - 釉薬が [glazeMap] に無いテストピースはテキスト検索時に除外される
 ///  - 原料名のみにマッチしたものは、釉薬名等にマッチしたものより後ろに並ぶ
 ///  - タグは AND
-///  - 色検索は ΔE 閾値以下を残し、ΔE の近い順にソート
+///  - 色検索は ΔE 閾値以下を残す。[TestPieceSortOrder.colorDistance] 指定時は
+///    ΔE の近い順にソート
 List<TestPiece> filterTestPieces({
   required List<TestPiece> pieces,
   required String query,
   required List<String> selectedTags,
   Color? color,
   double deltaEThreshold = 30.0,
+  TestPieceSortOrder sortOrder = TestPieceSortOrder.relevance,
   required Map<String, Glaze> glazeMap,
   required Map<String, Clay> clayMap,
   required Map<String, FiringAtmosphere> atmosphereMap,
@@ -134,9 +158,27 @@ List<TestPiece> filterTestPieces({
       }
     }
 
-    // 色に近い順にソート
-    matchedPieces.sort((a, b) => a.$2.compareTo(b.$2));
+    // 色が近い順の指定時のみ ΔE 昇順にソート (それ以外はここまでの順序を維持)
+    if (sortOrder == TestPieceSortOrder.colorDistance) {
+      matchedPieces.sort((a, b) => a.$2.compareTo(b.$2));
+    }
     filtered = matchedPieces.map((e) => e.$1).toList();
+  }
+
+  // 4. 並び替え
+  switch (sortOrder) {
+    case TestPieceSortOrder.relevance:
+    case TestPieceSortOrder.colorDistance:
+      // relevance はフィルタが決めた順序を維持。
+      // colorDistance は色検索ブロック内で適用済み (色条件なしなら維持)。
+      break;
+    case TestPieceSortOrder.newest:
+      // 入力リストを直接ソートしないようコピーする (filtered が pieces のままの場合がある)
+      filtered = List.of(filtered)
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    case TestPieceSortOrder.oldest:
+      filtered = List.of(filtered)
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
   }
 
   return filtered;

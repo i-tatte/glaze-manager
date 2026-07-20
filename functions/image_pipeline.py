@@ -236,13 +236,31 @@ def process_uploaded_image(event: storage_fn.CloudEvent): # type: ignore exporte
         print(f"Generated thumbnail URL: {thumbnail_url}")
 
         # 7. Firestoreドキュメントを両方のURLで更新、色解析結果も保存
-        doc_snapshot.reference.update({
-            "imageUrl": original_image_url,
-            "thumbnailUrl": thumbnail_url,
-            "colorData": color_analysis_result
-        })
+        #    colorData はドキュメントが空 (未設定/[]) のときだけ書き込む。
+        #    ユーザーがスポイト等で手動登録した色を解析結果で上書きしないための契約
+        #    (docs/spec.md §5)。クライアント保存との競合に備えてトランザクションで
+        #    読み判定と書き込みを不可分にする。
+        transaction = db.transaction()
 
-        print(f"Firestore document {doc_snapshot.id} updated with image and thumbnail URLs.")
+        @firestore.transactional
+        def _write_back(tx, ref):
+            snapshot = ref.get(transaction=tx)
+            update = {
+                "imageUrl": original_image_url,
+                "thumbnailUrl": thumbnail_url,
+            }
+            existing_color_data = (snapshot.to_dict() or {}).get("colorData")
+            if not existing_color_data:
+                update["colorData"] = color_analysis_result
+            tx.update(ref, update)
+            return "colorData" in update
+
+        color_data_written = _write_back(transaction, doc_snapshot.reference)
+
+        print(
+            f"Firestore document {doc_snapshot.id} updated with image and thumbnail URLs. "
+            f"colorData written: {color_data_written}"
+        )
 
         # 8. 旧世代ファイルの掃除 (新形式のみ)
         #    画像差し替え時、docId フォルダ内に残った過去の画像・サムネイルを削除する

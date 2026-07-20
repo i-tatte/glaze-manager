@@ -42,6 +42,26 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   bool _isGridView = true;
   bool _appliedInitialColor = false;
 
+  /// ユーザーが明示的に選んだ並び順。null なら条件に応じたデフォルトを使う
+  TestPieceSortOrder? _userSortOrder;
+
+  /// 実際に適用する並び順。ユーザー未選択時は「色検索中は色が近い順、
+  /// それ以外は関連度順」。ユーザーの選択は条件変更後も維持するが、
+  /// 色条件がないのに「色が近い順」になる無効な組み合わせは関連度順に落とす
+  TestPieceSortOrder get _effectiveSortOrder {
+    final userOrder = _userSortOrder;
+    if (userOrder != null) {
+      if (userOrder == TestPieceSortOrder.colorDistance &&
+          _searchColor == null) {
+        return TestPieceSortOrder.relevance;
+      }
+      return userOrder;
+    }
+    return _searchColor != null
+        ? TestPieceSortOrder.colorDistance
+        : TestPieceSortOrder.relevance;
+  }
+
   // データはアプリスコープのプロバイダから都度参照する
   // (画面ローカルにスナップショットを持たないので、他画面での追加・編集が即反映される)
   List<TestPiece> get _allTestPieces =>
@@ -101,6 +121,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       selectedTags: _selectedTags,
       color: _searchColor,
       deltaEThreshold: _deltaEThreshold,
+      sortOrder: _effectiveSortOrder,
       glazeMap: _glazeMap,
       clayMap: _clayMap,
       atmosphereMap: _atmosphereMap,
@@ -134,12 +155,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         return AlertDialog(
           title: const Text('色の選択'),
           content: SingleChildScrollView(
-            child: ColorPicker(
+            // 色相環型のピッカー (外周が色相環、中央が彩度/明度)。hex入力欄を内蔵する
+            child: HueRingPicker(
               pickerColor: selectedColor,
               onColorChanged: (color) => selectedColor = color,
               enableAlpha: false,
               displayThumbColor: true,
-              hexInputBar: true,
             ),
           ),
           actions: [
@@ -712,14 +733,42 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('検索結果', style: Theme.of(context).textTheme.titleLarge),
-              IconButton(
-                icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view),
-                tooltip: _isGridView ? 'リスト表示に切り替え' : 'グリッド表示に切り替え',
-                onPressed: () {
-                  setState(() {
-                    _isGridView = !_isGridView;
-                  });
-                },
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  PopupMenuButton<TestPieceSortOrder>(
+                    icon: const Icon(Icons.sort),
+                    tooltip: '並び替え',
+                    onSelected: (order) {
+                      setState(() {
+                        _userSortOrder = order;
+                      });
+                      _applyFilters();
+                    },
+                    itemBuilder: (context) => [
+                      for (final order in TestPieceSortOrder.values)
+                        // 「色が近い順」は色条件があるときだけ出す
+                        if (order != TestPieceSortOrder.colorDistance ||
+                            _searchColor != null)
+                          CheckedPopupMenuItem(
+                            value: order,
+                            checked: order == _effectiveSortOrder,
+                            child: Text(order.label),
+                          ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      _isGridView ? Icons.view_list : Icons.grid_view,
+                    ),
+                    tooltip: _isGridView ? 'リスト表示に切り替え' : 'グリッド表示に切り替え',
+                    onPressed: () {
+                      setState(() {
+                        _isGridView = !_isGridView;
+                      });
+                    },
+                  ),
+                ],
               ),
             ],
           ),

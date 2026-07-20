@@ -63,6 +63,7 @@ dependencies:
   uuid: ^4.5.2
   flutter_colorpicker: ^1.1.0
   ffi: ^2.2.0
+  share_plus: ^12.0.2
 
 dev_dependencies:
   flutter_test:
@@ -77,6 +78,23 @@ dev_dependencies:
   fake_cloud_firestore: ^4.0.0
   build_runner: ^2.10.1
   mockito: ^5.5.1
+  flutter_launcher_icons: ^0.14.4
+
+# アプリアイコンの一括生成設定。元絵は assets/icon/ (デザイン: 釉掛けタイル)。
+# 変更時は `dart run flutter_launcher_icons` を実行する。
+flutter_launcher_icons:
+  image_path: "assets/icon/app_icon.png"
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  # 全面ベタ塗りデザインのため、アダプティブは背景レイヤーに絵を持たせ前景は透明
+  adaptive_icon_background: "assets/icon/app_icon.png"
+  adaptive_icon_foreground: "assets/icon/app_icon_adaptive_fg.png"
+  windows:
+    generate: true
+    icon_size: 256
+  macos:
+    generate: true
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
