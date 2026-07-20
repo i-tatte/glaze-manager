@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 100 100">
+  <!-- 案H 釉薬の滴と色環: 色検索・スポイトのモチーフ -->
+  <defs>
+    <radialGradient id="bg" cx="0.5" cy="0.4" r="0.9">
+      <stop offset="0" stop-color="#FFFBF0"/><stop offset="1" stop-color="#FFDFA0"/>
+    </radialGradient>
+    <linearGradient id="drop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#49EFC9"/><stop offset="1" stop-color="#0E8F9E"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" fill="url(#bg)"/>
+  <!-- モチーフ全体を中心(50,54)基準に0.68倍へ縮小し、実機での余白を確保する -->
+  <g transform="translate(50,54) scale(0.68) translate(-50,-54)">
+    <!-- 色環 (釉薬色のドット)。中心(50,34)・半径24・角度±20/±55/±90度で左右対称に配置 -->
+    <circle cx="26.00" cy="34.00" r="3" fill="#3D6BE8"/>
+    <circle cx="30.34" cy="20.22" r="3" fill="#8A5CE8"/>
+    <circle cx="41.79" cy="11.44" r="3" fill="#E8517E"/>
+    <circle cx="58.21" cy="11.44" r="3" fill="#FFB547"/>
+    <circle cx="69.66" cy="20.22" r="3" fill="#6BBF59"/>
+    <circle cx="74.00" cy="34.00" r="3" fill="#17B5A6"/>
+    <!-- 波紋 -->
+    <ellipse cx="50" cy="84" rx="24" ry="4" fill="none" stroke="#E8A93C" stroke-width="1.4" opacity="0.65"/>
+    <ellipse cx="50" cy="84" rx="15" ry="2.5" fill="none" stroke="#E8A93C" stroke-width="1.2" opacity="0.5"/>
+    <!-- 滴: 濃色の縁 + 本体 -->
+    <path d="M50,24 C50,24 30,48 30,62 a20,20 0 0 0 40,0 C70,48 50,24 50,24 Z" fill="#0A7480"/>
+    <path d="M50,22 C50,22 30,46 30,60 a20,20 0 0 0 40,0 C70,46 50,22 50,22 Z" fill="url(#drop)"/>
+    <!-- 光沢 -->
+    <circle cx="42.5" cy="60" r="4.5" fill="#FFFFFF" opacity="0.55"/>
+    <rect x="44" y="34" width="2.6" height="12" rx="1.3" fill="#FFFFFF" opacity="0.5" transform="rotate(14 45 40)"/>
+  </g>
+</svg>

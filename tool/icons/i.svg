@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 100 100">
+  <!-- 案I 釉流れ・単色: ティール1色相の濃淡のみ (モノクロマティック) -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0F3238"/><stop offset="1" stop-color="#0A1E22"/>
+    </linearGradient>
+    <linearGradient id="gz" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4DEBC8"/><stop offset="1" stop-color="#0FA0AE"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" fill="url(#bg)"/>
+  <g fill="#07555E">
+    <path d="M0,49 C8,55 16,44 26,49 C36,54 44,44 54,48 C66,53 76,44 88,48 C92,49 96,48 100,46 L100,10 L0,10 Z"/>
+    <rect x="16" y="30" width="13" height="41" rx="6.5"/>
+    <rect x="44" y="30" width="9" height="31" rx="4.5"/>
+    <rect x="61" y="30" width="5" height="23" rx="2.5"/>
+    <rect x="72" y="30" width="12" height="53" rx="6"/>
+  </g>
+  <g fill="url(#gz)">
+    <path d="M0,46 C8,52 16,41 26,46 C36,51 44,41 54,45 C66,50 76,41 88,45 C92,46 96,45 100,43 L100,0 L0,0 Z"/>
+    <rect x="15" y="26" width="13" height="42" rx="6.5"/>
+    <rect x="43" y="26" width="9" height="32" rx="4.5"/>
+    <rect x="60" y="26" width="5" height="24" rx="2.5"/>
+    <rect x="71" y="26" width="12" height="54" rx="6"/>
+  </g>
+  <rect x="8" y="7" width="20" height="4.5" rx="2.25" fill="#FFFFFF" opacity="0.4" transform="rotate(-18 18 9)"/>
+  <circle cx="31" cy="13" r="2" fill="#FFFFFF" opacity="0.5"/>
+</svg>

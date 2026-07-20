@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 100 100">
+  <!-- 案F テスピグリッド: 高彩度グラデーションの4色タイル -->
+  <defs>
+    <radialGradient id="bg" cx="0.5" cy="0.42" r="0.85">
+      <stop offset="0" stop-color="#2C3038"/><stop offset="1" stop-color="#111217"/>
+    </radialGradient>
+    <linearGradient id="t1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4FE8D8"/><stop offset="1" stop-color="#1391C9"/>
+    </linearGradient>
+    <linearGradient id="t2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFD34E"/><stop offset="1" stop-color="#E8762D"/>
+    </linearGradient>
+    <linearGradient id="t3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF7A9C"/><stop offset="1" stop-color="#D6336C"/>
+    </linearGradient>
+    <linearGradient id="t4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6E9BFF"/><stop offset="1" stop-color="#2D4FD6"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" fill="url(#bg)"/>
+  <g>
+    <rect x="10" y="11" width="38" height="38" rx="10" fill="#000000" opacity="0.4"/>
+    <rect x="9" y="9" width="38" height="38" rx="10" fill="url(#t1)"/>
+    <path d="M13,21 a8,8 0 0 1 8,-8" stroke="#FFFFFF" stroke-width="2.4" opacity="0.55" fill="none" stroke-linecap="round"/>
+
+    <rect x="54" y="11" width="38" height="38" rx="10" fill="#000000" opacity="0.4"/>
+    <rect x="53" y="9" width="38" height="38" rx="10" fill="url(#t2)"/>
+    <path d="M57,21 a8,8 0 0 1 8,-8" stroke="#FFFFFF" stroke-width="2.4" opacity="0.55" fill="none" stroke-linecap="round"/>
+
+    <rect x="10" y="55" width="38" height="38" rx="10" fill="#000000" opacity="0.4"/>
+    <rect x="9" y="53" width="38" height="38" rx="10" fill="url(#t3)"/>
+    <path d="M13,65 a8,8 0 0 1 8,-8" stroke="#FFFFFF" stroke-width="2.4" opacity="0.55" fill="none" stroke-linecap="round"/>
+
+    <rect x="54" y="55" width="38" height="38" rx="10" fill="#000000" opacity="0.4"/>
+    <rect x="53" y="53" width="38" height="38" rx="10" fill="url(#t4)"/>
+    <path d="M57,65 a8,8 0 0 1 8,-8" stroke="#FFFFFF" stroke-width="2.4" opacity="0.55" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>
