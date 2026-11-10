@@ -8,6 +8,34 @@ import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/utils/test_piece_display.dart';
 import 'package:glaze_manager/widgets/test_piece_card.dart';
 
+/// 比較のためにテストピースを選ぶ状態。
+///
+/// グリッドに渡すと、カードの長押しで選択を切り替え、選択中はタップでも
+/// 切り替える。選択がなければタップは従来通り詳細画面を開く。
+class TestPieceSelection {
+  /// 一度に比較できる最大枚数
+  static const maxCount = 4;
+
+  final Set<String> selectedIds;
+  final ValueChanged<TestPiece> onToggle;
+
+  const TestPieceSelection({required this.selectedIds, required this.onToggle});
+
+  /// [id] の選択を切り替えた新しい集合を返す。
+  /// 上限を超えるときは選択せず null を返す。
+  static Set<String>? toggled(Set<String> current, String id) {
+    if (current.contains(id)) return {...current}..remove(id);
+    if (current.length >= maxCount) return null;
+    return {...current, id};
+  }
+
+  /// 上限を超えて選ぼうとしたときの知らせ。
+  static void showLimitMessage(ScaffoldMessengerState messenger) {
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(const SnackBar(content: Text('比較できるのは 4 枚までです')));
+  }
+}
+
 class TestPieceGrid extends StatelessWidget {
   final List<TestPiece> testPieces;
   final Map<String, Glaze> glazeMap;
@@ -17,6 +45,7 @@ class TestPieceGrid extends StatelessWidget {
   final Map<String, Firing> firingMap;
   final int crossAxisCount;
   final Future<void> Function()? onRefresh;
+  final TestPieceSelection? selection;
 
   const TestPieceGrid({
     super.key,
@@ -28,6 +57,7 @@ class TestPieceGrid extends StatelessWidget {
     required this.firingMap,
     required this.crossAxisCount,
     this.onRefresh,
+    this.selection,
   });
 
   /// 単一グリッドとグループ表示 (SectionedTestPieceGrid) で同一の見た目を
@@ -60,6 +90,7 @@ class TestPieceGrid extends StatelessWidget {
     required Map<String, FiringAtmosphere> firingAtmosphereMap,
     required Map<String, FiringProfile> firingProfileMap,
     required Map<String, Firing> firingMap,
+    TestPieceSelection? selection,
   }) {
     final glazeName = glazeDisplayName(testPiece, glazeMap);
     final clayName = clayDisplayName(testPiece, clayMap);
@@ -77,6 +108,14 @@ class TestPieceGrid extends StatelessWidget {
       firingAtmosphereName: resolved.atmosphereLabel,
       firingAtmosphereType: resolved.atmosphereType,
       firingProfileName: resolved.profileLabel,
+      selected: selection?.selectedIds.contains(testPiece.id) ?? false,
+      // 選択中のタップは選択の切り替え。そうでなければ詳細画面 (onTap == null)
+      onTap: selection != null && selection.selectedIds.isNotEmpty
+          ? () => selection.onToggle(testPiece)
+          : null,
+      onLongPress: selection == null
+          ? null
+          : () => selection.onToggle(testPiece),
     );
   }
 
@@ -95,6 +134,7 @@ class TestPieceGrid extends StatelessWidget {
         firingAtmosphereMap: firingAtmosphereMap,
         firingProfileMap: firingProfileMap,
         firingMap: firingMap,
+        selection: selection,
       ),
     );
 

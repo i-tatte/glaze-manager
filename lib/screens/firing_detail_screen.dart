@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
-    show ConsumerWidget, WidgetRef, AsyncValueX;
+    show AsyncValueX, ConsumerState, ConsumerStatefulWidget;
 import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/firing.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
@@ -9,6 +9,7 @@ import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/firing_edit_screen.dart';
+import 'package:glaze_manager/screens/test_piece_compare_screen.dart';
 import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
 import 'package:glaze_manager/utils/date_format.dart';
 import 'package:glaze_manager/utils/test_piece_display.dart';
@@ -17,13 +18,44 @@ import 'package:glaze_manager/widgets/firing_chart.dart';
 import 'package:glaze_manager/widgets/test_piece_grid.dart';
 
 /// 焼成回の詳細。焼成の情報と、この焼成回のテストピースを並べる。
-class FiringDetailScreen extends ConsumerWidget {
+class FiringDetailScreen extends ConsumerStatefulWidget {
   final String firingId;
 
   const FiringDetailScreen({super.key, required this.firingId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FiringDetailScreen> createState() => _FiringDetailScreenState();
+}
+
+class _FiringDetailScreenState extends ConsumerState<FiringDetailScreen> {
+  /// 比較のために選んだテストピースの ID
+  Set<String> _selectedIds = {};
+
+  void _toggleSelection(TestPiece testPiece) {
+    final id = testPiece.id;
+    if (id == null) return;
+    final next = TestPieceSelection.toggled(_selectedIds, id);
+    if (next == null) {
+      TestPieceSelection.showLimitMessage(ScaffoldMessenger.of(context));
+      return;
+    }
+    setState(() => _selectedIds = next);
+  }
+
+  void _clearSelection() => setState(() => _selectedIds = {});
+
+  void _openCompare() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) =>
+            TestPieceCompareScreen(testPieceIds: _selectedIds.toList()),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final firingId = widget.firingId;
     final firingsAsync = ref.watch(firingsProvider);
     final firing = ref.watch(firingMapProvider)[firingId];
 
@@ -52,90 +84,119 @@ class FiringDetailScreen extends ConsumerWidget {
     final screenWidth = MediaQuery.of(context).size.width;
     final titleStyle = Theme.of(context).textTheme.titleMedium;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(firing.displayLabel),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            tooltip: '編集',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => FiringEditScreen(firing: firing),
-              ),
-            ),
+    final selecting = _selectedIds.isNotEmpty;
+    final selection = TestPieceSelection(
+      selectedIds: _selectedIds,
+      onToggle: _toggleSelection,
+    );
+
+    return PopScope(
+      // 選択中の戻る操作は、選択の解除にとどめる
+      canPop: !selecting,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _clearSelection();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            selecting ? '${_selectedIds.length} 件選択' : firing.displayLabel,
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'firingDetailFab',
-        tooltip: 'テストピースを追加',
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) =>
-                TestPieceEditScreen(initialFiringId: firing.id),
-          ),
-        ),
-        child: const Icon(Icons.add),
-      ),
-      body: CustomScrollView(
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.all(16.0),
-            sliver: SliverToBoxAdapter(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ..._buildInfo(firing, atmosphereMap),
-                  ..._buildProfile(context, firing, profileMap),
+          actions: selecting
+              ? [
+                  IconButton(
+                    icon: const Icon(Icons.compare_arrows),
+                    tooltip: '比較',
+                    onPressed: _selectedIds.length >= 2 ? _openCompare : null,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    tooltip: '選択を解除',
+                    onPressed: _clearSelection,
+                  ),
+                ]
+              : [
+                  IconButton(
+                    icon: const Icon(Icons.edit),
+                    tooltip: '編集',
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => FiringEditScreen(firing: firing),
+                      ),
+                    ),
+                  ),
                 ],
-              ),
+        ),
+        floatingActionButton: FloatingActionButton(
+          heroTag: 'firingDetailFab',
+          tooltip: 'テストピースを追加',
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) =>
+                  TestPieceEditScreen(initialFiringId: firing.id),
             ),
           ),
-          if (awaiting.isNotEmpty) ...[
+          child: const Icon(Icons.add),
+        ),
+        body: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.all(16.0),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ..._buildInfo(firing, atmosphereMap),
+                    ..._buildProfile(context, firing, profileMap),
+                  ],
+                ),
+              ),
+            ),
+            if (awaiting.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0),
+                  child: Text('写真待ち (${awaiting.length})', style: titleStyle),
+                ),
+              ),
+              SliverList.builder(
+                itemCount: awaiting.length,
+                itemBuilder: (context, index) => _buildAwaitingTile(
+                  context,
+                  awaiting[index],
+                  glazeMap,
+                  clayMap,
+                ),
+              ),
+            ],
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 0),
-                child: Text('写真待ち (${awaiting.length})', style: titleStyle),
+                padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 0),
+                child: Text('テストピース (${testPieces.length})', style: titleStyle),
               ),
             ),
-            SliverList.builder(
-              itemCount: awaiting.length,
-              itemBuilder: (context, index) => _buildAwaitingTile(
-                context,
-                awaiting[index],
-                glazeMap,
-                clayMap,
+            SliverPadding(
+              padding: const EdgeInsets.all(8.0),
+              sliver: SliverGrid.builder(
+                gridDelegate: TestPieceGrid.gridDelegateFor(
+                  screenWidth,
+                  crossAxisCount,
+                ),
+                itemCount: testPieces.length,
+                itemBuilder: (context, index) => TestPieceGrid.buildCard(
+                  testPieces[index],
+                  glazeMap: glazeMap,
+                  clayMap: clayMap,
+                  firingAtmosphereMap: atmosphereMap,
+                  firingProfileMap: profileMap,
+                  firingMap: firingMap,
+                  selection: selection,
+                ),
               ),
             ),
+            // 最終行が FAB に隠れないための余白
+            const SliverToBoxAdapter(child: SizedBox(height: 80)),
           ],
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 0),
-              child: Text('テストピース (${testPieces.length})', style: titleStyle),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.all(8.0),
-            sliver: SliverGrid.builder(
-              gridDelegate: TestPieceGrid.gridDelegateFor(
-                screenWidth,
-                crossAxisCount,
-              ),
-              itemCount: testPieces.length,
-              itemBuilder: (context, index) => TestPieceGrid.buildCard(
-                testPieces[index],
-                glazeMap: glazeMap,
-                clayMap: clayMap,
-                firingAtmosphereMap: atmosphereMap,
-                firingProfileMap: profileMap,
-                firingMap: firingMap,
-              ),
-            ),
-          ),
-          // 最終行が FAB に隠れないための余白
-          const SliverToBoxAdapter(child: SizedBox(height: 80)),
-        ],
+        ),
       ),
     );
   }

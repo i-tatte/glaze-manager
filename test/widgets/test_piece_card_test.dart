@@ -396,4 +396,78 @@ void main() {
       expect(find.textContaining('★'), findsNothing);
     });
   });
+
+  group('選択', () {
+    TestPiece plain() => TestPiece(
+      id: 'tp1',
+      glazeId: 'g1',
+      clayId: 'c1',
+      createdAt: Timestamp.now(),
+    );
+
+    Widget card({
+      VoidCallback? onTap,
+      VoidCallback? onLongPress,
+      bool selected = false,
+    }) => MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 200,
+            height: 300,
+            child: TestPieceCard(
+              testPiece: plain(),
+              glazeName: 'Test Glaze',
+              clayName: 'Test Clay',
+              firingAtmosphereName: '未設定',
+              firingProfileName: '未設定',
+              onTap: onTap,
+              onLongPress: onLongPress,
+              selected: selected,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    testWidgets('onTap を渡すと詳細画面へは遷移せず、その動作を呼ぶ', (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(card(onTap: () => taps++));
+
+      await tester.tap(find.byType(TestPieceCard));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(taps, 1);
+      expect(find.text('テストピース詳細'), findsNothing);
+    });
+
+    testWidgets('長押しで onLongPress を呼ぶ', (tester) async {
+      var longPresses = 0;
+      await tester.pumpWidget(card(onLongPress: () => longPresses++));
+
+      await tester.longPress(find.byType(TestPieceCard));
+
+      expect(longPresses, 1);
+    });
+
+    testWidgets('選択中はチェックを重ね、縁を primary で囲む', (tester) async {
+      await tester.pumpWidget(card(selected: true));
+
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+      final shape =
+          tester.widget<Card>(find.byType(Card)).shape
+              as RoundedRectangleBorder;
+      final primary = Theme.of(
+        tester.element(find.byType(Card)),
+      ).colorScheme.primary;
+      expect(shape.side.color, primary);
+    });
+
+    testWidgets('選択中でなければチェックも縁もない', (tester) async {
+      await tester.pumpWidget(card());
+
+      expect(find.byIcon(Icons.check_circle), findsNothing);
+      expect(tester.widget<Card>(find.byType(Card)).shape, isNull);
+    });
+  });
 }

@@ -14,6 +14,15 @@ class TestPieceCard extends StatelessWidget {
   final FiringAtmosphereType firingAtmosphereType;
   final String firingProfileName;
 
+  /// タップ時の動作。null なら詳細画面へ遷移する。
+  final VoidCallback? onTap;
+
+  /// 長押し時の動作 (比較のための選択など)。
+  final VoidCallback? onLongPress;
+
+  /// 選択中か。選択中は画像にチェックを重ね、縁を primary で囲む。
+  final bool selected;
+
   const TestPieceCard({
     super.key,
     required this.testPiece,
@@ -22,6 +31,9 @@ class TestPieceCard extends StatelessWidget {
     required this.firingAtmosphereName,
     this.firingAtmosphereType = FiringAtmosphereType.other,
     required this.firingProfileName,
+    this.onTap,
+    this.onLongPress,
+    this.selected = false,
   });
 
   @override
@@ -30,20 +42,31 @@ class TestPieceCard extends StatelessWidget {
     final cardColor = firingAtmosphereType.cardColor(
       Theme.of(context).brightness,
     );
+    final primary = Theme.of(context).colorScheme.primary;
 
     return Card(
       clipBehavior: Clip.antiAlias, // カードの角を丸くするために必要
       elevation: 2.0,
       margin: EdgeInsets.zero, // GridViewでスペースを管理するため、Cardのマージンは0にする
       color: cardColor, // 背景色を適用 (nullの場合はテーマのデフォルト)
+      shape: selected
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: primary, width: 3),
+            )
+          : null,
       child: InkWell(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => TestPieceDetailScreen(testPiece: testPiece),
-            ),
-          );
-        },
+        onTap:
+            onTap ??
+            () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) =>
+                      TestPieceDetailScreen(testPiece: testPiece),
+                ),
+              );
+            },
+        onLongPress: onLongPress,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -82,6 +105,12 @@ class TestPieceCard extends StatelessWidget {
                           ).textTheme.labelSmall?.copyWith(color: Colors.white),
                         ),
                       ),
+                    ),
+                  if (selected)
+                    Positioned(
+                      top: 4,
+                      left: 4,
+                      child: Icon(Icons.check_circle, color: primary, size: 28),
                     ),
                 ],
               ),

@@ -18,6 +18,7 @@ import 'package:glaze_manager/services/auth_service.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
 import 'package:glaze_manager/services/settings_service.dart';
 import 'package:glaze_manager/services/storage_service.dart';
+import 'package:glaze_manager/widgets/test_piece_card.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 
@@ -202,6 +203,125 @@ void main() {
       expect(find.widgetWithText(TextButton, '編集'), findsNothing);
       // サインアウトボタンが表示されることを確認
       expect(find.byIcon(Icons.logout), findsOneWidget);
+    });
+
+    group('テストピースの比較の選択', () {
+      List<TestPiece> pieces(int n) => [
+        for (var i = 1; i <= n; i++)
+          TestPiece(
+            id: 'tp$i',
+            glazeId: 'g1',
+            clayId: 'c1',
+            createdAt: Timestamp.now(),
+          ),
+      ];
+
+      IconButton compareButton(WidgetTester tester) =>
+          tester.widget<IconButton>(
+            find.widgetWithIcon(IconButton, Icons.compare_arrows),
+          );
+
+      testWidgets('長押しで選択すると AppBar が選択用に切り替わる', (tester) async {
+        when(
+          mockFirestoreService.getTestPieces(),
+        ).thenAnswer((_) => Stream.value(pieces(3)));
+        await tester.pumpWidget(createTestableWidget(const MainTabScreen()));
+        await tester.pumpAndSettle();
+
+        // 通常のアクション
+        expect(
+          find.byIcon(Icons.local_fire_department_outlined),
+          findsOneWidget,
+        );
+        expect(find.byIcon(Icons.workspaces_outlined), findsOneWidget);
+        expect(find.byIcon(Icons.compare_arrows), findsNothing);
+
+        await tester.longPress(find.byType(TestPieceCard).first);
+        await tester.pumpAndSettle();
+
+        expect(find.text('1 件選択'), findsOneWidget);
+        expect(find.text('テストピース一覧'), findsNothing);
+        expect(find.byIcon(Icons.local_fire_department_outlined), findsNothing);
+        expect(find.byIcon(Icons.workspaces_outlined), findsNothing);
+        // 1 枚では比較できない
+        expect(compareButton(tester).onPressed, isNull);
+
+        // 選択中はタップで追加される
+        await tester.tap(find.byType(TestPieceCard).at(1));
+        await tester.pumpAndSettle();
+        expect(find.text('2 件選択'), findsOneWidget);
+        expect(compareButton(tester).onPressed, isNotNull);
+
+        // 解除で元に戻る
+        await tester.tap(find.byIcon(Icons.close));
+        await tester.pumpAndSettle();
+        expect(find.text('テストピース一覧'), findsOneWidget);
+        expect(find.byIcon(Icons.compare_arrows), findsNothing);
+        expect(
+          find.byIcon(Icons.local_fire_department_outlined),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('5 枚目は選択せず、4 枚までと知らせる', (tester) async {
+        when(mockSettingsService.gridCrossAxisCount).thenReturn(5);
+        when(
+          mockFirestoreService.getTestPieces(),
+        ).thenAnswer((_) => Stream.value(pieces(5)));
+        await tester.pumpWidget(createTestableWidget(const MainTabScreen()));
+        await tester.pumpAndSettle();
+
+        await tester.longPress(find.byType(TestPieceCard).at(0));
+        await tester.pumpAndSettle();
+        for (var i = 1; i < 4; i++) {
+          await tester.tap(find.byType(TestPieceCard).at(i));
+          await tester.pumpAndSettle();
+        }
+        expect(find.text('4 件選択'), findsOneWidget);
+
+        await tester.tap(find.byType(TestPieceCard).at(4));
+        await tester.pump();
+
+        expect(find.text('比較できるのは 4 枚までです'), findsOneWidget);
+        expect(find.text('4 件選択'), findsOneWidget);
+      });
+
+      testWidgets('戻る操作は、選択中なら選択の解除だけを行う', (tester) async {
+        when(
+          mockFirestoreService.getTestPieces(),
+        ).thenAnswer((_) => Stream.value(pieces(2)));
+        await tester.pumpWidget(createTestableWidget(const MainTabScreen()));
+        await tester.pumpAndSettle();
+
+        await tester.longPress(find.byType(TestPieceCard).first);
+        await tester.pumpAndSettle();
+        expect(find.text('1 件選択'), findsOneWidget);
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        expect(find.text('テストピース一覧'), findsOneWidget);
+        // 終了の案内は出ない
+        expect(find.text('もう一度戻るとアプリを終了します'), findsNothing);
+      });
+
+      testWidgets('タブを離れると選択を解除する', (tester) async {
+        when(
+          mockFirestoreService.getTestPieces(),
+        ).thenAnswer((_) => Stream.value(pieces(2)));
+        await tester.pumpWidget(createTestableWidget(const MainTabScreen()));
+        await tester.pumpAndSettle();
+
+        await tester.longPress(find.byType(TestPieceCard).first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.color_lens_outlined));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.photo_library_outlined));
+        await tester.pumpAndSettle();
+
+        expect(find.text('テストピース一覧'), findsOneWidget);
+        expect(find.byIcon(Icons.check_circle), findsNothing);
+      });
     });
 
     testWidgets('写しを持たない既存のテストピースに一度だけ写しを埋める', (WidgetTester tester) async {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/test_piece_group_key.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/firing_list_screen.dart';
@@ -11,7 +12,16 @@ import 'package:glaze_manager/widgets/common/empty_list_placeholder.dart';
 
 class TestPieceListScreen extends ConsumerStatefulWidget {
   final PageStorageKey? pageStorageKey;
-  const TestPieceListScreen({super.key, this.pageStorageKey});
+
+  /// 比較のために選んだテストピースの ID。AppBar を持つ MainTabScreen と共有する。
+  /// null なら選択機能は無効。
+  final ValueNotifier<Set<String>>? selectionNotifier;
+
+  const TestPieceListScreen({
+    super.key,
+    this.pageStorageKey,
+    this.selectionNotifier,
+  });
 
   // AppBarに表示するグループ表示切替ボタンを生成する静的メソッド
   // MainTabScreenから呼び出される (MaterialsListScreen.buildActions と同じ流儀)
@@ -50,6 +60,43 @@ class TestPieceListScreen extends ConsumerStatefulWidget {
 }
 
 class TestPieceListScreenState extends ConsumerState<TestPieceListScreen> {
+  @override
+  void initState() {
+    super.initState();
+    widget.selectionNotifier?.addListener(_onSelectionChanged);
+  }
+
+  @override
+  void didUpdateWidget(TestPieceListScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectionNotifier != widget.selectionNotifier) {
+      oldWidget.selectionNotifier?.removeListener(_onSelectionChanged);
+      widget.selectionNotifier?.addListener(_onSelectionChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.selectionNotifier?.removeListener(_onSelectionChanged);
+    super.dispose();
+  }
+
+  void _onSelectionChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _toggleSelection(TestPiece testPiece) {
+    final notifier = widget.selectionNotifier;
+    final id = testPiece.id;
+    if (notifier == null || id == null) return;
+    final next = TestPieceSelection.toggled(notifier.value, id);
+    if (next == null) {
+      TestPieceSelection.showLimitMessage(ScaffoldMessenger.of(context));
+      return;
+    }
+    notifier.value = next;
+  }
+
   /// 表示中データの再購読 (F5 / プルリフレッシュから呼ばれる)
   Future<void> handleRefresh() async {
     ref.invalidate(testPiecesProvider);
@@ -71,6 +118,13 @@ class TestPieceListScreenState extends ConsumerState<TestPieceListScreen> {
     final settings = ref.watch(settingsServiceProvider);
     final crossAxisCount = settings.gridCrossAxisCount;
     final groupKey = settings.testPieceGroupKey;
+    final selectionNotifier = widget.selectionNotifier;
+    final selection = selectionNotifier == null
+        ? null
+        : TestPieceSelection(
+            selectedIds: selectionNotifier.value,
+            onToggle: _toggleSelection,
+          );
 
     return Scaffold(
       body: Stack(
@@ -94,6 +148,7 @@ class TestPieceListScreenState extends ConsumerState<TestPieceListScreen> {
                   firingMap: firingMap,
                   crossAxisCount: crossAxisCount,
                   onRefresh: handleRefresh,
+                  selection: selection,
                 );
               }
               // グループ化は高々数百件のO(n)処理なので build 内の同期呼び出しで足りる
@@ -114,6 +169,7 @@ class TestPieceListScreenState extends ConsumerState<TestPieceListScreen> {
                 firingMap: firingMap,
                 crossAxisCount: crossAxisCount,
                 onRefresh: handleRefresh,
+                selection: selection,
               );
             },
           ),

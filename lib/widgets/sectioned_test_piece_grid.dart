@@ -22,6 +22,7 @@ class SectionedTestPieceGrid extends StatelessWidget {
   final Map<String, Firing> firingMap;
   final int crossAxisCount;
   final Future<void> Function()? onRefresh;
+  final TestPieceSelection? selection;
 
   const SectionedTestPieceGrid({
     super.key,
@@ -33,6 +34,7 @@ class SectionedTestPieceGrid extends StatelessWidget {
     required this.firingMap,
     required this.crossAxisCount,
     this.onRefresh,
+    this.selection,
   });
 
   @override
@@ -63,6 +65,7 @@ class SectionedTestPieceGrid extends StatelessWidget {
                     firingAtmosphereMap: firingAtmosphereMap,
                     firingProfileMap: firingProfileMap,
                     firingMap: firingMap,
+                    selection: selection,
                   ),
                 ),
               ),

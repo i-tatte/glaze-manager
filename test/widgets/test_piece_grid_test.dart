@@ -286,4 +286,79 @@ void main() {
 
     expect(refreshed, true);
   });
+
+  group('選択', () {
+    final pieces = [
+      TestPiece(
+        id: 'tp1',
+        glazeId: 'g1',
+        clayId: 'c1',
+        createdAt: Timestamp.now(),
+      ),
+      TestPiece(
+        id: 'tp2',
+        glazeId: 'g1',
+        clayId: 'c1',
+        createdAt: Timestamp.now(),
+      ),
+    ];
+
+    Widget grid(TestPieceSelection selection) => MaterialApp(
+      home: Scaffold(
+        body: TestPieceGrid(
+          testPieces: pieces,
+          glazeMap: const {},
+          clayMap: const {},
+          firingAtmosphereMap: const {},
+          firingProfileMap: const {},
+          firingMap: const {},
+          crossAxisCount: 2,
+          selection: selection,
+        ),
+      ),
+    );
+
+    testWidgets('選択がなければ長押しで切り替える', (tester) async {
+      final toggled = <String?>[];
+      await tester.pumpWidget(
+        grid(
+          TestPieceSelection(
+            selectedIds: const {},
+            onToggle: (tp) => toggled.add(tp.id),
+          ),
+        ),
+      );
+      expect(find.byIcon(Icons.check_circle), findsNothing);
+
+      await tester.longPress(find.byType(TestPieceCard).first);
+      expect(toggled, ['tp1']);
+    });
+
+    testWidgets('選択中はタップでも切り替え、選択中のカードにチェックを出す', (tester) async {
+      final toggled = <String?>[];
+      await tester.pumpWidget(
+        grid(
+          TestPieceSelection(
+            selectedIds: const {'tp1'},
+            onToggle: (tp) => toggled.add(tp.id),
+          ),
+        ),
+      );
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+
+      await tester.tap(find.byType(TestPieceCard).last);
+      expect(toggled, ['tp2']);
+    });
+
+    test('toggled は 4 枚を上限に、超えるときは null を返す', () {
+      expect(TestPieceSelection.toggled({'a'}, 'b'), {'a', 'b'});
+      expect(TestPieceSelection.toggled({'a', 'b'}, 'b'), {'a'});
+      expect(TestPieceSelection.toggled({'a', 'b', 'c', 'd'}, 'e'), isNull);
+      expect(TestPieceSelection.toggled({'a', 'b', 'c', 'd'}, 'd'), {
+        'a',
+        'b',
+        'c',
+      });
+    });
+  });
 }

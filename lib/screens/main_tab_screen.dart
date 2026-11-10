@@ -6,6 +6,7 @@ import 'package:glaze_manager/screens/glaze_list_screen.dart';
 import 'package:glaze_manager/screens/materials_list_screen.dart';
 import 'package:glaze_manager/screens/settings_screen.dart';
 import 'package:glaze_manager/screens/search_screen.dart';
+import 'package:glaze_manager/screens/test_piece_compare_screen.dart';
 import 'package:glaze_manager/screens/test_piece_list_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
@@ -45,6 +46,9 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
   // 原料一覧画面の編集状態を管理するNotifier
   final _isMaterialsEditingNotifier = ValueNotifier<bool>(false);
 
+  // テストピース一覧で比較のために選んだテストピースの ID
+  final _testPieceSelectionNotifier = ValueNotifier<Set<String>>({});
+
   // 各リスト画面のStateにアクセスするためのGlobalKey
   final _testPieceListKey = GlobalKey<State<TestPieceListScreen>>();
   final _glazeListKey = GlobalKey<State<GlazeListScreen>>();
@@ -79,6 +83,7 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
         screen: TestPieceListScreen(
           key: _testPieceListKey,
           pageStorageKey: const PageStorageKey('testPieceList'),
+          selectionNotifier: _testPieceSelectionNotifier,
         ),
       ),
       const _TabDefinition(
@@ -162,6 +167,12 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
   /// テストピース一覧以外のタブでは、まずテストピース一覧タブへ戻る。
   /// テストピース一覧では1回目でトーストを出し、2秒以内の2回目で終了する。
   void _handleBackGesture() {
+    // テストピースの選択中は、選択を解除して終える
+    if (_selectedTab == _MainTab.testPieces &&
+        _testPieceSelectionNotifier.value.isNotEmpty) {
+      _testPieceSelectionNotifier.value = {};
+      return;
+    }
     if (_selectedTab != _MainTab.testPieces) {
       _onItemTapped(_tabs.indexWhere((t) => t.tab == _MainTab.testPieces));
       return;
@@ -190,9 +201,69 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
         _isMaterialsEditingNotifier.value = false;
       }
     }
+    // テストピースタブから離れたら、比較の選択を解除する
+    if (_selectedTab == _MainTab.testPieces &&
+        _tabs[index].tab != _MainTab.testPieces) {
+      if (_testPieceSelectionNotifier.value.isNotEmpty) {
+        _testPieceSelectionNotifier.value = {};
+      }
+    }
     setState(() {
       _selectedIndex = index;
     });
+  }
+
+  @override
+  void dispose() {
+    _testPieceSelectionNotifier.dispose();
+    super.dispose();
+  }
+
+  void _openCompare() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => TestPieceCompareScreen(
+          testPieceIds: _testPieceSelectionNotifier.value.toList(),
+        ),
+      ),
+    );
+  }
+
+  /// テストピースタブの AppBar のアクション。選択中は比較と解除に切り替える。
+  Widget _buildTestPieceActions() {
+    // ref.watch は build 中にしか使えないので、builder の外で作っておく
+    final firingButton = TestPieceListScreen.buildFiringListButton(context);
+    final groupSelector = TestPieceListScreen.buildGroupKeySelector(ref);
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: _testPieceSelectionNotifier,
+      builder: (context, selected, _) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: selected.isEmpty
+            ? [firingButton, groupSelector]
+            : [
+                IconButton(
+                  icon: const Icon(Icons.compare_arrows),
+                  tooltip: '比較',
+                  onPressed: selected.length >= 2 ? _openCompare : null,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  tooltip: '選択を解除',
+                  onPressed: () => _testPieceSelectionNotifier.value = {},
+                ),
+              ],
+      ),
+    );
+  }
+
+  Widget _buildTitle() {
+    final title = _tabs[_selectedIndex].title;
+    if (_selectedTab != _MainTab.testPieces) return Text(title);
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: _testPieceSelectionNotifier,
+      builder: (context, selected, _) =>
+          Text(selected.isEmpty ? title : '${selected.length} 件選択'),
+    );
   }
 
   Future<void> _importGlazes() async {
@@ -352,10 +423,7 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
           ),
         ];
       case _MainTab.testPieces:
-        return [
-          TestPieceListScreen.buildFiringListButton(context),
-          TestPieceListScreen.buildGroupKeySelector(ref),
-        ];
+        return [_buildTestPieceActions()];
       case _MainTab.search:
         return const [];
     }
@@ -404,7 +472,7 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
           },
           child: Scaffold(
             appBar: AppBar(
-              title: Text(_tabs[_selectedIndex].title),
+              title: _buildTitle(),
               actions: _buildAppBarActions(),
             ),
             body: PageStorage(
