@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +25,7 @@ import 'package:glaze_manager/widgets/test_piece_card.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 
+import '../helpers/fake_upload_queue.dart';
 import 'main_tab_screen_test.mocks.dart';
 
 // モックを生成するためのアノテーション
@@ -83,10 +87,19 @@ void main() {
     when(mockAuthService.user).thenAnswer((_) => Stream<User?>.value(null));
   });
 
+  late FakeUploadQueue fakeUploadQueue;
+  setUp(() => fakeUploadQueue = FakeUploadQueue());
+
   // テスト対象のウィジェットをラップするヘルパー関数
   Widget createTestableWidget(Widget child) {
     return ProviderScope(
       overrides: [
+        // MainTabScreen はアップロード待ちの読み込みと通信の監視を行う。
+        // プラグインに触れないよう差し替える
+        uploadQueueProvider.overrideWith((_) => fakeUploadQueue),
+        connectivityChangesProvider.overrideWith(
+          (_) => const Stream<List<ConnectivityResult>>.empty(),
+        ),
         firestoreServiceProvider.overrideWithValue(mockFirestoreService),
         authStateChangesProvider.overrideWith(
           (ref) => Stream<User?>.value(null),
@@ -322,6 +335,46 @@ void main() {
         expect(find.text('テストピース一覧'), findsOneWidget);
         expect(find.byIcon(Icons.check_circle), findsNothing);
       });
+    });
+
+    testWidgets('起動時にアップロード待ちを読み込み、送り始める', (WidgetTester tester) async {
+      await tester.pumpWidget(createTestableWidget(const MainTabScreen()));
+      await tester.pumpAndSettle();
+
+      expect(fakeUploadQueue.loadCount, 1);
+      expect(fakeUploadQueue.processAllCount, 1);
+    });
+
+    testWidgets('通信が回復するとアップロード待ちを送る', (WidgetTester tester) async {
+      final connectivity = StreamController<List<ConnectivityResult>>();
+      addTearDown(connectivity.close);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            uploadQueueProvider.overrideWith((_) => fakeUploadQueue),
+            connectivityChangesProvider.overrideWith(
+              (_) => connectivity.stream,
+            ),
+            firestoreServiceProvider.overrideWithValue(mockFirestoreService),
+            authStateChangesProvider.overrideWith(
+              (ref) => Stream<User?>.value(null),
+            ),
+            settingsServiceProvider.overrideWith((_) => mockSettingsService),
+            authServiceProvider.overrideWithValue(mockAuthService),
+          ],
+          child: const MaterialApp(home: MainTabScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final before = fakeUploadQueue.processAllCount;
+
+      connectivity.add([ConnectivityResult.none]);
+      await tester.pumpAndSettle();
+      expect(fakeUploadQueue.processAllCount, before);
+
+      connectivity.add([ConnectivityResult.wifi]);
+      await tester.pumpAndSettle();
+      expect(fakeUploadQueue.processAllCount, before + 1);
     });
 
     testWidgets('写しを持たない既存のテストピースに一度だけ写しを埋める', (WidgetTester tester) async {

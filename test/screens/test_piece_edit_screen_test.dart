@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +17,7 @@ import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
 import 'package:mockito/mockito.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../helpers/fake_upload_queue.dart';
 import 'main_tab_screen_test.mocks.dart';
 
 void main() {
@@ -296,6 +298,179 @@ void main() {
     });
   });
 
+  group('写真のアップロード待ち', () {
+    late FakeUploadQueue fakeQueue;
+
+    setUp(() {
+      fakeQueue = FakeUploadQueue();
+      when(mockFirestoreService.getGlazes()).thenAnswer(
+        (_) => Stream.value([
+          Glaze(
+            id: 'g1',
+            name: 'Glaze 1',
+            recipe: {},
+            tags: [],
+            createdAt: Timestamp.now(),
+          ),
+        ]),
+      );
+      when(mockFirestoreService.getClays()).thenAnswer(
+        (_) => Stream.value([Clay(id: 'c1', name: 'Clay 1', order: 1)]),
+      );
+      when(
+        mockFirestoreService.getFiringProfiles(),
+      ).thenAnswer((_) => Stream.value(<FiringProfile>[]));
+      when(
+        mockFirestoreService.getFiringAtmospheres(),
+      ).thenAnswer((_) => Stream.value(<FiringAtmosphere>[]));
+      when(
+        mockFirestoreService.updateTestPieceFields(any, any),
+      ).thenAnswer((_) async {});
+      when(
+        mockStorageService.getUploadPath(
+          testPieceId: anyNamed('testPieceId'),
+          name: anyNamed('name'),
+        ),
+      ).thenAnswer(
+        (invocation) =>
+            'users/u/test_pieces/images/'
+            '${invocation.namedArguments[#testPieceId]}/'
+            '${invocation.namedArguments[#name]}',
+      );
+    });
+
+    Future<void> open(WidgetTester tester, Widget screen) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            firestoreServiceProvider.overrideWithValue(mockFirestoreService),
+            storageServiceProvider.overrideWithValue(mockStorageService),
+            authStateChangesProvider.overrideWith(
+              (ref) => Stream<User?>.value(null),
+            ),
+            uploadQueueProvider.overrideWith((_) => fakeQueue),
+          ],
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute(builder: (_) => screen)),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('新しい画像を持って保存すると待ちに入れ、画面からは送らない', (tester) async {
+      await open(
+        tester,
+        TestPieceEditScreen(
+          testPiece: TestPiece(
+            id: 'tp1',
+            glazeId: 'g1',
+            clayId: 'c1',
+            createdAt: Timestamp.now(),
+          ),
+          initialNewImage: (
+            fileName: 'new.jpg',
+            bytes: Uint8List.fromList(_onePixelPng),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('保存'));
+      await tester.pumpAndSettle();
+
+      expect(fakeQueue.enqueued, hasLength(1));
+      expect(fakeQueue.enqueued.single.testPieceId, 'tp1');
+      expect(fakeQueue.enqueued.single.fileName, 'new.jpg');
+      expect(
+        fakeQueue.enqueued.single.storagePath,
+        'users/u/test_pieces/images/tp1/new.jpg',
+      );
+      // 文書には待ちと同じパスを書く
+      final captured =
+          verify(
+                mockFirestoreService.updateTestPieceFields('tp1', captureAny),
+              ).captured.single
+              as Map<String, dynamic>;
+      expect(captured['imagePath'], 'users/u/test_pieces/images/tp1/new.jpg');
+      verifyNever(
+        mockStorageService.uploadTestPieceImage(
+          testPieceId: anyNamed('testPieceId'),
+          name: anyNamed('name'),
+          bytes: anyNamed('bytes'),
+          mimeType: anyNamed('mimeType'),
+        ),
+      );
+      // 画面は閉じている
+      expect(find.text('テストピースの編集'), findsNothing);
+    });
+
+    testWidgets('新しい画像がなければ待ちに入れない', (tester) async {
+      await open(
+        tester,
+        TestPieceEditScreen(
+          testPiece: TestPiece(
+            id: 'tp1',
+            glazeId: 'g1',
+            clayId: 'c1',
+            createdAt: Timestamp.now(),
+          ),
+        ),
+      );
+      await tester.tap(find.byTooltip('保存'));
+      await tester.pumpAndSettle();
+
+      expect(fakeQueue.enqueued, isEmpty);
+    });
+
+    testWidgets('削除するとアップロード待ちも消す', (tester) async {
+      when(
+        mockStorageService.deleteAllTestPieceFiles(any),
+      ).thenAnswer((_) async {});
+      when(mockFirestoreService.deleteTestPiece(any)).thenAnswer((_) async {});
+      // 削除は編集画面と詳細画面を閉じるので、間に 1 枚画面を挟む
+      await open(
+        tester,
+        Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => TestPieceEditScreen(
+                    testPiece: TestPiece(
+                      id: 'tp1',
+                      glazeId: 'g1',
+                      clayId: 'c1',
+                      createdAt: Timestamp.now(),
+                    ),
+                  ),
+                ),
+              ),
+              child: const Text('detail'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('detail'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('削除'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('削除').last);
+      await tester.pumpAndSettle();
+
+      expect(fakeQueue.removed, ['tp1']);
+    });
+  });
+
   group('評価・番号・焼成回', () {
     final firing = Firing(
       id: 'f1',
@@ -527,3 +702,74 @@ void main() {
     });
   });
 }
+
+/// 1x1 の透明な PNG (プレビューの Image.memory が読めるもの)
+const List<int> _onePixelPng = [
+  0x89,
+  0x50,
+  0x4E,
+  0x47,
+  0x0D,
+  0x0A,
+  0x1A,
+  0x0A,
+  0x00,
+  0x00,
+  0x00,
+  0x0D,
+  0x49,
+  0x48,
+  0x44,
+  0x52,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x08,
+  0x06,
+  0x00,
+  0x00,
+  0x00,
+  0x1F,
+  0x15,
+  0xC4,
+  0x89,
+  0x00,
+  0x00,
+  0x00,
+  0x0A,
+  0x49,
+  0x44,
+  0x41,
+  0x54,
+  0x78,
+  0x9C,
+  0x63,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x05,
+  0x00,
+  0x01,
+  0x0D,
+  0x0A,
+  0x2D,
+  0xB4,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x49,
+  0x45,
+  0x4E,
+  0x44,
+  0xAE,
+  0x42,
+  0x60,
+  0x82,
+];

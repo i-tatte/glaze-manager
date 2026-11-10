@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/theme/atmosphere_card_color.dart';
-import 'package:glaze_manager/widgets/common/app_network_image.dart';
+import 'package:glaze_manager/widgets/test_piece_image.dart';
 
 class TestPieceListTile extends StatelessWidget {
   final TestPiece testPiece;
@@ -47,9 +47,7 @@ class TestPieceListTile extends StatelessWidget {
                 child: SizedBox(
                   width: 80,
                   height: 80,
-                  child: AppNetworkImage(
-                    url: testPiece.thumbnailUrl ?? testPiece.imageUrl,
-                  ),
+                  child: TestPieceImage(testPiece: testPiece),
                 ),
               ),
               const SizedBox(width: 16),

@@ -13,7 +13,7 @@ import 'package:glaze_manager/theme/app_theme.dart';
 import 'package:glaze_manager/utils/date_format.dart';
 import 'package:glaze_manager/utils/png_exporter.dart';
 import 'package:glaze_manager/utils/test_piece_display.dart';
-import 'package:glaze_manager/widgets/common/app_network_image.dart';
+import 'package:glaze_manager/widgets/test_piece_image.dart';
 import 'package:glaze_manager/widgets/common/color_swatch_row.dart';
 import 'package:glaze_manager/widgets/common/info_tile.dart';
 import 'package:glaze_manager/widgets/common/rating_stars.dart';
@@ -60,14 +60,21 @@ class _TestPieceShareScreenState extends ConsumerState<TestPieceShareScreen> {
   /// エクスポートボタンを有効化する。オフライン等で失敗しても機能は殺さない
   /// (壊れ画像アイコンのまま書き出せる)。
   Future<void> _precacheImage() async {
+    // アップロード待ちがあれば端末内の画像を、なければネットワークの画像を使う
+    final pending = ref.read(uploadQueueProvider).pending[widget.testPiece.id];
     final url = widget.testPiece.imageUrl;
-    if (url == null || url.isEmpty) {
+    final ImageProvider provider;
+    if (pending != null) {
+      provider = FileImage(File(pending.localPath));
+    } else if (url != null && url.isNotEmpty) {
+      provider = CachedNetworkImageProvider(url);
+    } else {
       setState(() => _imageReady = true);
       return;
     }
     try {
       await precacheImage(
-        CachedNetworkImageProvider(url),
+        provider,
         context,
       ).timeout(const Duration(seconds: 10));
     } catch (_) {
@@ -205,6 +212,8 @@ class _TestPieceShareScreenState extends ConsumerState<TestPieceShareScreen> {
     final hasRecipe = snapshotGlaze != null
         ? snapshotGlaze.lines.isNotEmpty
         : (glaze != null && glaze.recipe.isNotEmpty);
+    final hasPendingUpload =
+        ref.watch(uploadQueueProvider).pending[testPiece.id] != null;
 
     return Material(
       // 透過PNGにならないよう背景を明示的に塗る
@@ -234,13 +243,16 @@ class _TestPieceShareScreenState extends ConsumerState<TestPieceShareScreen> {
                 RatingStars(rating: testPiece.rating),
               ],
               const SizedBox(height: 16),
-              if (testPiece.imageUrl != null) ...[
+              if (testPiece.imageUrl != null || hasPendingUpload) ...[
                 AspectRatio(
                   aspectRatio: 1.0,
-                  child: AppNetworkImage(
-                    url: testPiece.imageUrl,
+                  // 書き出す画像にアップロード待ちの印は写さない
+                  child: TestPieceImage(
+                    testPiece: testPiece,
+                    preferThumbnail: false,
                     fit: BoxFit.contain,
                     iconSize: 60,
+                    showPendingBadge: false,
                   ),
                 ),
                 const SizedBox(height: 16),

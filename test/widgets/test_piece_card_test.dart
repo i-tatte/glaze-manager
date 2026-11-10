@@ -289,19 +289,21 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 200,
-              height: 300,
-              child: TestPieceCard(
-                testPiece: testPiece,
-                glazeName: 'Test Glaze',
-                clayName: 'Test Clay',
-                firingAtmosphereName: 'Oxidation',
-                firingAtmosphereType: FiringAtmosphereType.oxidation,
-                firingProfileName: 'Standard Profile',
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 200,
+                height: 300,
+                child: TestPieceCard(
+                  testPiece: testPiece,
+                  glazeName: 'Test Glaze',
+                  clayName: 'Test Clay',
+                  firingAtmosphereName: 'Oxidation',
+                  firingAtmosphereType: FiringAtmosphereType.oxidation,
+                  firingProfileName: 'Standard Profile',
+                ),
               ),
             ),
           ),
@@ -324,19 +326,21 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 200,
-              height: 300,
-              child: TestPieceCard(
-                testPiece: testPiece,
-                glazeName: 'Test Glaze',
-                clayName: 'Test Clay',
-                firingAtmosphereName: 'Reduction',
-                firingAtmosphereType: FiringAtmosphereType.reduction,
-                firingProfileName: 'Standard Profile',
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 200,
+                height: 300,
+                child: TestPieceCard(
+                  testPiece: testPiece,
+                  glazeName: 'Test Glaze',
+                  clayName: 'Test Clay',
+                  firingAtmosphereName: 'Reduction',
+                  firingAtmosphereType: FiringAtmosphereType.reduction,
+                  firingProfileName: 'Standard Profile',
+                ),
               ),
             ),
           ),
@@ -349,18 +353,20 @@ void main() {
   });
 
   group('評価のラベル', () {
-    Widget card(TestPiece testPiece) => MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: SizedBox(
-            width: 200,
-            height: 300,
-            child: TestPieceCard(
-              testPiece: testPiece,
-              glazeName: 'Test Glaze',
-              clayName: 'Test Clay',
-              firingAtmosphereName: '未設定',
-              firingProfileName: '未設定',
+    Widget card(TestPiece testPiece) => ProviderScope(
+      child: MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 200,
+              height: 300,
+              child: TestPieceCard(
+                testPiece: testPiece,
+                glazeName: 'Test Glaze',
+                clayName: 'Test Clay',
+                firingAtmosphereName: '未設定',
+                firingProfileName: '未設定',
+              ),
             ),
           ),
         ),
@@ -409,21 +415,23 @@ void main() {
       VoidCallback? onTap,
       VoidCallback? onLongPress,
       bool selected = false,
-    }) => MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: SizedBox(
-            width: 200,
-            height: 300,
-            child: TestPieceCard(
-              testPiece: plain(),
-              glazeName: 'Test Glaze',
-              clayName: 'Test Clay',
-              firingAtmosphereName: '未設定',
-              firingProfileName: '未設定',
-              onTap: onTap,
-              onLongPress: onLongPress,
-              selected: selected,
+    }) => ProviderScope(
+      child: MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 200,
+              height: 300,
+              child: TestPieceCard(
+                testPiece: plain(),
+                glazeName: 'Test Glaze',
+                clayName: 'Test Clay',
+                firingAtmosphereName: '未設定',
+                firingProfileName: '未設定',
+                onTap: onTap,
+                onLongPress: onLongPress,
+                selected: selected,
+              ),
             ),
           ),
         ),
@@ -461,6 +469,23 @@ void main() {
         tester.element(find.byType(Card)),
       ).colorScheme.primary;
       expect(shape.side.color, primary);
+    });
+
+    testWidgets('選択のチェックは画像の右下に置く (左上はアップロード待ちの印)', (tester) async {
+      await tester.pumpWidget(card(selected: true));
+
+      final positioned = tester.widget<Positioned>(
+        find
+            .ancestor(
+              of: find.byIcon(Icons.check_circle),
+              matching: find.byType(Positioned),
+            )
+            .first,
+      );
+      expect(positioned.bottom, 4);
+      expect(positioned.right, 4);
+      expect(positioned.top, isNull);
+      expect(positioned.left, isNull);
     });
 
     testWidgets('選択中でなければチェックも縁もない', (tester) async {

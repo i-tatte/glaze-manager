@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -17,6 +18,7 @@ import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/color_pick_screen.dart';
 import 'package:glaze_manager/screens/firing_edit_screen.dart';
 import 'package:glaze_manager/screens/image_crop_screen.dart';
+import 'package:glaze_manager/services/pending_upload_store.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:glaze_manager/widgets/firing_chart.dart';
@@ -33,7 +35,17 @@ class TestPieceEditScreen extends ConsumerStatefulWidget {
   /// 新規作成のときに最初から選んでおく焼成回 (焼成回の詳細画面から開くとき)
   final String? initialFiringId;
 
-  const TestPieceEditScreen({super.key, this.testPiece, this.initialFiringId});
+  /// 最初から選んでおく新しい画像 (テスト用。画像の選択と切り抜きを経ずに
+  /// 保存の流れを確かめるため)
+  @visibleForTesting
+  final ({String fileName, Uint8List bytes})? initialNewImage;
+
+  const TestPieceEditScreen({
+    super.key,
+    this.testPiece,
+    this.initialFiringId,
+    this.initialNewImage,
+  });
 
   @override
   ConsumerState<TestPieceEditScreen> createState() =>
@@ -65,6 +77,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
   String? _networkImageUrl; // 既存の画像のURL
   List<LabColor> _colorData = []; // 編集用の色データ
   bool _colorsDirty = false; // 色を編集した、または新しい画像を選んだ
+  PendingUpload? _pendingUpload; // 編集中のテストピースのアップロード待ち
 
   bool _isDirty = false;
   // グラフ表示用の状態
@@ -86,6 +99,15 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
     _noteController.text = widget.testPiece?.note ?? '';
     _labelController.text = widget.testPiece?.label ?? '';
     _rating = widget.testPiece?.rating;
+    final initialNewImage = widget.initialNewImage;
+    if (initialNewImage != null) {
+      _newImageFileName = initialNewImage.fileName;
+      _newImageBytes = initialNewImage.bytes;
+      _networkImageUrl = null;
+      _colorData = [];
+      _colorsDirty = true;
+      _isDirty = true;
+    }
 
     _noteController.addListener(_markAsDirty);
     _labelController.addListener(_markAsDirty);
@@ -235,7 +257,21 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
             : _labelController.text.trim(),
       );
 
-      // §2.3 順序制約: サーバーACK後にアップロード開始 (UIはブロックしない)
+      // 1. 新しい画像は、まず端末内にアップロード待ちとして保存する
+      //    (端末内の書き込みなので待ってよい。送信はキューが、文書の書き込みが
+      //    サーバーに届いたことを確かめてから行う)
+      if (hasNewImage) {
+        await ref
+            .read(uploadQueueProvider)
+            .enqueue(
+              testPieceId: docId,
+              fileName: _newImageFileName!,
+              storagePath: imagePath!,
+              bytes: _newImageBytes!,
+            );
+      }
+
+      // 2. Firestore への書き込みを発火する (待たない)
       final writeFuture = (widget.testPiece == null)
           ? firestoreService.setTestPiece(docId, testPieceData)
           : firestoreService.updateTestPieceFields(
@@ -247,31 +283,13 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
               ),
             );
 
-      if (hasNewImage) {
-        final fileName = _newImageFileName!;
-        final bytes = _newImageBytes!;
-        writeFuture
-            .then(
-              (_) => storageService.uploadTestPieceImage(
-                testPieceId: docId,
-                name: fileName,
-                bytes: bytes,
-                mimeType: 'image/jpeg',
-              ),
-            )
-            .catchError((Object e) {
-              scaffoldMessenger.showSnackBar(
-                SnackBar(content: Text('保存に失敗しました: $e')),
-              );
-            });
-      } else {
-        writeFuture.catchError((Object e) {
-          scaffoldMessenger.showSnackBar(
-            SnackBar(content: Text('保存に失敗しました: $e')),
-          );
-        });
-      }
+      writeFuture.catchError((Object e) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('保存に失敗しました: $e')),
+        );
+      });
 
+      // 3. 画面を閉じる
       _isDirty = false;
       navigator.pop();
     } catch (e) {
@@ -315,6 +333,8 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
         // 新形式 (docIdフォルダ) はフォルダごと、旧形式はURL指定で削除する
         final deleteFutures = <Future>[
           storageService.deleteAllTestPieceFiles(widget.testPiece!.id!),
+          // 端末内のアップロード待ちも消す
+          ref.read(uploadQueueProvider).remove(widget.testPiece!.id!),
         ];
         if (widget.testPiece!.imageUrl != null) {
           deleteFutures.add(
@@ -360,6 +380,11 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
     _availableFirings = ref.watch(firingsProvider).valueOrNull ?? [];
     // 保存時に調合の写しを作るため、原料の購読を保っておく
     ref.watch(materialMapProvider);
+    // 編集中のテストピースのアップロード待ち (まだ送られていない写真)
+    final testPieceId = widget.testPiece?.id;
+    _pendingUpload = testPieceId == null
+        ? null
+        : ref.watch(uploadQueueProvider).pending[testPieceId];
 
     return UnsavedChangesPopScope(isDirty: _isDirty, child: _buildScaffold());
   }
@@ -732,6 +757,10 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
     if (_newImageBytes != null) {
       return Image.memory(_newImageBytes!, fit: BoxFit.contain);
     }
+    // まだ送られていない写真がある場合は、端末内の画像を表示する
+    if (_pendingUpload != null) {
+      return Image.file(File(_pendingUpload!.localPath), fit: BoxFit.contain);
+    }
     // 既存の画像URLがある場合
     if (_networkImageUrl != null) {
       return Image.network(
@@ -768,7 +797,10 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
 
   /// 色編集セクションのウィジェットリストを生成
   List<Widget> _buildColorSection() {
-    final hasImage = _newImageBytes != null || _networkImageUrl != null;
+    final hasImage =
+        _newImageBytes != null ||
+        _pendingUpload != null ||
+        _networkImageUrl != null;
     return [
       Text('テストピースの色', style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 8),
@@ -821,6 +853,8 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
     final ImageProvider provider;
     if (_newImageBytes != null) {
       provider = MemoryImage(_newImageBytes!);
+    } else if (_pendingUpload != null) {
+      provider = FileImage(File(_pendingUpload!.localPath));
     } else if (_networkImageUrl != null) {
       provider = CachedNetworkImageProvider(_networkImageUrl!);
     } else {

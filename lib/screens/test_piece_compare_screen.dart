@@ -5,7 +5,7 @@ import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/test_piece_detail_screen.dart';
 import 'package:glaze_manager/utils/date_format.dart';
 import 'package:glaze_manager/utils/test_piece_display.dart';
-import 'package:glaze_manager/widgets/common/app_network_image.dart';
+import 'package:glaze_manager/widgets/test_piece_image.dart';
 import 'package:glaze_manager/widgets/common/rating_stars.dart';
 import 'package:glaze_manager/widgets/common/recipe_diff_table.dart';
 
@@ -206,7 +206,7 @@ class TestPieceCompareScreen extends ConsumerWidget {
                     builder: (context) => TestPieceDetailScreen(testPiece: tp),
                   ),
                 ),
-                child: AppNetworkImage(url: tp.imageUrl ?? tp.thumbnailUrl),
+                child: TestPieceImage(testPiece: tp, preferThumbnail: false),
               ),
             ),
           ),

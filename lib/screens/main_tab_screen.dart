@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:glaze_manager/models/recipe_snapshot.dart';
@@ -142,7 +143,27 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
       (_, plan) => _applySnapshotBackfill(plan),
       fireImmediately: true,
     );
+
+    // 写真のアップロード待ち。端末内の待ちを読み込んでから送り始める
+    final uploadQueue = ref.read(uploadQueueProvider);
+    uploadQueue.load().then((_) => uploadQueue.processAll());
+    // 通信が回復したら送る
+    ref.listenManual<AsyncValue<List<ConnectivityResult>>>(
+      connectivityChangesProvider,
+      (_, next) {
+        final results = next.valueOrNull;
+        if (results != null && !results.contains(ConnectivityResult.none)) {
+          ref.read(uploadQueueProvider).processAll();
+        }
+      },
+    );
+    // アプリが前面に戻ったら送る
+    _lifecycleListener = AppLifecycleListener(
+      onResume: () => ref.read(uploadQueueProvider).processAll(),
+    );
   }
+
+  late final AppLifecycleListener _lifecycleListener;
 
   /// 同じセッションで二度書き込まないよう、書き込みを呼んだ ID を控える
   final Set<String> _backfilledTestPieceIds = {};
@@ -215,6 +236,7 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
 
   @override
   void dispose() {
+    _lifecycleListener.dispose();
     _testPieceSelectionNotifier.dispose();
     super.dispose();
   }

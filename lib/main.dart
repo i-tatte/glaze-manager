@@ -13,6 +13,9 @@ import 'package:glaze_manager/widgets/common/mouse_back_listener.dart';
 /// マウスの戻るボタンからNavigatorを操作するためのルートNavigatorキー
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
+/// 画面に属さない処理 (写真のアップロードなど) から SnackBar を出すためのキー
+final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
 void main() async {
   // Flutterのウィジェットバインディングを初期化
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,7 +28,18 @@ void main() async {
     persistenceEnabled: true,
   );
 
-  runApp(const ProviderScope(child: GlazeManagerApp()));
+  runApp(
+    ProviderScope(
+      overrides: [
+        uploadFailureReporterProvider.overrideWithValue(
+          (message) => scaffoldMessengerKey.currentState?.showSnackBar(
+            SnackBar(content: Text(message)),
+          ),
+        ),
+      ],
+      child: const GlazeManagerApp(),
+    ),
+  );
 }
 
 class GlazeManagerApp extends ConsumerWidget {
@@ -37,10 +51,9 @@ class GlazeManagerApp extends ConsumerWidget {
     return MaterialApp(
       title: 'Glaze Manager',
       navigatorKey: _rootNavigatorKey,
-      builder: (context, child) => MouseBackListener(
-        navigatorKey: _rootNavigatorKey,
-        child: child!,
-      ),
+      scaffoldMessengerKey: scaffoldMessengerKey,
+      builder: (context, child) =>
+          MouseBackListener(navigatorKey: _rootNavigatorKey, child: child!),
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: settings.themeMode,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/glaze.dart';
@@ -203,16 +204,18 @@ void main() {
     };
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: TestPieceGrid(
-            testPieces: testPieces,
-            glazeMap: glazeMap,
-            clayMap: clayMap,
-            firingAtmosphereMap: const {},
-            firingProfileMap: const {},
-            firingMap: const {},
-            crossAxisCount: 2,
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: TestPieceGrid(
+              testPieces: testPieces,
+              glazeMap: glazeMap,
+              clayMap: clayMap,
+              firingAtmosphereMap: const {},
+              firingProfileMap: const {},
+              firingMap: const {},
+              crossAxisCount: 2,
+            ),
           ),
         ),
       ),
@@ -229,24 +232,26 @@ void main() {
 
   testWidgets('焼成回が見つからないテストピースは「不明」と表示する', (WidgetTester tester) async {
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: TestPieceGrid(
-            testPieces: [
-              TestPiece(
-                id: 'tp1',
-                glazeId: 'g1',
-                clayId: 'c1',
-                createdAt: Timestamp.now(),
-                firingId: 'f-deleted',
-              ),
-            ],
-            glazeMap: const {},
-            clayMap: const {},
-            firingAtmosphereMap: const {},
-            firingProfileMap: const {},
-            firingMap: const {},
-            crossAxisCount: 2,
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: TestPieceGrid(
+              testPieces: [
+                TestPiece(
+                  id: 'tp1',
+                  glazeId: 'g1',
+                  clayId: 'c1',
+                  createdAt: Timestamp.now(),
+                  firingId: 'f-deleted',
+                ),
+              ],
+              glazeMap: const {},
+              clayMap: const {},
+              firingAtmosphereMap: const {},
+              firingProfileMap: const {},
+              firingMap: const {},
+              crossAxisCount: 2,
+            ),
           ),
         ),
       ),
@@ -260,19 +265,21 @@ void main() {
   ) async {
     bool refreshed = false;
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: TestPieceGrid(
-            testPieces: [],
-            glazeMap: {},
-            clayMap: {},
-            firingAtmosphereMap: {},
-            firingProfileMap: {},
-            firingMap: {},
-            crossAxisCount: 2,
-            onRefresh: () async {
-              refreshed = true;
-            },
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: TestPieceGrid(
+              testPieces: [],
+              glazeMap: {},
+              clayMap: {},
+              firingAtmosphereMap: {},
+              firingProfileMap: {},
+              firingMap: {},
+              crossAxisCount: 2,
+              onRefresh: () async {
+                refreshed = true;
+              },
+            ),
           ),
         ),
       ),
@@ -303,17 +310,19 @@ void main() {
       ),
     ];
 
-    Widget grid(TestPieceSelection selection) => MaterialApp(
-      home: Scaffold(
-        body: TestPieceGrid(
-          testPieces: pieces,
-          glazeMap: const {},
-          clayMap: const {},
-          firingAtmosphereMap: const {},
-          firingProfileMap: const {},
-          firingMap: const {},
-          crossAxisCount: 2,
-          selection: selection,
+    Widget grid(TestPieceSelection selection) => ProviderScope(
+      child: MaterialApp(
+        home: Scaffold(
+          body: TestPieceGrid(
+            testPieces: pieces,
+            glazeMap: const {},
+            clayMap: const {},
+            firingAtmosphereMap: const {},
+            firingProfileMap: const {},
+            firingMap: const {},
+            crossAxisCount: 2,
+            selection: selection,
+          ),
         ),
       ),
     );

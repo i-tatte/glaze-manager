@@ -3,7 +3,7 @@ import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/screens/test_piece_detail_screen.dart';
 import 'package:glaze_manager/theme/atmosphere_card_color.dart';
-import 'package:glaze_manager/widgets/common/app_network_image.dart';
+import 'package:glaze_manager/widgets/test_piece_image.dart';
 
 class TestPieceCard extends StatelessWidget {
   // TestPieceオブジェクトと、それに関連する釉薬名を受け取る
@@ -81,9 +81,7 @@ class TestPieceCard extends StatelessWidget {
                 children: [
                   Hero(
                     tag: 'testPieceImage_${testPiece.id}',
-                    child: AppNetworkImage(
-                      url: testPiece.thumbnailUrl ?? testPiece.imageUrl,
-                    ),
+                    child: TestPieceImage(testPiece: testPiece),
                   ),
                   if (testPiece.rating != null)
                     Positioned(
@@ -106,10 +104,11 @@ class TestPieceCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  // 左上はアップロード待ちの印が使うので、選択のチェックは右下
                   if (selected)
                     Positioned(
-                      top: 4,
-                      left: 4,
+                      bottom: 4,
+                      right: 4,
                       child: Icon(Icons.check_circle, color: primary, size: 28),
                     ),
                 ],

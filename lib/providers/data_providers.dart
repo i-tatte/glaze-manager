@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:glaze_manager/models/clay.dart';
@@ -10,6 +11,8 @@ import 'package:glaze_manager/models/recipe_snapshot.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/services/auth_service.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
+import 'package:glaze_manager/services/pending_upload_store.dart';
+import 'package:glaze_manager/services/upload_queue.dart';
 import 'package:glaze_manager/services/snapshot_backfill.dart';
 import 'package:glaze_manager/services/settings_service.dart';
 import 'package:glaze_manager/services/storage_service.dart';
@@ -38,6 +41,60 @@ final firestoreServiceProvider = Provider<FirestoreService>(
 final storageServiceProvider = Provider<StorageService>(
   (ref) => StorageService(),
 );
+
+/// 通信状態の変化。テストでは空のストリームに差し替える
+/// (プラグインのない環境で MissingPluginException を出さないため)。
+final connectivityChangesProvider = StreamProvider<List<ConnectivityResult>>(
+  (ref) => Connectivity().onConnectivityChanged,
+);
+
+/// 写真のアップロードの失敗を利用者に知らせる関数。
+/// アプリでは main.dart が scaffoldMessengerKey の SnackBar に差し替える。
+final uploadFailureReporterProvider = Provider<void Function(String message)>(
+  (ref) => (_) {},
+);
+
+/// 写真のアップロード待ち。
+///
+/// 生成時にはプラグインにも認証にも触れない。待ちの読み込みは
+/// MainTabScreen が load() で行う。
+final uploadQueueProvider = ChangeNotifierProvider<UploadQueue>((ref) {
+  return UploadQueue(
+    store: PendingUploadStore(),
+    currentUid: () => FirebaseAuth.instance.currentUser?.uid,
+    checkDocument: (job) async {
+      final snapshot = await ref
+          .read(firestoreServiceProvider)
+          .testPieces
+          .getFromServer(job.testPieceId);
+      return classifyTestPieceDocument(
+        exists: snapshot.exists,
+        hasPendingWrites: snapshot.metadata.hasPendingWrites,
+        imagePath: snapshot.data()?['imagePath'],
+        storagePath: job.storagePath,
+      );
+    },
+    upload: (job, bytes) async {
+      final storage = ref.read(storageServiceProvider);
+      // 送り先は待ちに記録したパスと同じでなければならない
+      // (別の利用者に切り替わっていたら送らない)
+      final path = storage.getUploadPath(
+        testPieceId: job.testPieceId,
+        name: job.fileName,
+      );
+      if (path != job.storagePath) {
+        throw StateError('Upload path mismatch: $path != ${job.storagePath}');
+      }
+      await storage.uploadTestPieceImage(
+        testPieceId: job.testPieceId,
+        name: job.fileName,
+        bytes: bytes,
+        mimeType: 'image/jpeg',
+      );
+    },
+    onFailure: (message) => ref.read(uploadFailureReporterProvider)(message),
+  );
+});
 
 /// 認証状態。各コレクションのプロバイダはこれをwatchすることで、
 /// ユーザーが切り替わったときに購読を張り直す。

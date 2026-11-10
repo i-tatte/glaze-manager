@@ -29,6 +29,13 @@ class TestPieceRepository extends UserScopedRepository<TestPiece> {
     await collection.doc(id).set(toFirestore(piece));
   }
 
+  /// 文書をサーバーから読む。通信できなければ例外になる。
+  ///
+  /// 返る内容には端末の未送信の書き込みが重ねられている (遅延補償)。
+  /// 書き込みがサーバーに届いたかは `metadata.hasPendingWrites` で見分けること。
+  Future<DocumentSnapshot<Map<String, dynamic>>> getFromServer(String id) =>
+      collection.doc(id).get(const GetOptions(source: Source.server));
+
   /// 指定したフィールドだけを更新する (他のフィールドは触らない)
   Future<void> updateFields(String id, Map<String, dynamic> fields) async {
     await collection.doc(id).update(fields);

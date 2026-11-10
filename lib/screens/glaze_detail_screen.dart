@@ -11,7 +11,7 @@ import 'package:glaze_manager/screens/glaze_edit_screen.dart';
 import 'package:glaze_manager/screens/glaze_list_screen.dart';
 import 'package:glaze_manager/screens/mixing_calculator_screen.dart';
 import 'package:glaze_manager/screens/test_piece_detail_screen.dart';
-import 'package:glaze_manager/widgets/common/app_network_image.dart';
+import 'package:glaze_manager/widgets/test_piece_image.dart';
 import 'package:glaze_manager/widgets/common/info_tile.dart';
 import 'package:glaze_manager/widgets/common/recipe_table.dart';
 import 'package:glaze_manager/widgets/common/tag_chip.dart';
@@ -277,15 +277,7 @@ class GlazeDetailScreen extends ConsumerWidget {
                                   aspectRatio: 1,
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(8.0),
-                                    child: AppNetworkImage(
-                                      url:
-                                          (testPiece.thumbnailUrl != null &&
-                                              testPiece
-                                                  .thumbnailUrl!
-                                                  .isNotEmpty)
-                                          ? testPiece.thumbnailUrl
-                                          : testPiece.imageUrl,
-                                    ),
+                                    child: TestPieceImage(testPiece: testPiece),
                                   ),
                                 ),
                               ],

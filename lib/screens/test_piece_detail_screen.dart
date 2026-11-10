@@ -1,5 +1,4 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/glaze.dart';
@@ -17,6 +16,7 @@ import 'package:glaze_manager/screens/mixing_calculator_screen.dart';
 import 'package:glaze_manager/widgets/firing_chart.dart';
 import 'package:glaze_manager/screens/search_screen.dart';
 import 'package:glaze_manager/widgets/common/app_network_image.dart';
+import 'package:glaze_manager/widgets/test_piece_image.dart';
 import 'package:glaze_manager/widgets/common/color_swatch_row.dart';
 import 'package:glaze_manager/widgets/common/info_tile.dart';
 import 'package:glaze_manager/widgets/common/rating_stars.dart';
@@ -199,6 +199,11 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
   }
 
   Widget _buildImage(TestPiece testPiece) {
+    // アップロード待ちのあいだは端末内の画像を表示するので、
+    // ネットワークの画像を使う全画面表示とスポイト検索は無効にする
+    final hasPendingUpload =
+        ref.watch(uploadQueueProvider).pending[testPiece.id] != null;
+    final canUseNetworkImage = testPiece.imageUrl != null && !hasPendingUpload;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -210,16 +215,17 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
               child: Stack(
                 children: [
                   GestureDetector(
-                    onTap: testPiece.imageUrl != null
+                    onTap: canUseNetworkImage
                         ? () => _showFullScreenImage(context, testPiece)
                         : null,
-                    child: AppNetworkImage(
-                      url: testPiece.imageUrl,
+                    child: TestPieceImage(
+                      testPiece: testPiece,
+                      preferThumbnail: false,
                       fit: BoxFit.contain,
                       iconSize: 60,
                     ),
                   ),
-                  if (testPiece.imageUrl != null)
+                  if (canUseNetworkImage)
                     Positioned(
                       top: 8,
                       right: 8,
@@ -514,38 +520,12 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
         });
   }
 
-  /// 編集画面へ遷移する（オフラインチェック含む）
-  Future<void> _navigateToEditScreen(
+  /// 編集画面へ遷移する。オフラインでも写真を選んで保存できる
+  /// (写真は端末内にアップロード待ちとして残る)
+  void _navigateToEditScreen(
     BuildContext context, {
     required TestPiece testPiece,
-  }) async {
-    // ネットワーク接続を確認
-    final connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult.contains(ConnectivityResult.none) &&
-        context.mounted) {
-      // オフラインの場合、警告ダイアログを表示
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('オフラインです'),
-          content: const Text('現在オフラインのため、画像のアップロードはできません。テキスト情報のみ保存可能です。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('キャンセル'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('続ける'),
-            ),
-          ],
-        ),
-      );
-      // 「続ける」が押されなかった場合は何もしない
-      if (confirmed != true) return;
-    }
-    // オンライン、または警告後に「続ける」が押された場合、編集画面に遷移
-    if (!context.mounted) return;
+  }) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => TestPieceEditScreen(testPiece: testPiece),
