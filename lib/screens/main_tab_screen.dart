@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:glaze_manager/models/recipe_snapshot.dart';
 import 'package:glaze_manager/services/app_exit.dart';
@@ -8,6 +12,7 @@ import 'package:glaze_manager/screens/materials_list_screen.dart';
 import 'package:glaze_manager/screens/settings_screen.dart';
 import 'package:glaze_manager/screens/search_screen.dart';
 import 'package:glaze_manager/screens/test_piece_compare_screen.dart';
+import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
 import 'package:glaze_manager/screens/test_piece_list_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
@@ -160,6 +165,30 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
     // アプリが前面に戻ったら送る
     _lifecycleListener = AppLifecycleListener(
       onResume: () => ref.read(uploadQueueProvider).processAll(),
+    );
+
+    // Android では、カメラを開いているあいだにこのアプリの画面が破棄される
+    // ことがある。撮った写真が残っていれば、その写真で新規作成の画面を開く
+    if (!kIsWeb && Platform.isAndroid) {
+      _retrieveLostImages();
+    }
+  }
+
+  Future<void> _retrieveLostImages() async {
+    final LostDataResponse response;
+    try {
+      response = await ImagePicker().retrieveLostData();
+    } catch (e) {
+      debugPrint('retrieveLostData failed: $e');
+      return;
+    }
+    if (response.isEmpty || !mounted) return;
+    final files = response.files ?? [if (response.file != null) response.file!];
+    if (files.isEmpty) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => TestPieceEditScreen(queuedImages: files),
+      ),
     );
   }
 

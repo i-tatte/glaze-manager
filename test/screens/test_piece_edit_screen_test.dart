@@ -701,6 +701,214 @@ void main() {
       expect(find.text('焼成雰囲気を選択 (任意)'), findsNothing);
     });
   });
+
+  group('入口と連続登録', () {
+    setUp(() {
+      when(mockFirestoreService.getGlazes()).thenAnswer(
+        (_) => Stream.value([
+          Glaze(
+            id: 'g1',
+            name: 'Glaze 1',
+            recipe: {},
+            tags: [],
+            createdAt: Timestamp.now(),
+          ),
+          Glaze(
+            id: 'g2',
+            name: 'Glaze 2',
+            recipe: {},
+            tags: [],
+            createdAt: Timestamp.now(),
+          ),
+        ]),
+      );
+      when(mockFirestoreService.getClays()).thenAnswer(
+        (_) => Stream.value([Clay(id: 'c1', name: 'Clay 1', order: 1)]),
+      );
+      when(mockFirestoreService.getFiringProfiles()).thenAnswer(
+        (_) => Stream.value([FiringProfile(id: 'fp1', name: 'Profile 1')]),
+      );
+      when(mockFirestoreService.getFiringAtmospheres()).thenAnswer(
+        (_) => Stream.value([FiringAtmosphere(id: 'fa1', name: '酸化')]),
+      );
+      when(mockFirestoreService.createTestPieceId()).thenReturn('new1');
+      when(
+        mockFirestoreService.setTestPiece(any, any),
+      ).thenAnswer((_) async {});
+      when(
+        mockFirestoreService.updateTestPieceFields(any, any),
+      ).thenAnswer((_) async {});
+    });
+
+    /// フォーム全体が画面に収まるよう縦長の画面にする
+    void useTallView(WidgetTester tester) {
+      tester.view.physicalSize = const Size(1000, 3000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+    }
+
+    Future<void> open(WidgetTester tester, Widget screen) async {
+      await tester.pumpWidget(
+        createTestableWidget(
+          Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => screen)),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('新規作成の初期値が反映される', (tester) async {
+      useTallView(tester);
+      await open(
+        tester,
+        const TestPieceEditScreen(
+          initialGlazeId: 'g1',
+          initialAdditionalGlazeIds: ['g2'],
+          initialClayId: 'c1',
+          initialFiringAtmosphereId: 'fa1',
+          initialFiringProfileId: 'fp1',
+          initialLabel: '1108-03',
+        ),
+      );
+
+      expect(find.text('Glaze 1'), findsOneWidget);
+      expect(find.text('Glaze 2'), findsOneWidget);
+      expect(find.text('Clay 1'), findsOneWidget);
+      expect(find.text('酸化'), findsOneWidget);
+      expect(find.text('Profile 1'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, '1108-03'), findsOneWidget);
+      // 初期値だけでは未保存の変更として扱わない
+      final popScope = tester.widget<PopScope>(
+        find.byWidgetPredicate((w) => w is PopScope).last,
+      );
+      expect(popScope.canPop, isTrue);
+    });
+
+    testWidgets('「保存して次を登録」で保存し、条件を引き継いだ新しい編集画面を開く', (tester) async {
+      useTallView(tester);
+      await open(
+        tester,
+        const TestPieceEditScreen(
+          initialGlazeId: 'g1',
+          initialClayId: 'c1',
+          initialFiringAtmosphereId: 'fa1',
+          initialLabel: '1108-09',
+        ),
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, '備考\n\n\n'),
+        'メモ',
+      );
+      await tester.tap(find.byIcon(Icons.star_border).first);
+      await tester.pump();
+
+      await tester.tap(find.text('保存して次を登録'));
+      await tester.pumpAndSettle();
+
+      final saved =
+          verify(
+                mockFirestoreService.setTestPiece('new1', captureAny),
+              ).captured.single
+              as TestPiece;
+      expect(saved.glazeId, 'g1');
+      expect(saved.clayId, 'c1');
+      expect(saved.label, '1108-09');
+      expect(saved.rating, 1);
+
+      // 新しい編集画面が、釉薬・素地土・焼成雰囲気と番号の次の候補を引き継いで開く
+      expect(find.text('テストピースの新規作成'), findsOneWidget);
+      expect(find.byType(TestPieceEditScreen), findsOneWidget);
+      expect(find.text('Glaze 1'), findsOneWidget);
+      expect(find.text('Clay 1'), findsOneWidget);
+      expect(find.text('酸化'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, '1108-10'), findsOneWidget);
+      // 備考と評価は引き継がない
+      expect(find.text('メモ'), findsNothing);
+      expect(find.byIcon(Icons.star), findsNothing);
+
+      // 置き換えたので、戻ると開く前の画面に戻る
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.text('open'), findsOneWidget);
+    });
+
+    testWidgets('焼成回を選んでいれば、焼成回を引き継ぐ', (tester) async {
+      useTallView(tester);
+      when(mockFirestoreService.getFirings()).thenAnswer(
+        (_) => Stream.value([
+          Firing(
+            id: 'f1',
+            firedOn: Firing.noonOf(DateTime(2026, 11, 8)),
+            kilnName: '電気窯',
+            createdAt: Timestamp.now(),
+          ),
+        ]),
+      );
+      await open(
+        tester,
+        const TestPieceEditScreen(
+          initialGlazeId: 'g1',
+          initialClayId: 'c1',
+          initialFiringId: 'f1',
+        ),
+      );
+
+      await tester.tap(find.text('保存して次を登録'));
+      await tester.pumpAndSettle();
+
+      verify(mockFirestoreService.setTestPiece('new1', any)).called(1);
+      expect(find.text('テストピースの新規作成'), findsOneWidget);
+      expect(find.text('2026/11/8 電気窯'), findsOneWidget);
+      expect(find.text('焼成雰囲気を選択 (任意)'), findsNothing);
+    });
+
+    testWidgets('検証に通らなければ「保存して次を登録」で次へ進まない', (tester) async {
+      useTallView(tester);
+      await open(tester, const TestPieceEditScreen(initialGlazeId: 'g1'));
+
+      await tester.tap(find.text('保存して次を登録'));
+      await tester.pumpAndSettle();
+
+      verifyNever(mockFirestoreService.setTestPiece(any, any));
+      expect(find.text('素地土名を選択してください'), findsOneWidget);
+    });
+
+    testWidgets('既存のテストピースの編集では連続登録のボタンを出さない', (tester) async {
+      useTallView(tester);
+      await open(
+        tester,
+        TestPieceEditScreen(
+          testPiece: TestPiece(
+            id: 'tp1',
+            glazeId: 'g1',
+            clayId: 'c1',
+            createdAt: Timestamp.now(),
+          ),
+        ),
+      );
+
+      expect(find.text('保存して次を登録'), findsNothing);
+      expect(find.text('複数の写真を選んで連続登録'), findsNothing);
+    });
+
+    testWidgets('新規作成では連続登録と一括選択のボタンを出す', (tester) async {
+      useTallView(tester);
+      await open(tester, const TestPieceEditScreen());
+
+      expect(find.text('保存して次を登録'), findsOneWidget);
+      expect(find.text('複数の写真を選んで連続登録'), findsOneWidget);
+      expect(find.text('写真を選択'), findsOneWidget);
+    });
+  });
 }
 
 /// 1x1 の透明な PNG (プレビューの Image.memory が読めるもの)

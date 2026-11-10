@@ -11,6 +11,7 @@ import 'package:glaze_manager/screens/glaze_edit_screen.dart';
 import 'package:glaze_manager/screens/glaze_list_screen.dart';
 import 'package:glaze_manager/screens/mixing_calculator_screen.dart';
 import 'package:glaze_manager/screens/test_piece_detail_screen.dart';
+import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
 import 'package:glaze_manager/widgets/test_piece_image.dart';
 import 'package:glaze_manager/widgets/common/info_tile.dart';
 import 'package:glaze_manager/widgets/common/recipe_table.dart';
@@ -235,7 +236,25 @@ class GlazeDetailScreen extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('テストピース', style: Theme.of(context).textTheme.titleMedium),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'テストピース',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) =>
+                      TestPieceEditScreen(initialGlazeId: glazeId),
+                ),
+              ),
+              child: const Text('テストピースを追加'),
+            ),
+          ],
+        ),
         const SizedBox(height: 8),
         ref
             .watch(testPiecesForGlazeProvider(glazeId))

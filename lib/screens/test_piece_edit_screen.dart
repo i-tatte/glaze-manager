@@ -19,6 +19,7 @@ import 'package:glaze_manager/screens/color_pick_screen.dart';
 import 'package:glaze_manager/screens/firing_edit_screen.dart';
 import 'package:glaze_manager/screens/image_crop_screen.dart';
 import 'package:glaze_manager/services/pending_upload_store.dart';
+import 'package:glaze_manager/utils/label_increment.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:glaze_manager/widgets/firing_chart.dart';
@@ -32,8 +33,21 @@ import 'package:glaze_manager/widgets/common/rating_stars.dart';
 class TestPieceEditScreen extends ConsumerStatefulWidget {
   final TestPiece? testPiece;
 
+  // 以下の initial* は新規作成 (testPiece が null) のときだけ使う初期値。
+  // 釉薬の詳細画面・焼成回の詳細画面からの入口や、連続登録で引き継ぐ。
+  final String? initialGlazeId;
+  final List<String> initialAdditionalGlazeIds;
+  final String? initialClayId;
+
   /// 新規作成のときに最初から選んでおく焼成回 (焼成回の詳細画面から開くとき)
   final String? initialFiringId;
+  final String? initialFiringAtmosphereId;
+  final String? initialFiringProfileId;
+  final String? initialLabel;
+
+  /// 一括選択した写真のうち、まだ登録していないもの。
+  /// 空でなければ、開いた直後に先頭の写真で切り抜きの画面を開く。
+  final List<XFile> queuedImages;
 
   /// 最初から選んでおく新しい画像 (テスト用。画像の選択と切り抜きを経ずに
   /// 保存の流れを確かめるため)
@@ -43,7 +57,14 @@ class TestPieceEditScreen extends ConsumerStatefulWidget {
   const TestPieceEditScreen({
     super.key,
     this.testPiece,
+    this.initialGlazeId,
+    this.initialAdditionalGlazeIds = const [],
+    this.initialClayId,
     this.initialFiringId,
+    this.initialFiringAtmosphereId,
+    this.initialFiringProfileId,
+    this.initialLabel,
+    this.queuedImages = const [],
     this.initialNewImage,
   });
 
@@ -78,6 +99,8 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
   List<LabColor> _colorData = []; // 編集用の色データ
   bool _colorsDirty = false; // 色を編集した、または新しい画像を選んだ
   PendingUpload? _pendingUpload; // 編集中のテストピースのアップロード待ち
+  // 一括選択した写真のうち、この画面の写真にしていない残り
+  List<XFile> _queuedImages = [];
 
   bool _isDirty = false;
   // グラフ表示用の状態
@@ -86,19 +109,30 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedGlazeId = widget.testPiece?.glazeId;
-    _additionalGlazeIds = widget.testPiece?.additionalGlazeIds.toList() ?? [];
-    _selectedClayId = widget.testPiece?.clayId;
-    _selectedFiringAtmosphereId = widget.testPiece?.firingAtmosphereId;
-    _selectedFiringProfileId = widget.testPiece?.firingProfileId;
-    _selectedFiringId = widget.testPiece != null
-        ? widget.testPiece!.firingId
-        : widget.initialFiringId;
-    _networkImageUrl = widget.testPiece?.imageUrl;
-    _colorData = List<LabColor>.from(widget.testPiece?.colorData ?? []);
-    _noteController.text = widget.testPiece?.note ?? '';
-    _labelController.text = widget.testPiece?.label ?? '';
-    _rating = widget.testPiece?.rating;
+    final testPiece = widget.testPiece;
+    if (testPiece != null) {
+      _selectedGlazeId = testPiece.glazeId;
+      _additionalGlazeIds = testPiece.additionalGlazeIds.toList();
+      _selectedClayId = testPiece.clayId;
+      _selectedFiringAtmosphereId = testPiece.firingAtmosphereId;
+      _selectedFiringProfileId = testPiece.firingProfileId;
+      _selectedFiringId = testPiece.firingId;
+      _labelController.text = testPiece.label ?? '';
+    } else {
+      // 新規作成: 入口や連続登録から渡された初期値を入れる
+      _selectedGlazeId = widget.initialGlazeId;
+      _additionalGlazeIds = widget.initialAdditionalGlazeIds.toList();
+      _selectedClayId = widget.initialClayId;
+      _selectedFiringAtmosphereId = widget.initialFiringAtmosphereId;
+      _selectedFiringProfileId = widget.initialFiringProfileId;
+      _selectedFiringId = widget.initialFiringId;
+      _labelController.text = widget.initialLabel ?? '';
+      _queuedImages = widget.queuedImages.toList();
+    }
+    _networkImageUrl = testPiece?.imageUrl;
+    _colorData = List<LabColor>.from(testPiece?.colorData ?? []);
+    _noteController.text = testPiece?.note ?? '';
+    _rating = testPiece?.rating;
     final initialNewImage = widget.initialNewImage;
     if (initialNewImage != null) {
       _newImageFileName = initialNewImage.fileName;
@@ -111,6 +145,22 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
 
     _noteController.addListener(_markAsDirty);
     _labelController.addListener(_markAsDirty);
+
+    // 一括選択の残りを引き継いだときは、先頭の写真の切り抜きから始める
+    if (_queuedImages.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _useNextQueuedImage();
+      });
+    }
+  }
+
+  /// 残りの写真の先頭を取り出し、切り抜いてこの画面の写真にする。
+  /// 切り抜きをやめたら、その写真は使わない (残りはそのまま持つ)。
+  Future<void> _useNextQueuedImage() async {
+    if (_queuedImages.isEmpty) return;
+    final image = _queuedImages.first;
+    setState(() => _queuedImages = _queuedImages.sublist(1));
+    await _cropAndUseImage(image);
   }
 
   void _markAsDirty() {
@@ -126,48 +176,118 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
     super.dispose();
   }
 
+  /// カメラの選択肢を出すか (Android だけ。デスクトップは image_picker が
+  /// カメラに対応せず、iOS はこのアプリの対象外)
+  static bool get _canUseCamera => !kIsWeb && Platform.isAndroid;
+
   Future<void> _pickImage() async {
+    var source = ImageSource.gallery;
+    if (_canUseCamera) {
+      final selected = await showModalBottomSheet<ImageSource>(
+        context: context,
+        builder: (context) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('カメラで撮影'),
+                onTap: () => Navigator.of(context).pop(ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('ギャラリーから選択'),
+                onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (selected == null) return;
+      source = selected;
+    }
+
     final ImagePicker picker = ImagePicker();
     // 画像を読み込む際にリサイズし、処理負荷を軽減する
     final XFile? image = await picker.pickImage(
-      source: ImageSource.gallery,
+      source: source,
       maxWidth: 1500, // 最大幅を指定
       maxHeight: 1500, // 最大高さを指定
     );
     if (image != null) {
-      if (!mounted) return;
-      // 画像選択後、トリミング画面に遷移
-      // UUIDと元の拡張子を使って一意なファイル名を生成
-      final uuid = const Uuid().v4();
-      final extension = p.extension(image.name);
-      final newFileName = '$uuid$extension';
-
-      // ファイル名とバイトデータを受け取る
-      final cropResult = await Navigator.of(context)
-          .push<({String fileName, Uint8List bytes})>(
-            MaterialPageRoute(
-              builder: (context) =>
-                  ImageCropScreen(image: image, outputFileName: newFileName),
-            ),
-          );
-
-      if (cropResult != null) {
-        setState(() {
-          _newImageFileName = cropResult.fileName;
-          _newImageBytes = cropResult.bytes;
-          _networkImageUrl = null; // プレビューを新しい画像に切り替える
-          // 旧画像の色は新画像には無意味なのでクリアする。
-          // 保存時に空のままなら Cloud Functions が新画像の解析結果を書き込み、
-          // スポイトで色を追加していればその色が優先される (colorData契約)。
-          _colorData = [];
-          _colorsDirty = true;
-          _markAsDirty();
-        });
-      }
+      await _cropAndUseImage(image);
     }
   }
 
-  Future<void> _saveTestPiece() async {
+  /// 複数の写真を選び、1 枚目をこの画面の写真に、残りを連続登録の待ちにする
+  Future<void> _pickMultipleImages() async {
+    final images = await ImagePicker().pickMultiImage(
+      maxWidth: 1500,
+      maxHeight: 1500,
+    );
+    if (images.isEmpty || !mounted) return;
+    // すでに残りがあれば、その後ろに足す (選び直しで写真を失わないため)
+    setState(() => _queuedImages = [..._queuedImages, ...images.skip(1)]);
+    await _cropAndUseImage(images.first);
+  }
+
+  /// 選んだ写真を切り抜きの画面に通し、確定したらこの画面の写真にする
+  Future<void> _cropAndUseImage(XFile image) async {
+    if (!mounted) return;
+    // 画像選択後、トリミング画面に遷移
+    // UUIDと元の拡張子を使って一意なファイル名を生成
+    final uuid = const Uuid().v4();
+    final extension = p.extension(image.name);
+    final newFileName = '$uuid$extension';
+
+    // ファイル名とバイトデータを受け取る
+    final cropResult = await Navigator.of(context)
+        .push<({String fileName, Uint8List bytes})>(
+          MaterialPageRoute(
+            builder: (context) =>
+                ImageCropScreen(image: image, outputFileName: newFileName),
+          ),
+        );
+
+    if (cropResult != null && mounted) {
+      setState(() {
+        _newImageFileName = cropResult.fileName;
+        _newImageBytes = cropResult.bytes;
+        _networkImageUrl = null; // プレビューを新しい画像に切り替える
+        // 旧画像の色は新画像には無意味なのでクリアする。
+        // 保存時に空のままなら Cloud Functions が新画像の解析結果を書き込み、
+        // スポイトで色を追加していればその色が優先される (colorData契約)。
+        _colorData = [];
+        _colorsDirty = true;
+        _markAsDirty();
+      });
+    }
+  }
+
+  /// 残りの写真を捨てて閉じてよいかを確かめる
+  Future<bool> _confirmDropQueuedImages() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Text('残り ${_queuedImages.length} 枚の写真は登録されません。閉じますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('閉じる'),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
+  /// 保存する。[continueNext] が true なら、画面を閉じずに条件を引き継いだ
+  /// 新しい編集画面へ進む (連続登録)。
+  Future<void> _saveTestPiece({bool continueNext = false}) async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -182,6 +302,10 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
         context,
       ).showSnackBar(const SnackBar(content: Text('素地土名を選択してください。')));
       return;
+    }
+    // 残りの写真があるまま保存して閉じるときは、残りを捨ててよいか確かめる
+    if (!continueNext && _queuedImages.isNotEmpty) {
+      if (!await _confirmDropQueuedImages() || !mounted) return;
     }
 
     final navigator = Navigator.of(context);
@@ -289,9 +413,31 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
         );
       });
 
-      // 3. 画面を閉じる
+      // 3. 画面を閉じる。連続登録なら、条件を引き継いだ次の画面に置き換える
       _isDirty = false;
-      navigator.pop();
+      if (continueNext) {
+        navigator.pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => TestPieceEditScreen(
+              initialGlazeId: _selectedGlazeId,
+              initialAdditionalGlazeIds: _additionalGlazeIds,
+              initialClayId: _selectedClayId,
+              initialFiringId: _selectedFiringId,
+              // 焼成回を選んでいれば、焼成の情報は焼成回が持つ
+              initialFiringAtmosphereId: _selectedFiringId == null
+                  ? _selectedFiringAtmosphereId
+                  : null,
+              initialFiringProfileId: _selectedFiringId == null
+                  ? _selectedFiringProfileId
+                  : null,
+              initialLabel: nextLabel(testPieceData.label),
+              queuedImages: _queuedImages,
+            ),
+          ),
+        );
+      } else {
+        navigator.pop();
+      }
     } catch (e) {
       if (mounted) {
         scaffoldMessenger.showSnackBar(
@@ -386,7 +532,11 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
         ? null
         : ref.watch(uploadQueueProvider).pending[testPieceId];
 
-    return UnsavedChangesPopScope(isDirty: _isDirty, child: _buildScaffold());
+    return UnsavedChangesPopScope(
+      isDirty: _isDirty,
+      confirmLeave: _queuedImages.isEmpty ? null : _confirmDropQueuedImages,
+      child: _buildScaffold(),
+    );
   }
 
   Widget _buildScaffold() {
@@ -694,6 +844,19 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
           child: FiringChart.fromProfile(selectedProfile),
         ),
       ],
+
+      // 連続登録 (新規作成のときだけ)
+      if (widget.testPiece == null) ...[
+        const SizedBox(height: 24),
+        OutlinedButton(
+          onPressed: () => _saveTestPiece(continueNext: true),
+          child: Text(
+            _queuedImages.isEmpty
+                ? '保存して次を登録'
+                : '保存して次を登録（残り ${_queuedImages.length} 枚）',
+          ),
+        ),
+      ],
     ];
   }
 
@@ -745,9 +908,17 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
       const SizedBox(height: 8),
       OutlinedButton.icon(
         icon: const Icon(Icons.photo_library),
-        label: const Text('ギャラリーから画像を選択'),
+        label: const Text('写真を選択'),
         onPressed: _pickImage,
       ),
+      if (widget.testPiece == null)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            onPressed: _pickMultipleImages,
+            child: const Text('複数の写真を選んで連続登録'),
+          ),
+        ),
       const SizedBox(height: 16),
     ];
   }
