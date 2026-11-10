@@ -16,6 +16,7 @@ import 'package:glaze_manager/repositories/material_repository.dart';
 import 'package:glaze_manager/repositories/tag_repository.dart';
 import 'package:glaze_manager/repositories/test_piece_repository.dart';
 import 'package:glaze_manager/repositories/view_history_repository.dart';
+import 'package:glaze_manager/services/snapshot_backfill.dart';
 
 /// Firestoreアクセスのファサード。
 ///
@@ -150,6 +151,33 @@ class FirestoreService {
   Future<void> updateTestPieceFieldsBatch(
     Map<String, Map<String, dynamic>> fieldsById,
   ) => testPieces.updateFieldsBatch(fieldsById);
+
+  /// 写しを持たない既存のテストピースに、現在の調合から写しを埋める。
+  /// 書き込んだ件数を返す。通信できなければ例外になる。
+  ///
+  /// どのテストピースに写しが無いかは、サーバーから読んだ内容で判断する。
+  /// 端末のキャッシュで判断すると、長く使っていなかった端末が、別の端末で
+  /// すでに保存された写しを、古い調合から作った写しで上書きしてしまう。
+  Future<int> backfillTestPieceSnapshots() async {
+    final (pieces, glazeList, materialList, clayList) = await (
+      testPieces.getAllFromServer(),
+      glazes.getAllFromServer(),
+      materials.getAllFromServer(),
+      clays.getAllFromServer(),
+    ).wait;
+    final plan = planSnapshotBackfill(
+      pieces: pieces,
+      glazeMap: {for (final g in glazeList) g.id!: g},
+      materialMap: {for (final m in materialList) m.id!: m},
+      clayMap: {for (final c in clayList) c.id!: c},
+    );
+    if (plan.isEmpty) return 0;
+    await testPieces.updateFieldsBatch({
+      for (final entry in plan.entries)
+        entry.key: {'snapshot': entry.value.toMap()},
+    });
+    return plan.length;
+  }
 
   /// テストピースを削除
   Future<void> deleteTestPiece(String testPieceId) =>

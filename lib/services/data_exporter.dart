@@ -87,9 +87,13 @@ TextCellValue _text(String value) => TextCellValue(value);
 CellValue? _textOrNull(String? value) =>
     (value == null || value.isEmpty) ? null : TextCellValue(value);
 
-CellValue _number(double value) => value == value.roundToDouble()
-    ? IntCellValue(value.toInt())
-    : DoubleCellValue(value);
+CellValue _number(double value) {
+  // NaN や無限大は数値のセルにできない。1 件の値で書き出し全体を失敗させない
+  if (!value.isFinite) return TextCellValue(value.toString());
+  return value == value.roundToDouble()
+      ? IntCellValue(value.toInt())
+      : DoubleCellValue(value);
+}
 
 /// 顔料の列の値。「弁柄 8, 呉須 2」のように、名前・半角スペース・量をカンマで区切る。
 /// スペースがないと、数字で終わる名前の顔料が取り込みで往復しない。

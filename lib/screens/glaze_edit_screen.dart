@@ -452,7 +452,7 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
               validator: (value) {
                 if (row.selectedMaterialId == null) return null;
                 final amount = double.tryParse(value ?? '');
-                if (amount == null || amount <= 0) {
+                if (amount == null || !amount.isFinite || amount <= 0) {
                   return '正の数値を入力';
                 }
                 return null;

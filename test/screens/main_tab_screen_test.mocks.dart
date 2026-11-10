@@ -573,6 +573,14 @@ class MockFirestoreService extends _i1.Mock implements _i15.FirestoreService {
           as _i13.Future<void>);
 
   @override
+  _i13.Future<int> backfillTestPieceSnapshots() =>
+      (super.noSuchMethod(
+            Invocation.method(#backfillTestPieceSnapshots, []),
+            returnValue: _i13.Future<int>.value(0),
+          )
+          as _i13.Future<int>);
+
+  @override
   _i13.Future<void> deleteTestPiece(String? testPieceId) =>
       (super.noSuchMethod(
             Invocation.method(#deleteTestPiece, [testPieceId]),

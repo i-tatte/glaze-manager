@@ -49,6 +49,20 @@ abstract class UserScopedRepository<T> {
     return s.docs.map(fromFirestore).toList();
   }
 
+  /// 一覧をサーバーから 1 回だけ取得する。通信できなければ失敗する
+  /// (端末のキャッシュにはフォールバックしない)。未ログイン時は空リスト。
+  ///
+  /// 端末の未送信の書き込みは重ねて返る。「サーバーにまだ無い値を埋める」
+  /// 処理のように、古いキャッシュで判断すると他の端末の書き込みを上書き
+  /// してしまう場面で使う。
+  Future<List<T>> getAllFromServer() async {
+    if (userId == null) return [];
+    final s = await orderQuery(
+      collection,
+    ).get(const GetOptions(source: Source.server));
+    return s.docs.map(fromFirestore).toList();
+  }
+
   /// 特定ドキュメントをリアルタイム監視する。
   Stream<T> watchById(String id) {
     if (userId == null) return Stream.error('User not logged in');

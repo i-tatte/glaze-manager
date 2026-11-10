@@ -98,6 +98,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
   String? _networkImageUrl; // 既存の画像のURL
   List<LabColor> _colorData = []; // 編集用の色データ
   bool _colorsDirty = false; // 色を編集した、または新しい画像を選んだ
+  bool _isSaving = false; // 保存処理の最中 (二度押しでの二重登録を防ぐ)
   PendingUpload? _pendingUpload; // 編集中のテストピースのアップロード待ち
   // 一括選択した写真のうち、この画面の写真にしていない残り
   List<XFile> _queuedImages = [];
@@ -288,6 +289,9 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
   /// 保存する。[continueNext] が true なら、画面を閉じずに条件を引き継いだ
   /// 新しい編集画面へ進む (連続登録)。
   Future<void> _saveTestPiece({bool continueNext = false}) async {
+    // 端末内への写真の保存を待つあいだに保存をもう一度押されても、
+    // 二重に登録しない
+    if (_isSaving) return;
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -303,9 +307,13 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
       ).showSnackBar(const SnackBar(content: Text('素地土名を選択してください。')));
       return;
     }
+    _isSaving = true;
     // 残りの写真があるまま保存して閉じるときは、残りを捨ててよいか確かめる
     if (!continueNext && _queuedImages.isNotEmpty) {
-      if (!await _confirmDropQueuedImages() || !mounted) return;
+      if (!await _confirmDropQueuedImages() || !mounted) {
+        _isSaving = false;
+        return;
+      }
     }
 
     final navigator = Navigator.of(context);
@@ -439,6 +447,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
         navigator.pop();
       }
     } catch (e) {
+      _isSaving = false;
       if (mounted) {
         scaffoldMessenger.showSnackBar(
           SnackBar(content: Text('保存に失敗しました: $e')),

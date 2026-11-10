@@ -377,52 +377,17 @@ void main() {
       expect(fakeUploadQueue.processAllCount, before + 1);
     });
 
-    testWidgets('写しを持たない既存のテストピースに一度だけ写しを埋める', (WidgetTester tester) async {
-      when(mockFirestoreService.getTestPieces()).thenAnswer(
-        (_) => Stream.value([
-          TestPiece(
-            id: 'tp1',
-            glazeId: 'g1',
-            clayId: 'c1',
-            createdAt: Timestamp.now(),
-          ),
-          // 主たる釉薬が見つからないものは対象外
-          TestPiece(
-            id: 'tp2',
-            glazeId: 'deleted',
-            clayId: 'c1',
-            createdAt: Timestamp.now(),
-          ),
-        ]),
-      );
-      when(mockFirestoreService.getGlazes()).thenAnswer(
-        (_) => Stream.value([
-          Glaze(
-            id: 'g1',
-            name: '青磁',
-            recipe: {'m1': 60},
-            tags: [],
-            createdAt: Timestamp.now(),
-          ),
-        ]),
-      );
+    testWidgets('起動時に、既存のテストピースへの写しの埋め込みを一度だけ行う', (WidgetTester tester) async {
       when(
-        mockFirestoreService.updateTestPieceFieldsBatch(any),
-      ).thenAnswer((_) async {});
+        mockFirestoreService.backfillTestPieceSnapshots(),
+      ).thenAnswer((_) async => 1);
 
       await tester.pumpWidget(createTestableWidget(const MainTabScreen()));
       await tester.pumpAndSettle();
 
-      final batch =
-          verify(
-                mockFirestoreService.updateTestPieceFieldsBatch(captureAny),
-              ).captured.single
-              as Map<String, Map<String, dynamic>>;
-      expect(batch.keys, ['tp1']);
-      expect(
-        (batch['tp1']!['snapshot'] as Map<String, dynamic>)['source'],
-        'backfilled',
-      );
+      verify(mockFirestoreService.backfillTestPieceSnapshots()).called(1);
+      // 端末のキャッシュから作った写しを画面側で書き込むことはしない
+      verifyNever(mockFirestoreService.updateTestPieceFieldsBatch(any));
     });
   });
 }

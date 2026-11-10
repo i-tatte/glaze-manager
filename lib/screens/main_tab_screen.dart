@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
-import 'package:glaze_manager/models/recipe_snapshot.dart';
 import 'package:glaze_manager/services/app_exit.dart';
 import 'package:glaze_manager/screens/glaze_list_screen.dart';
 import 'package:glaze_manager/screens/materials_list_screen.dart';
@@ -141,30 +140,29 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
       ),
     ];
 
-    // 写しを持たない既存のテストピースに、現在の調合から一度だけ写しを埋める。
-    // 書き込むとローカルのキャッシュがすぐ更新され、計画は空に戻る。
-    ref.listenManual<Map<String, TestPieceSnapshot>>(
-      snapshotBackfillPlanProvider,
-      (_, plan) => _applySnapshotBackfill(plan),
-      fireImmediately: true,
-    );
+    // 写しを持たない既存のテストピースに、現在の調合から一度だけ写しを埋める
+    _runSnapshotBackfill();
 
     // 写真のアップロード待ち。端末内の待ちを読み込んでから送り始める
     final uploadQueue = ref.read(uploadQueueProvider);
     uploadQueue.load().then((_) => uploadQueue.processAll());
-    // 通信が回復したら送る
+    // 通信が回復したら送る (写しの埋め込みがまだなら、それもやり直す)
     ref.listenManual<AsyncValue<List<ConnectivityResult>>>(
       connectivityChangesProvider,
       (_, next) {
         final results = next.valueOrNull;
         if (results != null && !results.contains(ConnectivityResult.none)) {
           ref.read(uploadQueueProvider).processAll();
+          _runSnapshotBackfill();
         }
       },
     );
     // アプリが前面に戻ったら送る
     _lifecycleListener = AppLifecycleListener(
-      onResume: () => ref.read(uploadQueueProvider).processAll(),
+      onResume: () {
+        ref.read(uploadQueueProvider).processAll();
+        _runSnapshotBackfill();
+      },
     );
 
     // Android では、カメラを開いているあいだにこのアプリの画面が破棄される
@@ -194,23 +192,26 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
 
   late final AppLifecycleListener _lifecycleListener;
 
-  /// 同じセッションで二度書き込まないよう、書き込みを呼んだ ID を控える
-  final Set<String> _backfilledTestPieceIds = {};
+  bool _snapshotBackfillDone = false;
+  bool _snapshotBackfillRunning = false;
 
-  void _applySnapshotBackfill(Map<String, TestPieceSnapshot> plan) {
-    final fieldsById = <String, Map<String, dynamic>>{
-      for (final entry in plan.entries)
-        if (!_backfilledTestPieceIds.contains(entry.key))
-          entry.key: {'snapshot': entry.value.toMap()},
-    };
-    if (fieldsById.isEmpty) return;
-    _backfilledTestPieceIds.addAll(fieldsById.keys);
-    ref
-        .read(firestoreServiceProvider)
-        .updateTestPieceFieldsBatch(fieldsById)
-        .catchError((Object e) {
-          debugPrint('Snapshot backfill failed: $e');
-        });
+  /// 写しを持たない既存のテストピースに、現在の調合から写しを埋める。
+  ///
+  /// 判断はサーバーから読んだ内容で行う (FirestoreService 側)。通信できない
+  /// あいだは失敗するので、通信の回復時と前面復帰時にやり直し、一度成功
+  /// したらこのセッションでは二度と行わない。
+  Future<void> _runSnapshotBackfill() async {
+    if (_snapshotBackfillDone || _snapshotBackfillRunning) return;
+    _snapshotBackfillRunning = true;
+    final firestoreService = ref.read(firestoreServiceProvider);
+    try {
+      await firestoreService.backfillTestPieceSnapshots();
+      _snapshotBackfillDone = true;
+    } catch (e) {
+      debugPrint('Snapshot backfill skipped: $e');
+    } finally {
+      _snapshotBackfillRunning = false;
+    }
   }
 
   /// 戻るジェスチャの制御。

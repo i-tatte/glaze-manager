@@ -3,6 +3,9 @@ import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart';
 
+/// 文字列でなければ null を返す (型の違う値で読み取りを失敗させない)。
+String? _asString(Object? value) => value is String ? value : null;
+
 /// 写しの出どころ。
 class SnapshotSource {
   SnapshotSource._();
@@ -34,9 +37,9 @@ class RecipeLine {
   factory RecipeLine.fromMap(Map<String, dynamic> map) {
     final amount = map['amount'];
     return RecipeLine(
-      materialId: map['materialId'] as String? ?? '',
-      name: map['name'] as String? ?? '不明な原料',
-      category: map['category'] as String? ?? MaterialCategory.base.name,
+      materialId: _asString(map['materialId']) ?? '',
+      name: _asString(map['name']) ?? '不明な原料',
+      category: _asString(map['category']) ?? MaterialCategory.base.name,
       amount: amount is num ? amount.toDouble() : 0.0,
     );
   }
@@ -90,9 +93,9 @@ class GlazeSnapshot {
   factory GlazeSnapshot.fromMap(Map<String, dynamic> map) {
     final rawLines = map['lines'];
     return GlazeSnapshot(
-      glazeId: map['glazeId'] as String? ?? '',
-      name: map['name'] as String? ?? '',
-      registeredName: map['registeredName'] as String?,
+      glazeId: _asString(map['glazeId']) ?? '',
+      name: _asString(map['name']) ?? '',
+      registeredName: _asString(map['registeredName']),
       lines: rawLines is List
           ? [
               for (final line in rawLines)
@@ -197,8 +200,8 @@ class TestPieceSnapshot {
                   snapshot,
             ]
           : const [],
-      clayName: map['clayName'] as String?,
-      source: map['source'] as String? ?? SnapshotSource.saved,
+      clayName: _asString(map['clayName']),
+      source: _asString(map['source']) ?? SnapshotSource.saved,
       takenAt: takenAt is Timestamp ? takenAt : Timestamp.now(),
     );
   }
