@@ -73,4 +73,19 @@ class TestPiece {
       'createdAt': createdAt,
     };
   }
+
+  /// 更新時にクライアントが送るフィールド。
+  /// imageUrl / thumbnailUrl（Cloud Functions が書く）と createdAt は含めない。
+  Map<String, dynamic> toUpdateFields({
+    required bool includeImagePath,
+    required bool includeColorData,
+  }) {
+    final fields = toFirestore()
+      ..remove('imageUrl')
+      ..remove('thumbnailUrl')
+      ..remove('createdAt');
+    if (!includeImagePath) fields.remove('imagePath');
+    if (!includeColorData) fields.remove('colorData');
+    return fields;
+  }
 }

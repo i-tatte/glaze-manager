@@ -1,6 +1,25 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
+/// 自動解析の色のうち、この面積（%）以下のものは判定と表示から外す。
+const double minSignificantColorPercentage = 5.0;
+
+/// 判定と表示に使う色を返す。
+/// 手動登録の色（percentage が 0）は常に含める。
+/// 自動解析の色は percentage が閾値を超えるものだけを含める。
+/// 何も残らない場合は、percentage が最大の 1 色を返す。
+List<LabColor> significantColors(List<LabColor>? colorData) {
+  if (colorData == null || colorData.isEmpty) return const [];
+  final result = colorData
+      .where(
+        (c) =>
+            c.percentage == 0 || c.percentage > minSignificantColorPercentage,
+      )
+      .toList();
+  if (result.isNotEmpty) return result;
+  return [colorData.reduce((a, b) => b.percentage > a.percentage ? b : a)];
+}
+
 class LabColor {
   final double l;
   final double a;

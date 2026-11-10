@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:glaze_manager/models/firing_profile.dart';
 
 class FiringChart extends StatelessWidget {
   final String curveData;
@@ -24,6 +25,20 @@ class FiringChart extends StatelessWidget {
     this.reductionEndTemp,
     this.duration = const Duration(milliseconds: 150),
   });
+
+  /// 焼成プロファイルの温度曲線と還元の温度帯をまとめて描く。
+  FiringChart.fromProfile(
+    FiringProfile profile, {
+    Key? key,
+    Duration duration = const Duration(milliseconds: 150),
+  }) : this(
+         key: key,
+         curveData: profile.curveData ?? '',
+         isReduction: profile.isReduction,
+         reductionStartTemp: profile.reductionStartTemp,
+         reductionEndTemp: profile.reductionEndTemp,
+         duration: duration,
+       );
 
   List<FlSpot> _parseCurveData() {
     final List<FlSpot> spots = [const FlSpot(0, 20)]; // Start at room temp

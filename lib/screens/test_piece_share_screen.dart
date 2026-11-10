@@ -92,10 +92,7 @@ class _TestPieceShareScreenState extends ConsumerState<TestPieceShareScreen> {
       final fileName =
           '${PngExporter.sanitizeFileName(glazeName)}_$dateSuffix.png';
 
-      final result = await PngExporter.export(
-        bytes: bytes,
-        fileName: fileName,
-      );
+      final result = await PngExporter.export(bytes: bytes, fileName: fileName);
       if (result == PngExportResult.success && mounted) {
         final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
         if (!isMobile) {
@@ -212,7 +209,10 @@ class _TestPieceShareScreenState extends ConsumerState<TestPieceShareScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
-                    child: Text(glazeName, style: theme.textTheme.headlineSmall),
+                    child: Text(
+                      glazeName,
+                      style: theme.textTheme.headlineSmall,
+                    ),
                   ),
                   Text(dateText, style: theme.textTheme.bodySmall),
                 ],
@@ -235,16 +235,13 @@ class _TestPieceShareScreenState extends ConsumerState<TestPieceShareScreen> {
                 const SizedBox(height: 16),
               ],
               if (glaze != null && glaze.recipe.isNotEmpty) ...[
-                Text('レシピ', style: theme.textTheme.titleMedium),
+                Text('調合', style: theme.textTheme.titleMedium),
                 const SizedBox(height: 8),
                 RecipeTable(recipe: glaze.recipe, materials: materials),
                 const Divider(height: 32),
               ],
               if (additionalGlazeNames.isNotEmpty)
-                InfoTile(
-                  label: '追加の釉薬',
-                  value: additionalGlazeNames.join('、'),
-                ),
+                InfoTile(label: '追加の釉薬', value: additionalGlazeNames.join('、')),
               InfoTile(label: '素地土名', value: clayName ?? '未設定'),
               InfoTile(label: '焼成雰囲気', value: atmosphereName ?? '未設定'),
               if (firingProfile != null) ...[
@@ -255,8 +252,8 @@ class _TestPieceShareScreenState extends ConsumerState<TestPieceShareScreen> {
                 if (firingProfile.curveData != null &&
                     firingProfile.curveData!.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  FiringChart(
-                    curveData: firingProfile.curveData!,
+                  FiringChart.fromProfile(
+                    firingProfile,
                     // キャプチャに補間アニメの中間フレームが写らないようにする
                     duration: Duration.zero,
                   ),

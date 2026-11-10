@@ -74,9 +74,8 @@ class ManualMockFirestoreService implements FirestoreService {
       Stream.value([if (clayToReturn != null) clayToReturn!]);
 
   @override
-  Stream<List<FiringProfile>> getFiringProfiles() => Stream.value([
-    if (firingProfileToReturn != null) firingProfileToReturn!,
-  ]);
+  Stream<List<FiringProfile>> getFiringProfiles() =>
+      Stream.value([if (firingProfileToReturn != null) firingProfileToReturn!]);
 
   @override
   Stream<List<FiringAtmosphere>> getFiringAtmospheres() => Stream.value([
@@ -201,7 +200,7 @@ void main() {
       expect(find.text('Test Profile'), findsOneWidget);
       expect(find.text('Test Atmosphere'), findsOneWidget);
       expect(find.text('Test Note'), findsOneWidget);
-      expect(find.text('レシピ'), findsOneWidget); // Verify recipe header
+      expect(find.text('調合'), findsOneWidget); // Verify recipe header
     });
   });
 }

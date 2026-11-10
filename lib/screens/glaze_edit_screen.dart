@@ -24,7 +24,7 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
   late TextEditingController _nameController;
   late TextEditingController _registeredNameController;
   late TextEditingController _descriptionController;
-  final _tagInputController = TextEditingController();
+  TextEditingController? _tagFieldController;
   final _tagFocusNode = FocusNode();
 
   // レシピの各行を管理するためのリスト
@@ -54,8 +54,6 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
     _registeredNameController.addListener(_markAsDirty);
     _descriptionController.addListener(_markAsDirty);
 
-    _tagInputController.addListener(_onTagInputChanged);
-
     if (widget.glaze != null) {
       // 編集モードの場合、既存のレシピを復元
       for (var entry in widget.glaze!.recipe.entries) {
@@ -81,18 +79,19 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
     }
   }
 
-  void _onTagInputChanged() {
-    final text = _tagInputController.text;
-    if (text.contains('　') || text.contains(',')) {
-      final newTag = text.replaceAll('　', '').replaceAll(',', '').trim();
-      if (newTag.isNotEmpty && !_tags.contains(newTag)) {
-        setState(() {
-          _tags.add(newTag);
-          _markAsDirty();
-        });
+  void _onTagFieldChanged(String text) {
+    if (!RegExp(r'[ 　,、]').hasMatch(text)) return;
+    final words = text
+        .split(RegExp(r'[ 　,、]'))
+        .map((w) => w.trim())
+        .where((w) => w.isNotEmpty);
+    setState(() {
+      for (final w in words) {
+        if (!_tags.contains(w)) _tags.add(w);
       }
-      _tagInputController.clear();
-    }
+    });
+    _markAsDirty();
+    _tagFieldController?.clear();
   }
 
   @override
@@ -100,11 +99,9 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
     _nameController.removeListener(_markAsDirty);
     _registeredNameController.removeListener(_markAsDirty);
     _descriptionController.removeListener(_markAsDirty);
-    _tagInputController.removeListener(_onTagInputChanged);
     _nameController.dispose();
     _registeredNameController.dispose();
     _descriptionController.dispose();
-    _tagInputController.dispose();
     _tagFocusNode.dispose();
     for (var row in _recipeRows) {
       row.amountController.dispose();
@@ -212,9 +209,7 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
     if (confirmed == true && mounted) {
       final navigator = Navigator.of(context);
       try {
-        await ref
-            .read(firestoreServiceProvider)
-            .deleteGlaze(widget.glaze!.id!);
+        await ref.read(firestoreServiceProvider).deleteGlaze(widget.glaze!.id!);
         if (mounted) {
           // 編集画面と詳細画面を閉じて一覧画面まで戻る
           int count = 0;
@@ -270,7 +265,7 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
                 maxLines: 3,
               ),
               const SizedBox(height: 24),
-              Text('配合レシピ', style: Theme.of(context).textTheme.titleMedium),
+              Text('調合', style: Theme.of(context).textTheme.titleMedium),
               ..._buildRecipeRows(),
               TextButton.icon(
                 icon: const Icon(Icons.add),
@@ -343,7 +338,7 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
             flex: 2,
             child: TextFormField(
               controller: row.amountController,
-              decoration: const InputDecoration(labelText: '配合量'),
+              decoration: const InputDecoration(labelText: '配合量 (g)'),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
@@ -413,7 +408,7 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
                     _markAsDirty();
                   });
                 }
-                _tagInputController.clear();
+                _tagFieldController?.clear();
                 _tagFocusNode.requestFocus();
               },
               fieldViewBuilder:
@@ -423,8 +418,7 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
                     FocusNode fieldFocusNode,
                     VoidCallback onFieldSubmitted,
                   ) {
-                    // 内部のコントローラーと外部のコントローラーを同期させる必要があるが、
-                    // ここでは単純に内部のコントローラーを使用し、イベントリスナーで処理する
+                    _tagFieldController = fieldTextEditingController;
                     return TextField(
                       controller: fieldTextEditingController,
                       focusNode: fieldFocusNode,
@@ -434,6 +428,7 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
                         contentPadding: EdgeInsets.symmetric(vertical: 4.0),
                         hintText: 'タグを入力...',
                       ),
+                      onChanged: _onTagFieldChanged,
                       onSubmitted: (value) {
                         final newTag = value.trim();
                         if (newTag.isNotEmpty && !_tags.contains(newTag)) {

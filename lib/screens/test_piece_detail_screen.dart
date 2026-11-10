@@ -247,10 +247,7 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: IconButton(
-                          icon: const Icon(
-                            Icons.colorize,
-                            color: Colors.white,
-                          ),
+                          icon: const Icon(Icons.colorize, color: Colors.white),
                           onPressed: () => _openEyedropperSearch(testPiece),
                           tooltip: 'スポイトで検索',
                         ),
@@ -273,8 +270,7 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
                   onTapSwatch: (color) {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) =>
-                            SearchScreen(initialColor: color),
+                        builder: (context) => SearchScreen(initialColor: color),
                       ),
                     );
                   },
@@ -305,7 +301,7 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('レシピ', style: Theme.of(context).textTheme.titleMedium),
+                Text('調合', style: Theme.of(context).textTheme.titleMedium),
                 TextButton.icon(
                   onPressed: () {
                     final materialMap = {
@@ -382,7 +378,7 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
                 ),
                 const SizedBox(width: 8),
                 const Tooltip(
-                  message: '焼成時の温度変化の記録です。',
+                  message: '焼成の計画として登録した温度曲線です。',
                   triggerMode: TooltipTriggerMode.tap,
                   child: Icon(Icons.info_outline, size: 20, color: Colors.grey),
                 ),
@@ -396,7 +392,7 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
             const SizedBox(height: 16),
             if (firingProfile.curveData != null &&
                 firingProfile.curveData!.isNotEmpty)
-              FiringChart(curveData: firingProfile.curveData!),
+              FiringChart.fromProfile(firingProfile),
           ] else
             const InfoTile(label: '焼成プロファイル', value: '未設定'),
 

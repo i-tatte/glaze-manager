@@ -141,12 +141,11 @@ List<TestPiece> filterTestPieces({
     final List<(TestPiece, double)> matchedPieces = [];
 
     for (final testPiece in filtered) {
-      if (testPiece.colorData == null || testPiece.colorData!.isEmpty) {
-        continue;
-      }
+      final swatches = significantColors(testPiece.colorData);
+      if (swatches.isEmpty) continue;
 
       double minDeltaE = double.infinity;
-      for (final swatch in testPiece.colorData!) {
+      for (final swatch in swatches) {
         final deltaE = targetLabColor.deltaE(swatch);
         if (deltaE < minDeltaE) {
           minDeltaE = deltaE;

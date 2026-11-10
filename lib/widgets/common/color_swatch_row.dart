@@ -4,29 +4,23 @@ import 'package:glaze_manager/models/lab_color.dart';
 /// テストピースの色見本 (CIELAB スウォッチ) を丸チップで並べる共通ウィジェット。
 ///
 /// テストピース詳細画面と共有プレビュー画面で同じ見た目を共有する。
-/// 表示するのは構成比 5% 超の色のみ (ノイズ色を省く)。
+/// 表示する色は [significantColors] で決める (手動登録の色は常に表示、自動解析の色は構成比 5% 超のみ)。
 class ColorSwatchRow extends StatelessWidget {
   final List<LabColor> colorData;
 
   /// スウォッチタップ時のコールバック。null なら非インタラクティブ表示
   final ValueChanged<Color>? onTapSwatch;
 
-  const ColorSwatchRow({
-    super.key,
-    required this.colorData,
-    this.onTapSwatch,
-  });
+  const ColorSwatchRow({super.key, required this.colorData, this.onTapSwatch});
 
   @override
   Widget build(BuildContext context) {
-    final significantColors = colorData
-        .where((x) => x.percentage > 5.0)
-        .toList();
+    final shownColors = significantColors(colorData);
 
     return Wrap(
       spacing: 8.0,
       runSpacing: 8.0,
-      children: significantColors.map((swatch) {
+      children: shownColors.map((swatch) {
         final color = swatch.toColor();
         final circle = Container(
           width: 24,

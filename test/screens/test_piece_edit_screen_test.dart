@@ -6,6 +6,7 @@ import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
+import 'package:glaze_manager/models/lab_color.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
@@ -108,6 +109,79 @@ void main() {
       expect(find.text('Glaze 1'), findsOneWidget);
       expect(find.text('Clay 1'), findsOneWidget);
       expect(find.text('Profile 1'), findsOneWidget);
+    });
+
+    testWidgets('既存のテストピースの備考だけ変えて保存すると、Functions が書く値は送らない', (
+      WidgetTester tester,
+    ) async {
+      final testPiece = TestPiece(
+        id: 'tp1',
+        glazeId: 'g1',
+        clayId: 'c1',
+        imageUrl: 'https://example.com/a.jpg',
+        thumbnailUrl: 'https://example.com/t.jpg',
+        imagePath: 'users/u/test_pieces/tp1/a.jpg',
+        colorData: [LabColor(l: 50, a: 0, b: 0, percentage: 80)],
+        createdAt: Timestamp.now(),
+      );
+      when(mockFirestoreService.getGlazes()).thenAnswer(
+        (_) => Stream.value([
+          Glaze(
+            id: 'g1',
+            name: 'Glaze 1',
+            recipe: {},
+            tags: [],
+            createdAt: Timestamp.now(),
+          ),
+        ]),
+      );
+      when(mockFirestoreService.getClays()).thenAnswer(
+        (_) => Stream.value([Clay(id: 'c1', name: 'Clay 1', order: 1)]),
+      );
+      when(
+        mockFirestoreService.getFiringProfiles(),
+      ).thenAnswer((_) => Stream.value(<FiringProfile>[]));
+      when(
+        mockFirestoreService.getFiringAtmospheres(),
+      ).thenAnswer((_) => Stream.value(<FiringAtmosphere>[]));
+      when(
+        mockFirestoreService.updateTestPieceFields(any, any),
+      ).thenAnswer((_) async {});
+
+      await tester.pumpWidget(
+        createTestableWidget(
+          Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TestPieceEditScreen(testPiece: testPiece),
+                  ),
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).last, '備考を直した');
+      await tester.tap(find.byTooltip('保存'));
+      await tester.pumpAndSettle();
+
+      final captured =
+          verify(
+                mockFirestoreService.updateTestPieceFields('tp1', captureAny),
+              ).captured.single
+              as Map<String, dynamic>;
+      expect(captured['note'], '備考を直した');
+      expect(captured.containsKey('imageUrl'), isFalse);
+      expect(captured.containsKey('thumbnailUrl'), isFalse);
+      expect(captured.containsKey('colorData'), isFalse);
+      expect(captured.containsKey('imagePath'), isFalse);
+      expect(captured.containsKey('createdAt'), isFalse);
     });
   });
 }

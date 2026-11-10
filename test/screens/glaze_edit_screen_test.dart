@@ -7,6 +7,7 @@ import 'package:glaze_manager/models/material.dart' as app;
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/glaze_edit_screen.dart';
+import 'package:glaze_manager/widgets/common/tag_chip.dart';
 import 'package:mockito/mockito.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -95,6 +96,25 @@ void main() {
       expect(find.text('10.0'), findsOneWidget);
     });
 
+    testWidgets('区切り文字を入力するとタグが確定する', (WidgetTester tester) async {
+      when(
+        mockFirestoreService.getMaterials(),
+      ).thenAnswer((_) => Stream.value(<app.Material>[]));
+      when(
+        mockFirestoreService.getTags(),
+      ).thenAnswer((_) => Stream.value(<String>[]));
+
+      await tester.pumpWidget(createTestableWidget(const GlazeEditScreen()));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).last, '青磁 還元');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TagChip), findsNWidgets(2));
+      expect(find.text('青磁'), findsOneWidget);
+      expect(find.text('還元'), findsOneWidget);
+    });
+
     testWidgets('delete dialog warns about referencing test pieces', (
       WidgetTester tester,
     ) async {
@@ -149,10 +169,7 @@ void main() {
         find.textContaining('2件のテストピースがこの釉薬をメインとして使用しています'),
         findsOneWidget,
       );
-      expect(
-        find.textContaining('1件のテストピースが追加の釉薬として使用しています'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('1件のテストピースが追加の釉薬として使用しています'), findsOneWidget);
     });
   });
 }

@@ -5,6 +5,49 @@ import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/lab_color.dart';
 
 void main() {
+  group('TestPiece.toUpdateFields', () {
+    final piece = TestPiece(
+      glazeId: 'g1',
+      additionalGlazeIds: ['g2'],
+      clayId: 'c1',
+      imageUrl: 'u',
+      imagePath: 'p',
+      thumbnailUrl: 't',
+      colorData: [LabColor(l: 1, a: 2, b: 3, percentage: 4)],
+      note: 'n',
+      createdAt: Timestamp.now(),
+    );
+
+    test('Functions が書く値と createdAt は含まれない', () {
+      final f = piece.toUpdateFields(
+        includeImagePath: true,
+        includeColorData: true,
+      );
+      expect(f.containsKey('imageUrl'), isFalse);
+      expect(f.containsKey('thumbnailUrl'), isFalse);
+      expect(f.containsKey('createdAt'), isFalse);
+      expect(f['relatedGlazeIds'], ['g1', 'g2']);
+      expect(f['note'], 'n');
+    });
+
+    test('imagePath と colorData は引数で切り替わる', () {
+      final on = piece.toUpdateFields(
+        includeImagePath: true,
+        includeColorData: true,
+      );
+      expect(on['imagePath'], 'p');
+      expect(on.containsKey('colorData'), isTrue);
+
+      final off = piece.toUpdateFields(
+        includeImagePath: false,
+        includeColorData: false,
+      );
+      expect(off.containsKey('imagePath'), isFalse);
+      expect(off.containsKey('colorData'), isFalse);
+      expect(off['relatedGlazeIds'], ['g1', 'g2']);
+    });
+  });
+
   group('TestPiece Model Test', () {
     test('toFirestore returns correct map', () {
       final now = Timestamp.now();

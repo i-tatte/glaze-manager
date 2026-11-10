@@ -136,9 +136,11 @@ class FirestoreService {
   /// 特定のテストピースを取得 (リアルタイム)
   Stream<TestPiece> getTestPieceStream(String id) => testPieces.watchById(id);
 
-  /// テストピースを更新
-  Future<void> updateTestPiece(TestPiece testPiece) =>
-      testPieces.updateById(testPiece.id, testPiece);
+  /// テストピースの指定フィールドだけを更新する。
+  /// imageUrl / thumbnailUrl は Cloud Functions が書くので送らないこと
+  /// (TestPiece.toUpdateFields を使う)
+  Future<void> updateTestPieceFields(String id, Map<String, dynamic> fields) =>
+      testPieces.updateFields(id, fields);
 
   /// テストピースを削除
   Future<void> deleteTestPiece(String testPieceId) =>

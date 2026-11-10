@@ -531,9 +531,12 @@ class MockFirestoreService extends _i1.Mock implements _i14.FirestoreService {
           as _i12.Stream<_i17.TestPiece>);
 
   @override
-  _i12.Future<void> updateTestPiece(_i17.TestPiece? testPiece) =>
+  _i12.Future<void> updateTestPieceFields(
+    String? id,
+    Map<String, dynamic>? fields,
+  ) =>
       (super.noSuchMethod(
-            Invocation.method(#updateTestPiece, [testPiece]),
+            Invocation.method(#updateTestPieceFields, [id, fields]),
             returnValue: _i12.Future<void>.value(),
             returnValueForMissingStub: _i12.Future<void>.value(),
           )

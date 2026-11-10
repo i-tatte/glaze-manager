@@ -94,10 +94,10 @@ class GlazeDetailScreen extends ConsumerWidget {
         ],
         Row(
           children: [
-            Text('調合レシピ', style: Theme.of(context).textTheme.titleMedium),
+            Text('調合', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(width: 8),
             const Tooltip(
-              message: '原料の配合比率です。タップして詳細を確認できます。',
+              message: '原料ごとの重量です。行をタップすると原料の詳細を開きます。',
               triggerMode: TooltipTriggerMode.tap,
               child: Icon(Icons.info_outline, size: 20, color: Colors.grey),
             ),
@@ -226,8 +226,7 @@ class GlazeDetailScreen extends ConsumerWidget {
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (context) =>
-                          GlazeListScreen(initialTags: [tag]),
+                      builder: (context) => GlazeListScreen(initialTags: [tag]),
                     ),
                   );
                 },

@@ -70,11 +70,7 @@ List<TestPieceGroup> groupTestPieces({
     case TestPieceGroupKey.none:
       return [TestPieceGroup(label: '', pieces: pieces)];
     case TestPieceGroupKey.clay:
-      return _groupByName(
-        pieces,
-        (tp) => tp.clayId,
-        (id) => clayMap[id]?.name,
-      );
+      return _groupByName(pieces, (tp) => tp.clayId, (id) => clayMap[id]?.name);
     case TestPieceGroupKey.firingAtmosphere:
       return _groupByName(
         pieces,
@@ -147,8 +143,9 @@ List<TestPieceGroup> _groupByColorHue(List<TestPiece> pieces) {
 /// null / 空なら null。
 @visibleForTesting
 LabColor? representativeColor(List<LabColor>? colorData) {
-  if (colorData == null || colorData.isEmpty) return null;
-  return colorData.reduce((a, b) => b.percentage > a.percentage ? b : a);
+  final colors = significantColors(colorData);
+  if (colors.isEmpty) return null;
+  return colors.reduce((a, b) => b.percentage > a.percentage ? b : a);
 }
 
 /// 代表色を CIELCh に変換して色相バケツ名に分類する。

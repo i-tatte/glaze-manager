@@ -202,6 +202,32 @@ void main() {
       expect(result, [near]);
     });
 
+    test('面積の小さい自動解析の色は色検索に当たらず、手動の色は当たる', () {
+      const target = Color(0xFFFFFFFF); // white
+      final white = LabColor.fromColor(const Color(0xFFFFFFFF));
+      final dark = LabColor.fromColor(const Color(0xFF202020));
+      final tiny = _piece(
+        'tiny',
+        'g1',
+        colorData: [
+          LabColor(l: dark.l, a: dark.a, b: dark.b, percentage: 98),
+          LabColor(l: white.l, a: white.a, b: white.b, percentage: 2),
+        ],
+      );
+      final manual = _piece(
+        'manual',
+        'g2',
+        colorData: [white], // percentage 0 = 手動登録
+      );
+      final result = _filter(
+        pieces: [tiny, manual],
+        color: target,
+        deltaEThreshold: 5.0,
+        glazeMap: glazeMap,
+      );
+      expect(result, [manual]);
+    });
+
     test('newest / oldest sort by createdAt', () {
       final older = _piece(
         'older',

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class MixingCalculatorScreen extends StatefulWidget {
-  final Map<String, double> recipe; // Material ID -> Grams (Parts)
+  final Map<String, double> recipe; // 原料 ID → 重量 (g)
   final Map<String, String> materialNames; // Material ID -> Name
 
   const MixingCalculatorScreen({

@@ -52,6 +52,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
   Uint8List? _newImageBytes; // 新しく生成された画像のバイトデータ
   String? _networkImageUrl; // 既存の画像のURL
   List<LabColor> _colorData = []; // 編集用の色データ
+  bool _colorsDirty = false; // 色を編集した、または新しい画像を選んだ
 
   bool _isDirty = false;
   // グラフ表示用の状態
@@ -118,6 +119,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
           // 保存時に空のままなら Cloud Functions が新画像の解析結果を書き込み、
           // スポイトで色を追加していればその色が優先される (colorData契約)。
           _colorData = [];
+          _colorsDirty = true;
           _markAsDirty();
         });
       }
@@ -183,25 +185,31 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
       // §2.3 順序制約: サーバーACK後にアップロード開始 (UIはブロックしない)
       final writeFuture = (widget.testPiece == null)
           ? firestoreService.setTestPiece(docId, testPieceData)
-          : firestoreService.updateTestPiece(testPieceData);
+          : firestoreService.updateTestPieceFields(
+              docId,
+              testPieceData.toUpdateFields(
+                includeImagePath: hasNewImage,
+                includeColorData: _colorsDirty,
+              ),
+            );
 
       if (hasNewImage) {
         final fileName = _newImageFileName!;
         final bytes = _newImageBytes!;
         writeFuture
-            .then((_) => storageService.uploadTestPieceImage(
-                  testPieceId: docId,
-                  name: fileName,
-                  bytes: bytes,
-                  mimeType: 'image/jpeg',
-                ))
+            .then(
+              (_) => storageService.uploadTestPieceImage(
+                testPieceId: docId,
+                name: fileName,
+                bytes: bytes,
+                mimeType: 'image/jpeg',
+              ),
+            )
             .catchError((Object e) {
-          scaffoldMessenger.showSnackBar(
-            SnackBar(
-              content: Text('保存に失敗しました: $e'),
-            ),
-          );
-        });
+              scaffoldMessenger.showSnackBar(
+                SnackBar(content: Text('保存に失敗しました: $e')),
+              );
+            });
       } else {
         writeFuture.catchError((Object e) {
           scaffoldMessenger.showSnackBar(
@@ -543,7 +551,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
         ),
         Visibility(
           visible: _isChartVisible,
-          child: FiringChart(curveData: selectedProfile.curveData!),
+          child: FiringChart.fromProfile(selectedProfile),
         ),
       ],
     ];
@@ -643,6 +651,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
           onDeleted: () {
             setState(() {
               _colorData.remove(swatch);
+              _colorsDirty = true;
               _markAsDirty();
             });
           },
@@ -678,6 +687,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
     if (pickedColors == null || pickedColors.isEmpty || !mounted) return;
 
     setState(() {
+      _colorsDirty = true;
       for (final color in pickedColors) {
         // RGB to Lab 変換。percentageは手動追加では0とする
         final lab = LabColor.fromColor(color);

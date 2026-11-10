@@ -10,11 +10,7 @@ import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/test_piece_group_key.dart';
 import 'package:glaze_manager/utils/test_piece_grouping.dart';
 
-TestPiece _piece(
-  String id, {
-  String clayId = 'c1',
-  List<LabColor>? colorData,
-}) {
+TestPiece _piece(String id, {String clayId = 'c1', List<LabColor>? colorData}) {
   return TestPiece(
     id: id,
     glazeId: 'g1',
@@ -97,6 +93,16 @@ void main() {
       final first = LabColor(l: 50, a: 0, b: 0, percentage: 0);
       final second = LabColor(l: 60, a: 10, b: 10, percentage: 0);
       expect(representativeColor([first, second]), first);
+    });
+
+    test('小面積の自動解析の色は代表に選ばれない', () {
+      final big = LabColor(l: 50, a: 0, b: 0, percentage: 3);
+      final manual = LabColor(l: 60, a: 10, b: 10, percentage: 0);
+      final tiny = LabColor(l: 70, a: 0, b: 0, percentage: 4);
+      // big(3%) と tiny(4%) は閾値以下。残るのは手動の色だけ
+      expect(representativeColor([big, tiny, manual]), manual);
+      // すべて閾値以下なら最大の 1 色
+      expect(representativeColor([big, tiny]), tiny);
     });
 
     test('null / 空なら null', () {

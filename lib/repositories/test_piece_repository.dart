@@ -29,6 +29,11 @@ class TestPieceRepository extends UserScopedRepository<TestPiece> {
     await collection.doc(id).set(toFirestore(piece));
   }
 
+  /// 指定したフィールドだけを更新する (他のフィールドは触らない)
+  Future<void> updateFields(String id, Map<String, dynamic> fields) async {
+    await collection.doc(id).update(fields);
+  }
+
   /// 特定の釉薬を使用するテストピース一覧を監視する (メイン・追加釉薬の両方を含む)
   ///
   /// firestore.indexes.json の複合インデックス

@@ -11,11 +11,7 @@ class RecipeTable extends StatelessWidget {
   final Map<String, double> recipe;
   final List<app.Material> materials;
 
-  const RecipeTable({
-    super.key,
-    required this.recipe,
-    required this.materials,
-  });
+  const RecipeTable({super.key, required this.recipe, required this.materials});
 
   /// 整数はそのまま、小数は入力された精度のまま表示する。
   static String formatAmount(double value) {
@@ -31,7 +27,7 @@ class RecipeTable extends StatelessWidget {
       ..sort((a, b) => b.value.compareTo(a.value));
 
     return StripedDataTable(
-      columnLabels: const ['原料', '配合(g)'],
+      columnLabels: const ['原料', '配合量 (g)'],
       rows: sortedEntries.map((entry) {
         final material = materialById[entry.key];
         return StripedDataRow(
