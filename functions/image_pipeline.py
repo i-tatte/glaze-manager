@@ -27,6 +27,53 @@ def _make_download_url(blob, bucket_name: str) -> str:
     )
 
 
+WRITE_BACK_UPDATED = "updated"
+WRITE_BACK_STALE = "stale"
+
+
+def is_stale_processing(doc_image_path, file_path: str, doc_id) -> bool:
+    """処理中の画像が、テストピースの現在の画像でなくなっているかを返す。
+
+    新形式のパス (doc_id あり) で、文書の imagePath が空でない文字列であり、
+    処理中のパスと異なるときだけ「古い処理」とする。imagePath が空のときと
+    旧形式のパス (imagePath で文書を検索している) では照合しない。
+    """
+    if doc_id is None:
+        return False
+    if not isinstance(doc_image_path, str) or doc_image_path == "":
+        return False
+    return doc_image_path != file_path
+
+
+def select_stale_files(
+    images: list[tuple[str, object]],
+    thumbnail_names: list[str],
+    current_time_created,
+) -> list[str]:
+    """掃除で削除するファイル名を返す (新形式の docId フォルダ内)。
+
+    images は images/{doc_id}/ 下の (blob 名, time_created) の組。
+    time_created が処理中の画像より前のものだけを削除対象にする (同時刻・不明は残す)。
+    thumbnail_names は thumbnails/{doc_id}/ 下の blob 名。名前が
+    「thumb_ + 残した画像のファイル名」のどれにも対応しないものだけを削除対象にする。
+    """
+    stale: list[str] = []
+    kept_thumb_names: set[str] = set()
+    for name, created in images:
+        if (
+            current_time_created is not None
+            and created is not None
+            and created < current_time_created
+        ):
+            stale.append(name)
+        else:
+            kept_thumb_names.add(f"thumb_{os.path.basename(name)}")
+    for name in thumbnail_names:
+        if os.path.basename(name) not in kept_thumb_names:
+            stale.append(name)
+    return stale
+
+
 def analyze_glaze_color(image_path: str, k_init: int = K_INIT, merge_threshold: float = MERGE_THRESHOLD) -> list[dict]:
     """
     画像から釉薬の主要な色構成を解析する。
@@ -240,22 +287,42 @@ def process_uploaded_image(event: storage_fn.CloudEvent): # type: ignore exporte
         #    ユーザーがスポイト等で手動登録した色を解析結果で上書きしないための契約
         #    (docs/spec.md §5)。クライアント保存との競合に備えてトランザクションで
         #    読み判定と書き込みを不可分にする。
+        #    同じトランザクション内で文書の imagePath と処理中のパスを照合し、
+        #    画像が差し替えられた後に届いた古い処理では文書を更新しない。
         transaction = db.transaction()
 
         @firestore.transactional
         def _write_back(tx, ref):
             snapshot = ref.get(transaction=tx)
+            data = snapshot.to_dict() or {}
+            if is_stale_processing(data.get("imagePath"), file_path, doc_id):
+                return WRITE_BACK_STALE, False
             update = {
                 "imageUrl": original_image_url,
                 "thumbnailUrl": thumbnail_url,
             }
-            existing_color_data = (snapshot.to_dict() or {}).get("colorData")
+            existing_color_data = data.get("colorData")
             if not existing_color_data:
                 update["colorData"] = color_analysis_result
             tx.update(ref, update)
-            return "colorData" in update
+            return WRITE_BACK_UPDATED, "colorData" in update
 
-        color_data_written = _write_back(transaction, doc_snapshot.reference)
+        result, color_data_written = _write_back(transaction, doc_snapshot.reference)
+
+        if result == WRITE_BACK_STALE:
+            # 文書はこの画像を参照していないので、処理中の画像と今作ったサムネイルを消す。
+            # 他の世代のファイルの掃除は、現在の画像の処理に任せる。
+            print(
+                f"Stale processing for {file_path}: document {doc_snapshot.id} "
+                "refers to another image. Deleting this image and its thumbnail."
+            )
+            for blob in (original_blob, thumb_blob):
+                try:
+                    blob.delete()
+                    print(f"Deleted stale file: {blob.name}")
+                except Exception as e:
+                    print(f"Failed to delete stale file {blob.name}: {e}")
+            return
 
         print(
             f"Firestore document {doc_snapshot.id} updated with image and thumbnail URLs. "
@@ -263,13 +330,41 @@ def process_uploaded_image(event: storage_fn.CloudEvent): # type: ignore exporte
         )
 
         # 8. 旧世代ファイルの掃除 (新形式のみ)
-        #    画像差し替え時、docId フォルダ内に残った過去の画像・サムネイルを削除する
+        #    画像差し替え時、docId フォルダ内に残った過去の画像・サムネイルを削除する。
+        #    処理中の画像より後に作られた画像 (さらに差し替えられた新しい画像) と
+        #    そのサムネイルには触れない。
         if doc_id is not None:
-            keep_paths = {file_path, thumb_upload_path}
-            for subdir in ("images", "thumbnails"):
-                prefix = f"users/{user_id}/test_pieces/{subdir}/{doc_id}/"
-                for blob in bucket.list_blobs(prefix=prefix):
-                    if blob.name in keep_paths:
+            image_blobs = list(
+                bucket.list_blobs(prefix=f"users/{user_id}/test_pieces/images/{doc_id}/")
+            )
+            thumb_blobs = list(
+                bucket.list_blobs(prefix=f"users/{user_id}/test_pieces/thumbnails/{doc_id}/")
+            )
+
+            # bucket.blob() で作った original_blob はメタデータを持たないことがあるため、
+            # 一覧に含まれる同名 blob の time_created を使い、無ければ reload する。
+            current_time_created = next(
+                (b.time_created for b in image_blobs if b.name == file_path), None
+            )
+            if current_time_created is None:
+                try:
+                    original_blob.reload()
+                    current_time_created = original_blob.time_created
+                except Exception as e:
+                    print(f"Failed to reload {file_path}: {e}")
+
+            if current_time_created is None:
+                print("Skipping cleanup: creation time of the current image is unknown.")
+            else:
+                stale_names = set(
+                    select_stale_files(
+                        [(b.name, b.time_created) for b in image_blobs],
+                        [b.name for b in thumb_blobs],
+                        current_time_created,
+                    )
+                )
+                for blob in image_blobs + thumb_blobs:
+                    if blob.name not in stale_names:
                         continue
                     try:
                         blob.delete()
