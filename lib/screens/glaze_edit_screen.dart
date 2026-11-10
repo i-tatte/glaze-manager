@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
     show ConsumerStatefulWidget, ConsumerState, AsyncValueX;
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as app;
+import 'package:glaze_manager/models/recipe_snapshot.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -13,7 +14,10 @@ import 'package:glaze_manager/widgets/common/tag_chip.dart';
 class GlazeEditScreen extends ConsumerStatefulWidget {
   final Glaze? glaze;
 
-  const GlazeEditScreen({super.key, this.glaze});
+  /// 複製元。[glaze] が null でこれが非 null のとき、複製として扱う。
+  final Glaze? sourceGlaze;
+
+  const GlazeEditScreen({super.key, this.glaze, this.sourceGlaze});
 
   @override
   ConsumerState<GlazeEditScreen> createState() => _GlazeEditScreenState();
@@ -37,26 +41,33 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
   List<String> _tags = [];
   bool _isDirty = false;
 
+  /// 複製として開いているか
+  bool get _isDuplicate => widget.glaze == null && widget.sourceGlaze != null;
+
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.glaze?.name ?? '');
+    // 複製のときは、名前・タグ・調合を複製元から写し、登録名と備考は空にする
+    final source = widget.glaze ?? widget.sourceGlaze;
+    _nameController = TextEditingController(text: source?.name ?? '');
     _registeredNameController = TextEditingController(
       text: widget.glaze?.registeredName ?? '',
     );
     _descriptionController = TextEditingController(
       text: widget.glaze?.description ?? '',
     );
-    _tags = widget.glaze?.tags.toList() ?? [];
+    _tags = source?.tags.toList() ?? [];
     _recipeRows = [];
+    // 複製は入力しなくても未保存の確認が出るよう、最初から変更ありとする
+    _isDirty = _isDuplicate;
 
     _nameController.addListener(_markAsDirty);
     _registeredNameController.addListener(_markAsDirty);
     _descriptionController.addListener(_markAsDirty);
 
-    if (widget.glaze != null) {
-      // 編集モードの場合、既存のレシピを復元
-      for (var entry in widget.glaze!.recipe.entries) {
+    if (source != null) {
+      // 編集・複製の場合、既存のレシピを復元
+      for (var entry in source.recipe.entries) {
         final materialId = entry.key;
         final amount = entry.value;
         final controller = TextEditingController(text: amount.toString());
@@ -125,6 +136,8 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
               row.selectedMaterialId!: double.parse(row.amountController.text),
         };
 
+        final materialMap = ref.read(materialMapProvider);
+        final source = widget.sourceGlaze;
         final glaze = Glaze(
           id: widget.glaze?.id,
           name: _nameController.text,
@@ -135,7 +148,47 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
           description: _descriptionController.text.trim(),
           tags: _tags,
           createdAt: widget.glaze?.createdAt ?? Timestamp.now(),
+          // 複製なら複製元と複製した時点の調合を、編集なら既存の値を引き継ぐ
+          parentGlazeId: _isDuplicate
+              ? source!.id
+              : widget.glaze?.parentGlazeId,
+          parentSnapshot: _isDuplicate
+              ? GlazeSnapshot.capture(source!, materialMap)
+              : widget.glaze?.parentSnapshot,
         );
+
+        // 調合を変えた釉薬を写しに持つテストピースがあれば、記録の扱いを尋ねる
+        Map<String, Map<String, dynamic>>? correctedSnapshots;
+        final original = widget.glaze;
+        if (original != null && !_sameRecipe(original.recipe, recipeMap)) {
+          final testPieces = await ref.read(testPiecesProvider.future);
+          final referencing = testPieces
+              .where(
+                (tp) =>
+                    tp.id != null &&
+                    (tp.snapshot?.containsGlaze(original.id!) ?? false),
+              )
+              .toList();
+          if (referencing.isNotEmpty) {
+            if (!mounted) return;
+            final choice = await _askSnapshotHandling(referencing.length);
+            if (choice == null || choice == _SnapshotHandling.cancel) return;
+            if (choice == _SnapshotHandling.correct) {
+              final replacement = GlazeSnapshot.capture(glaze, materialMap);
+              correctedSnapshots = {
+                for (final tp in referencing)
+                  tp.id!: {
+                    'snapshot': tp.snapshot!
+                        .replacingGlaze(
+                          replacement,
+                          source: SnapshotSource.corrected,
+                        )
+                        .toMap(),
+                  },
+              };
+            }
+          }
+        }
 
         // タグをマスターリストに追加 (冪等・fire-and-forget)
         firestoreService.addTags(_tags).catchError((Object e) {});
@@ -151,6 +204,15 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
             SnackBar(content: Text('保存に失敗しました: $e')),
           );
         });
+        if (correctedSnapshots != null) {
+          firestoreService
+              .updateTestPieceFieldsBatch(correctedSnapshots)
+              .catchError((Object e) {
+                scaffoldMessenger.showSnackBar(
+                  SnackBar(content: Text('テストピースの記録の更新に失敗しました: $e')),
+                );
+              });
+        }
 
         _isDirty = false;
         navigator.pop();
@@ -162,6 +224,46 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
         }
       }
     }
+  }
+
+  /// 原料 ID の集合と量が同じなら true。
+  static bool _sameRecipe(Map<String, double> a, Map<String, double> b) {
+    if (a.length != b.length) return false;
+    for (final entry in a.entries) {
+      final other = b[entry.key];
+      if (other == null || (other - entry.value).abs() > 1e-9) return false;
+    }
+    return true;
+  }
+
+  /// 調合を変えたときに、記録済みのテストピースの写しをどうするか尋ねる。
+  Future<_SnapshotHandling?> _askSnapshotHandling(int count) {
+    return showDialog<_SnapshotHandling>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('テストピースの記録の扱い'),
+        content: Text(
+          'この釉薬を使ったテストピースが $count 件あります。記録済みの調合をどうしますか？ '
+          '調合を改良した場合は、複製して別の釉薬にすると系統が残ります。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.of(context).pop(_SnapshotHandling.cancel),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(_SnapshotHandling.keep),
+            child: const Text('記録はそのまま'),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.of(context).pop(_SnapshotHandling.correct),
+            child: const Text('記録も直す'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _confirmDelete() async {
@@ -234,7 +336,11 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
       isDirty: _isDirty,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.glaze == null ? '釉薬の新規作成' : '釉薬の編集'),
+          title: Text(
+            widget.glaze != null
+                ? '釉薬の編集'
+                : (_isDuplicate ? '釉薬の複製' : '釉薬の新規作成'),
+          ),
           actions: [
             CommonAppBarActions(
               onDelete: widget.glaze != null ? _confirmDelete : null,
@@ -449,6 +555,9 @@ class _GlazeEditScreenState extends ConsumerState<GlazeEditScreen> {
     );
   }
 }
+
+/// 調合を変えたときの、記録済みのテストピースの写しの扱い
+enum _SnapshotHandling { cancel, keep, correct }
 
 // レシピの一行を管理するためのヘルパークラス
 class _RecipeRow {

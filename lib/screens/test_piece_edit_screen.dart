@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
+import 'package:glaze_manager/models/recipe_snapshot.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     show ConsumerStatefulWidget, ConsumerState, AsyncValueX;
@@ -165,6 +166,28 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
         imagePath = widget.testPiece?.imagePath;
       }
 
+      // 調合の写し。新規作成では常に取る。更新では釉薬・追加釉薬・素地土の
+      // いずれかが変わったとき、または写しがまだないときだけ取り直す。
+      final original = widget.testPiece;
+      final needsSnapshot =
+          original == null ||
+          original.snapshot == null ||
+          original.glazeId != _selectedGlazeId ||
+          !listEquals(original.additionalGlazeIds, _additionalGlazeIds) ||
+          original.clayId != _selectedClayId;
+      final snapshot = needsSnapshot
+          ? TestPieceSnapshot.capture(
+              glazeId: _selectedGlazeId!,
+              additionalGlazeIds: _additionalGlazeIds,
+              clayId: _selectedClayId!,
+              glazeMap: ref.read(glazeMapProvider),
+              materialMap: ref.read(materialMapProvider),
+              clayMap: ref.read(clayMapProvider),
+              source: SnapshotSource.saved,
+              previous: original?.snapshot,
+            )
+          : original.snapshot;
+
       final testPieceData = TestPiece(
         id: docId,
         glazeId: _selectedGlazeId!,
@@ -180,6 +203,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
             ? null
             : _noteController.text.trim(),
         createdAt: widget.testPiece?.createdAt ?? Timestamp.now(),
+        snapshot: snapshot,
       );
 
       // §2.3 順序制約: サーバーACK後にアップロード開始 (UIはブロックしない)
@@ -190,6 +214,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
               testPieceData.toUpdateFields(
                 includeImagePath: hasNewImage,
                 includeColorData: _colorsDirty,
+                includeSnapshot: needsSnapshot,
               ),
             );
 
@@ -303,6 +328,8 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
         ref.watch(firingProfilesProvider).valueOrNull ?? [];
     _availableFiringAtmospheres =
         ref.watch(firingAtmospheresProvider).valueOrNull ?? [];
+    // 保存時に調合の写しを作るため、原料の購読を保っておく
+    ref.watch(materialMapProvider);
 
     return UnsavedChangesPopScope(isDirty: _isDirty, child: _buildScaffold());
   }

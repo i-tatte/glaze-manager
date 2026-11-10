@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:glaze_manager/models/lab_color.dart';
+import 'package:glaze_manager/models/recipe_snapshot.dart';
 
 class TestPiece {
   final String? id;
@@ -15,6 +16,7 @@ class TestPiece {
   final List<LabColor>? colorData; // 解析された色のリスト
   final String? note; // 備考
   final Timestamp createdAt; // 作成日時
+  final TestPieceSnapshot? snapshot; // 記録した時点の調合と素地土名の写し
 
   TestPiece({
     this.id,
@@ -29,6 +31,7 @@ class TestPiece {
     List<LabColor>? colorData,
     this.note,
     required this.createdAt,
+    this.snapshot,
   }) : additionalGlazeIds = List.of(additionalGlazeIds),
        colorData = colorData == null ? null : List.of(colorData);
 
@@ -53,6 +56,7 @@ class TestPiece {
       }).toList(),
       note: data['note'],
       createdAt: data['createdAt'] ?? Timestamp.now(),
+      snapshot: TestPieceSnapshot.tryFromMap(data['snapshot']),
     );
   }
 
@@ -71,6 +75,7 @@ class TestPiece {
         'colorData': colorData!.map((swatch) => swatch.toMap()).toList(),
       'note': note,
       'createdAt': createdAt,
+      if (snapshot != null) 'snapshot': snapshot!.toMap(),
     };
   }
 
@@ -79,6 +84,7 @@ class TestPiece {
   Map<String, dynamic> toUpdateFields({
     required bool includeImagePath,
     required bool includeColorData,
+    required bool includeSnapshot,
   }) {
     final fields = toFirestore()
       ..remove('imageUrl')
@@ -86,6 +92,7 @@ class TestPiece {
       ..remove('createdAt');
     if (!includeImagePath) fields.remove('imagePath');
     if (!includeColorData) fields.remove('colorData');
+    if (!includeSnapshot) fields.remove('snapshot');
     return fields;
   }
 }

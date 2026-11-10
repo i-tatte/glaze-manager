@@ -6,7 +6,9 @@ import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as m;
+import 'package:glaze_manager/models/recipe_snapshot.dart';
 import 'package:glaze_manager/models/test_piece.dart';
+import 'package:glaze_manager/utils/test_piece_display.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/color_pick_screen.dart';
 import 'package:glaze_manager/screens/glaze_detail_screen.dart';
@@ -87,10 +89,6 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
             testPiece.firingAtmosphereId != null
             ? atmosphereMap[testPiece.firingAtmosphereId]
             : null;
-        final additionalGlazes = testPiece.additionalGlazeIds
-            .map((id) => glazeMap[id])
-            .whereType<Glaze>()
-            .toList();
 
         return Scaffold(
           appBar: AppBar(
@@ -114,36 +112,33 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
               ),
             ],
           ),
-          body: glaze == null
-              ? const Center(child: Text('関連する釉薬データが見つかりません。'))
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isWide =
-                        constraints.maxWidth / constraints.maxHeight > 1.2;
-                    if (isWide) {
-                      return _buildWideLayout(
-                        testPiece,
-                        glaze,
-                        clay,
-                        firingProfile,
-                        firingAtmosphere,
-                        constraints,
-                        additionalGlazes,
-                        materials,
-                      );
-                    } else {
-                      return _buildNarrowLayout(
-                        testPiece,
-                        glaze,
-                        clay,
-                        firingProfile,
-                        firingAtmosphere,
-                        additionalGlazes,
-                        materials,
-                      );
-                    }
-                  },
-                ),
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth / constraints.maxHeight > 1.2;
+              if (isWide) {
+                return _buildWideLayout(
+                  testPiece,
+                  glaze,
+                  clay,
+                  firingProfile,
+                  firingAtmosphere,
+                  constraints,
+                  glazeMap,
+                  materials,
+                );
+              } else {
+                return _buildNarrowLayout(
+                  testPiece,
+                  glaze,
+                  clay,
+                  firingProfile,
+                  firingAtmosphere,
+                  glazeMap,
+                  materials,
+                );
+              }
+            },
+          ),
         );
       },
     );
@@ -151,12 +146,12 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
 
   Widget _buildWideLayout(
     TestPiece testPiece,
-    Glaze glaze,
+    Glaze? glaze,
     Clay? clay,
     FiringProfile? firingProfile,
     FiringAtmosphere? firingAtmosphere,
     BoxConstraints constraints,
-    List<Glaze> additionalGlazes,
+    Map<String, Glaze> glazeMap,
     List<m.Material> materials,
   ) {
     return Row(
@@ -180,7 +175,7 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
             clay,
             firingProfile,
             firingAtmosphere,
-            additionalGlazes,
+            glazeMap,
             materials,
           ),
         ),
@@ -190,11 +185,11 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
 
   Widget _buildNarrowLayout(
     TestPiece testPiece,
-    Glaze glaze,
+    Glaze? glaze,
     Clay? clay,
     FiringProfile? firingProfile,
     FiringAtmosphere? firingAtmosphere,
-    List<Glaze> additionalGlazes,
+    Map<String, Glaze> glazeMap,
     List<m.Material> materials,
   ) {
     return ListView(
@@ -209,7 +204,7 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
           clay,
           firingProfile,
           firingAtmosphere,
-          additionalGlazes,
+          glazeMap,
           materials,
         ),
       ],
@@ -284,85 +279,113 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
 
   Widget _buildInfoPanel(
     TestPiece testPiece,
-    Glaze glaze,
+    Glaze? glaze,
     Clay? clay,
     FiringProfile? firingProfile,
     FiringAtmosphere? firingAtmosphere,
-    List<Glaze> additionalGlazes,
+    Map<String, Glaze> glazeMap,
     List<m.Material> materials,
   ) {
+    final snapshotGlaze = testPiece.snapshot?.glaze;
+    final recipeDiffers =
+        glaze != null &&
+        snapshotGlaze != null &&
+        !snapshotGlaze.hasSameRecipeAs(glaze.recipe);
+    // 写しがあれば写しの調合を、なければ現在の釉薬の調合を使う
+    final Map<String, double> recipe =
+        snapshotGlaze?.recipe ?? glaze?.recipe ?? const {};
+    final showRecipeSection = recipe.isNotEmpty || recipeDiffers;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // レシピを最優先で表示
-          if (glaze.recipe.isNotEmpty) ...[
+          if (showRecipeSection) ...[
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('調合', style: Theme.of(context).textTheme.titleMedium),
-                TextButton.icon(
-                  onPressed: () {
-                    final materialMap = {
-                      for (var m in materials) m.id!: m.name,
-                    };
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => MixingCalculatorScreen(
-                          recipe: glaze.recipe,
-                          materialNames: materialMap,
+                if (recipe.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: () {
+                      // 原料が現存すれば現在の名前、なければ写しの名前
+                      final materialNames = <String, String>{
+                        for (final line in snapshotGlaze?.lines ?? const [])
+                          line.materialId: line.name,
+                        for (var m in materials) m.id!: m.name,
+                      };
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => MixingCalculatorScreen(
+                            recipe: recipe,
+                            materialNames: materialNames,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.calculate),
-                  label: const Text('調合計算へ'),
-                ),
+                      );
+                    },
+                    icon: const Icon(Icons.calculate),
+                    label: const Text('調合計算へ'),
+                  ),
               ],
             ),
+            if (recipeDiffers)
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    '釉薬の現在の調合とは異なります。',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  TextButton(
+                    onPressed: () => _confirmUpdateSnapshot(testPiece, glaze),
+                    child: const Text('現在の調合に更新'),
+                  ),
+                ],
+              ),
             const SizedBox(height: 8),
-            RecipeTable(recipe: glaze.recipe, materials: materials),
+            if (snapshotGlaze != null)
+              RecipeTable.fromSnapshot(
+                snapshot: snapshotGlaze,
+                materials: materials,
+              )
+            else
+              RecipeTable(recipe: recipe, materials: materials),
+            if (testPiece.snapshot?.source == SnapshotSource.backfilled) ...[
+              const SizedBox(height: 8),
+              Text(
+                '移行時に、その時点の釉薬の調合から埋めた記録です。',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
             const Divider(height: 32),
           ],
 
           InfoTile(
             label: '釉薬名 (メイン)',
-            value: glaze.name, // glazeはnullでないことが確認済み
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => GlazeDetailScreen(glaze: glaze),
-                ),
-              );
-            },
+            value: glazeDisplayName(testPiece, glazeMap),
+            // 釉薬が現存するときだけ詳細へ飛べる
+            onTap: glaze == null
+                ? null
+                : () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => GlazeDetailScreen(glaze: glaze),
+                      ),
+                    );
+                  },
           ),
-          if (additionalGlazes.isNotEmpty) ...[
+          if (testPiece.additionalGlazeIds.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text('追加の釉薬', style: Theme.of(context).textTheme.labelLarge),
-            ...additionalGlazes.map(
-              (g) => InkWell(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => GlazeDetailScreen(glaze: g),
-                    ),
-                  );
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Text(
-                    g.name,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            for (final id in testPiece.additionalGlazeIds)
+              _buildAdditionalGlaze(testPiece, id, glazeMap),
           ],
-          InfoTile(label: '素地土名', value: clay?.name ?? '未設定'),
+          InfoTile(
+            label: '素地土名',
+            value: clay?.name ?? testPiece.snapshot?.clayName ?? '未設定',
+          ),
           InfoTile(
             label: '焼成雰囲気',
             value: firingAtmosphere?.name ?? '未設定',
@@ -405,6 +428,78 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
         ],
       ),
     );
+  }
+
+  /// 追加釉薬の 1 件。現存すれば現在の名前とリンク、なければ写しの名前
+  /// (リンクなし)、どちらもなければ「不明な釉薬」を表示する。
+  Widget _buildAdditionalGlaze(
+    TestPiece testPiece,
+    String glazeId,
+    Map<String, Glaze> glazeMap,
+  ) {
+    final glaze = glazeMap[glazeId];
+    final name = additionalGlazeDisplayName(testPiece, glazeId, glazeMap);
+    final style = Theme.of(context).textTheme.bodyLarge;
+    final text = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Text(
+        name,
+        style: glaze == null
+            ? style
+            : style?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+                decoration: TextDecoration.underline,
+              ),
+      ),
+    );
+    if (glaze == null) return text;
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => GlazeDetailScreen(glaze: glaze),
+          ),
+        );
+      },
+      child: text,
+    );
+  }
+
+  /// 写しの調合を釉薬の現在の調合に置き換える (確認のうえ)。
+  Future<void> _confirmUpdateSnapshot(TestPiece testPiece, Glaze glaze) async {
+    final snapshot = testPiece.snapshot;
+    if (snapshot == null || testPiece.id == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: const Text('このテストピースの調合の記録を、釉薬の現在の調合に置き換えます。元に戻せません。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('更新'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final updated = snapshot.replacingGlaze(
+      GlazeSnapshot.capture(glaze, ref.read(materialMapProvider)),
+      source: SnapshotSource.saved,
+    );
+    ref
+        .read(firestoreServiceProvider)
+        .updateTestPieceFields(testPiece.id!, {'snapshot': updated.toMap()})
+        .catchError((Object e) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(content: Text('保存に失敗しました: $e')),
+          );
+        });
   }
 
   /// 編集画面へ遷移する（オフラインチェック含む）

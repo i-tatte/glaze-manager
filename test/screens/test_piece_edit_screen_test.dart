@@ -7,6 +7,8 @@ import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/lab_color.dart';
+import 'package:glaze_manager/models/material.dart' as app;
+import 'package:glaze_manager/models/recipe_snapshot.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
@@ -22,6 +24,10 @@ void main() {
   setUp(() {
     mockFirestoreService = MockFirestoreService();
     mockStorageService = MockStorageService();
+    // 保存時に調合の写しを作るため、編集画面は原料を購読する
+    when(
+      mockFirestoreService.getMaterials(),
+    ).thenAnswer((_) => Stream.value(<app.Material>[]));
   });
 
   Widget createTestableWidget(Widget child) {
@@ -182,6 +188,80 @@ void main() {
       expect(captured.containsKey('colorData'), isFalse);
       expect(captured.containsKey('imagePath'), isFalse);
       expect(captured.containsKey('createdAt'), isFalse);
+      // 写しがまだないので、このとき写しを取る
+      final snapshot = TestPieceSnapshot.tryFromMap(captured['snapshot'])!;
+      expect(snapshot.source, 'saved');
+      expect(snapshot.glaze!.name, 'Glaze 1');
+      expect(snapshot.clayName, 'Clay 1');
+    });
+
+    testWidgets('写しを持つテストピースの備考だけ変えたときは写しを送らない', (WidgetTester tester) async {
+      final testPiece = TestPiece(
+        id: 'tp1',
+        glazeId: 'g1',
+        clayId: 'c1',
+        createdAt: Timestamp.now(),
+        snapshot: TestPieceSnapshot(
+          glaze: GlazeSnapshot(glazeId: 'g1', name: '記録時', lines: const []),
+          clayName: '記録時の素地土',
+          source: SnapshotSource.saved,
+          takenAt: Timestamp.now(),
+        ),
+      );
+      when(mockFirestoreService.getGlazes()).thenAnswer(
+        (_) => Stream.value([
+          Glaze(
+            id: 'g1',
+            name: 'Glaze 1',
+            recipe: {},
+            tags: [],
+            createdAt: Timestamp.now(),
+          ),
+        ]),
+      );
+      when(mockFirestoreService.getClays()).thenAnswer(
+        (_) => Stream.value([Clay(id: 'c1', name: 'Clay 1', order: 1)]),
+      );
+      when(
+        mockFirestoreService.getFiringProfiles(),
+      ).thenAnswer((_) => Stream.value(<FiringProfile>[]));
+      when(
+        mockFirestoreService.getFiringAtmospheres(),
+      ).thenAnswer((_) => Stream.value(<FiringAtmosphere>[]));
+      when(
+        mockFirestoreService.updateTestPieceFields(any, any),
+      ).thenAnswer((_) async {});
+
+      await tester.pumpWidget(
+        createTestableWidget(
+          Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => TestPieceEditScreen(testPiece: testPiece),
+                  ),
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).last, '備考を直した');
+      await tester.tap(find.byTooltip('保存'));
+      await tester.pumpAndSettle();
+
+      final captured =
+          verify(
+                mockFirestoreService.updateTestPieceFields('tp1', captureAny),
+              ).captured.single
+              as Map<String, dynamic>;
+      expect(captured['note'], '備考を直した');
+      expect(captured.containsKey('snapshot'), isFalse);
     });
   });
 }

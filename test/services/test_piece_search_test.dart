@@ -6,6 +6,7 @@ import 'package:glaze_manager/models/lab_color.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
+import 'package:glaze_manager/models/recipe_snapshot.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/services/test_piece_search.dart';
 
@@ -292,6 +293,82 @@ void main() {
         glazeMap: glazeMap,
       );
       expect(result, [withColor]);
+    });
+
+    test('釉薬が削除されていても写しがあれば釉薬名と原料名で見つかる', () {
+      final orphan = TestPiece(
+        id: 'orphan',
+        glazeId: 'deleted',
+        clayId: 'c1',
+        createdAt: Timestamp.now(),
+        snapshot: TestPieceSnapshot(
+          glaze: GlazeSnapshot(
+            glazeId: 'deleted',
+            name: '消えた釉',
+            lines: const [
+              RecipeLine(
+                materialId: 'gone',
+                name: '消えた原料',
+                category: 'base',
+                amount: 10,
+              ),
+              RecipeLine(
+                materialId: 'm1',
+                name: '旧名',
+                category: 'base',
+                amount: 5,
+              ),
+            ],
+          ),
+          source: SnapshotSource.saved,
+          takenAt: Timestamp.now(),
+        ),
+      );
+      final pieces = [tp1, orphan];
+      const materialMap = {'m1': '長石'};
+
+      expect(
+        _filter(
+          pieces: pieces,
+          query: '消えた釉',
+          glazeMap: glazeMap,
+          materialMap: materialMap,
+        ),
+        [orphan],
+      );
+      // 削除された原料は写しの名前で、現存する原料は現在の名前で見つかる
+      expect(
+        _filter(
+          pieces: pieces,
+          query: '消えた原料',
+          glazeMap: glazeMap,
+          materialMap: materialMap,
+        ),
+        [orphan],
+      );
+      expect(
+        _filter(
+          pieces: pieces,
+          query: '長石',
+          glazeMap: glazeMap,
+          materialMap: materialMap,
+        ),
+        [orphan],
+      );
+      expect(
+        _filter(
+          pieces: pieces,
+          query: '旧名',
+          glazeMap: glazeMap,
+          materialMap: materialMap,
+        ),
+        isEmpty,
+      );
+      // タグの絞り込みは、釉薬が現存しないものを外す
+      expect(
+        _filter(pieces: pieces, selectedTags: ['glossy'], glazeMap: glazeMap),
+        [tp1],
+      );
     });
   });
 }

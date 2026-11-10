@@ -543,6 +543,17 @@ class MockFirestoreService extends _i1.Mock implements _i14.FirestoreService {
           as _i12.Future<void>);
 
   @override
+  _i12.Future<void> updateTestPieceFieldsBatch(
+    Map<String, Map<String, dynamic>>? fieldsById,
+  ) =>
+      (super.noSuchMethod(
+            Invocation.method(#updateTestPieceFieldsBatch, [fieldsById]),
+            returnValue: _i12.Future<void>.value(),
+            returnValueForMissingStub: _i12.Future<void>.value(),
+          )
+          as _i12.Future<void>);
+
+  @override
   _i12.Future<void> deleteTestPiece(String? testPieceId) =>
       (super.noSuchMethod(
             Invocation.method(#deleteTestPiece, [testPieceId]),

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/models/glaze.dart';
+import 'package:glaze_manager/models/recipe_snapshot.dart';
 
 void main() {
   group('Glaze Model Test', () {
@@ -96,6 +97,61 @@ void main() {
       // Actually model usually requires it or defaults.
       // If model logic is: createdAt: (data['createdAt'] as Timestamp?) ?? Timestamp.now()
       expect(glaze.createdAt, isA<Timestamp>());
+      expect(glaze.parentGlazeId, isNull);
+      expect(glaze.parentSnapshot, isNull);
+    });
+
+    test('派生元のフィールドを往復できる', () async {
+      final fakeDb = FakeFirebaseFirestore();
+      final glaze = Glaze(
+        name: '青磁 改',
+        recipe: {'m1': 62},
+        tags: const [],
+        createdAt: Timestamp.now(),
+        parentGlazeId: 'g1',
+        parentSnapshot: GlazeSnapshot(
+          glazeId: 'g1',
+          name: '青磁',
+          lines: const [
+            RecipeLine(
+              materialId: 'm1',
+              name: '長石',
+              category: 'base',
+              amount: 60,
+            ),
+          ],
+        ),
+      );
+      await fakeDb.collection('glazes').doc('g2').set(glaze.toFirestore());
+      final doc = await fakeDb.collection('glazes').doc('g2').get();
+
+      final read = Glaze.fromFirestore(doc);
+      expect(read.parentGlazeId, 'g1');
+      expect(read.parentSnapshot!.name, '青磁');
+      expect(read.parentSnapshot!.recipe, {'m1': 60.0});
+    });
+
+    test('派生元がなければフィールドを出力しない', () {
+      final map = Glaze(
+        name: '青磁',
+        recipe: {},
+        tags: const [],
+        createdAt: Timestamp.now(),
+      ).toFirestore();
+      expect(map.containsKey('parentGlazeId'), isFalse);
+      expect(map.containsKey('parentSnapshot'), isFalse);
+    });
+
+    test('派生元の写しが壊れていれば null として読む', () async {
+      final fakeDb = FakeFirebaseFirestore();
+      await fakeDb.collection('glazes').doc('g2').set({
+        'parentGlazeId': 'g1',
+        'parentSnapshot': 'broken',
+      });
+      final doc = await fakeDb.collection('glazes').doc('g2').get();
+      final read = Glaze.fromFirestore(doc);
+      expect(read.parentGlazeId, 'g1');
+      expect(read.parentSnapshot, isNull);
     });
   });
 }

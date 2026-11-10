@@ -142,6 +142,11 @@ class FirestoreService {
   Future<void> updateTestPieceFields(String id, Map<String, dynamic> fields) =>
       testPieces.updateFields(id, fields);
 
+  /// 複数のテストピースの指定フィールドをまとめて更新する (400 件ごとに commit)
+  Future<void> updateTestPieceFieldsBatch(
+    Map<String, Map<String, dynamic>> fieldsById,
+  ) => testPieces.updateFieldsBatch(fieldsById);
+
   /// テストピースを削除
   Future<void> deleteTestPiece(String testPieceId) =>
       testPieces.deleteById(testPieceId);

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -73,9 +74,7 @@ void main() {
     when(mockSettingsService.removeListener(any)).thenReturn(null);
 
     // 設定タブのアカウントセクションが参照する認証状態 (未ログイン扱い)
-    when(
-      mockAuthService.user,
-    ).thenAnswer((_) => Stream<User?>.value(null));
+    when(mockAuthService.user).thenAnswer((_) => Stream<User?>.value(null));
   });
 
   // テスト対象のウィジェットをラップするヘルパー関数
@@ -198,6 +197,54 @@ void main() {
       expect(find.widgetWithText(TextButton, '編集'), findsNothing);
       // サインアウトボタンが表示されることを確認
       expect(find.byIcon(Icons.logout), findsOneWidget);
+    });
+
+    testWidgets('写しを持たない既存のテストピースに一度だけ写しを埋める', (WidgetTester tester) async {
+      when(mockFirestoreService.getTestPieces()).thenAnswer(
+        (_) => Stream.value([
+          TestPiece(
+            id: 'tp1',
+            glazeId: 'g1',
+            clayId: 'c1',
+            createdAt: Timestamp.now(),
+          ),
+          // 主たる釉薬が見つからないものは対象外
+          TestPiece(
+            id: 'tp2',
+            glazeId: 'deleted',
+            clayId: 'c1',
+            createdAt: Timestamp.now(),
+          ),
+        ]),
+      );
+      when(mockFirestoreService.getGlazes()).thenAnswer(
+        (_) => Stream.value([
+          Glaze(
+            id: 'g1',
+            name: '青磁',
+            recipe: {'m1': 60},
+            tags: [],
+            createdAt: Timestamp.now(),
+          ),
+        ]),
+      );
+      when(
+        mockFirestoreService.updateTestPieceFieldsBatch(any),
+      ).thenAnswer((_) async {});
+
+      await tester.pumpWidget(createTestableWidget(const MainTabScreen()));
+      await tester.pumpAndSettle();
+
+      final batch =
+          verify(
+                mockFirestoreService.updateTestPieceFieldsBatch(captureAny),
+              ).captured.single
+              as Map<String, Map<String, dynamic>>;
+      expect(batch.keys, ['tp1']);
+      expect(
+        (batch['tp1']!['snapshot'] as Map<String, dynamic>)['source'],
+        'backfilled',
+      );
     });
   });
 }

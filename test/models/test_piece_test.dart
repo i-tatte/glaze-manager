@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glaze_manager/models/recipe_snapshot.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/lab_color.dart';
 
@@ -22,6 +23,7 @@ void main() {
       final f = piece.toUpdateFields(
         includeImagePath: true,
         includeColorData: true,
+        includeSnapshot: true,
       );
       expect(f.containsKey('imageUrl'), isFalse);
       expect(f.containsKey('thumbnailUrl'), isFalse);
@@ -34,6 +36,7 @@ void main() {
       final on = piece.toUpdateFields(
         includeImagePath: true,
         includeColorData: true,
+        includeSnapshot: true,
       );
       expect(on['imagePath'], 'p');
       expect(on.containsKey('colorData'), isTrue);
@@ -41,6 +44,7 @@ void main() {
       final off = piece.toUpdateFields(
         includeImagePath: false,
         includeColorData: false,
+        includeSnapshot: false,
       );
       expect(off.containsKey('imagePath'), isFalse);
       expect(off.containsKey('colorData'), isFalse);
@@ -143,6 +147,94 @@ void main() {
       expect(testPiece.createdAt, isA<Timestamp>());
       expect(testPiece.additionalGlazeIds, []);
       expect(testPiece.colorData, null);
+      expect(testPiece.snapshot, isNull);
+    });
+  });
+
+  group('TestPiece の調合の写し', () {
+    final snapshot = TestPieceSnapshot(
+      glaze: GlazeSnapshot(
+        glazeId: 'g1',
+        name: '青磁',
+        lines: const [
+          RecipeLine(
+            materialId: 'm1',
+            name: '長石',
+            category: 'base',
+            amount: 60,
+          ),
+        ],
+      ),
+      additionalGlazes: [
+        GlazeSnapshot(glazeId: 'g2', name: '鉄赤', lines: const []),
+      ],
+      clayName: '信楽白',
+      source: SnapshotSource.saved,
+      takenAt: Timestamp.fromMillisecondsSinceEpoch(1000),
+    );
+
+    test('写しは Firestore を往復できる', () async {
+      final fakeDb = FakeFirebaseFirestore();
+      final piece = TestPiece(
+        glazeId: 'g1',
+        additionalGlazeIds: ['g2'],
+        clayId: 'c1',
+        createdAt: Timestamp.now(),
+        snapshot: snapshot,
+      );
+      await fakeDb
+          .collection('test_pieces')
+          .doc('tp1')
+          .set(piece.toFirestore());
+      final doc = await fakeDb.collection('test_pieces').doc('tp1').get();
+
+      final read = TestPiece.fromFirestore(doc).snapshot!;
+      expect(read.source, 'saved');
+      expect(read.clayName, '信楽白');
+      expect(read.takenAt, Timestamp.fromMillisecondsSinceEpoch(1000));
+      expect(read.glaze!.name, '青磁');
+      expect(read.glaze!.recipe, {'m1': 60.0});
+      expect(read.additionalGlazes.single.glazeId, 'g2');
+    });
+
+    test('写しがなければ snapshot を出力しない', () {
+      final piece = TestPiece(
+        glazeId: 'g1',
+        clayId: 'c1',
+        createdAt: Timestamp.now(),
+      );
+      expect(piece.toFirestore().containsKey('snapshot'), isFalse);
+    });
+
+    test('snapshot が Map でなければ null として読む', () async {
+      final fakeDb = FakeFirebaseFirestore();
+      await fakeDb.collection('test_pieces').doc('tp1').set({
+        'glazeId': 'g1',
+        'snapshot': 'broken',
+      });
+      final doc = await fakeDb.collection('test_pieces').doc('tp1').get();
+      expect(TestPiece.fromFirestore(doc).snapshot, isNull);
+    });
+
+    test('toUpdateFields は includeSnapshot で写しの有無が切り替わる', () {
+      final piece = TestPiece(
+        glazeId: 'g1',
+        clayId: 'c1',
+        createdAt: Timestamp.now(),
+        snapshot: snapshot,
+      );
+      final on = piece.toUpdateFields(
+        includeImagePath: false,
+        includeColorData: false,
+        includeSnapshot: true,
+      );
+      expect(on['snapshot'], isA<Map>());
+      final off = piece.toUpdateFields(
+        includeImagePath: false,
+        includeColorData: false,
+        includeSnapshot: false,
+      );
+      expect(off.containsKey('snapshot'), isFalse);
     });
   });
 }

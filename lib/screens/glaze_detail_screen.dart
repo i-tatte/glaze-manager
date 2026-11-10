@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
     show ConsumerWidget, WidgetRef, AsyncValueX;
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as app;
+import 'package:glaze_manager/models/recipe_snapshot.dart';
+import 'package:glaze_manager/utils/recipe_diff.dart';
+import 'package:glaze_manager/widgets/common/recipe_diff_table.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/glaze_edit_screen.dart';
 import 'package:glaze_manager/screens/glaze_list_screen.dart';
@@ -49,6 +52,17 @@ class GlazeDetailScreen extends ConsumerWidget {
             ),
             actions: [
               IconButton(
+                icon: const Icon(Icons.copy_outlined),
+                tooltip: '複製して新規作成',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => GlazeEditScreen(sourceGlaze: glaze),
+                    ),
+                  );
+                },
+              ),
+              IconButton(
                 icon: const Icon(Icons.edit),
                 tooltip: '編集',
                 onPressed: () {
@@ -74,6 +88,15 @@ class GlazeDetailScreen extends ConsumerWidget {
     Map<String?, String?> materialMap,
     List<app.Material> materials,
   ) {
+    final glazeMap = ref.watch(glazeMapProvider);
+    final parent = glaze.parentGlazeId == null
+        ? null
+        : glazeMap[glaze.parentGlazeId];
+    final parentSnapshot = glaze.parentSnapshot;
+    final derivedGlazes =
+        glazeMap.values.where((g) => g.parentGlazeId == glaze.id).toList()
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
@@ -82,6 +105,23 @@ class GlazeDetailScreen extends ConsumerWidget {
         if (glaze.registeredName != null &&
             glaze.registeredName!.isNotEmpty) ...[
           InfoTile(label: '登録名', value: glaze.registeredName!),
+          const Divider(height: 32),
+        ],
+        if (glaze.parentGlazeId != null) ...[
+          InfoTile(
+            label: '派生元',
+            // 派生元が現存すれば現在の名前とリンク、なければ写しの名前
+            value: parent?.name ?? parentSnapshot?.name ?? '不明な釉薬',
+            onTap: parent == null
+                ? null
+                : () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => GlazeDetailScreen(glaze: parent),
+                      ),
+                    );
+                  },
+          ),
           const Divider(height: 32),
         ],
         if (glaze.tags.isNotEmpty) ...[
@@ -126,10 +166,64 @@ class GlazeDetailScreen extends ConsumerWidget {
           const Text('レシピが登録されていません。')
         else
           RecipeTable(recipe: glaze.recipe, materials: materials),
+        if (parentSnapshot != null) ...[
+          const SizedBox(height: 24),
+          Text('派生元からの変更', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          _buildParentDiff(glaze, parentSnapshot, materials),
+        ],
+        if (derivedGlazes.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          Text('派生した釉薬', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          for (final derived in derivedGlazes)
+            InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => GlazeDetailScreen(glaze: derived),
+                  ),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Text(
+                  derived.name,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ),
+        ],
         const SizedBox(height: 24),
         const Divider(height: 32),
         _buildTestPiecesSection(context, ref, glaze.id!),
       ],
+    );
+  }
+
+  /// 派生元 (複製した時点) とこの釉薬の調合の違いを、違いのある原料だけ表示する。
+  Widget _buildParentDiff(
+    Glaze glaze,
+    GlazeSnapshot parentSnapshot,
+    List<app.Material> materials,
+  ) {
+    final recipes = [parentSnapshot.recipe, glaze.recipe];
+    final hasDifference = diffRecipes(recipes).any((row) => row.differs);
+    if (!hasDifference) return const Text('派生元と同じ調合です。');
+
+    final materialById = {for (final m in materials) m.id: m};
+    final snapshotNames = {
+      for (final line in parentSnapshot.lines) line.materialId: line.name,
+    };
+    return RecipeDiffTable(
+      columnLabels: const ['派生元', 'この釉薬'],
+      recipes: recipes,
+      materialName: (id) =>
+          materialById[id]?.name ?? snapshotNames[id] ?? '不明な原料',
+      onlyDiffering: true,
     );
   }
 

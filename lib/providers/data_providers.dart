@@ -5,9 +5,11 @@ import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart';
+import 'package:glaze_manager/models/recipe_snapshot.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/services/auth_service.dart';
 import 'package:glaze_manager/services/firestore_service.dart';
+import 'package:glaze_manager/services/snapshot_backfill.dart';
 import 'package:glaze_manager/services/settings_service.dart';
 import 'package:glaze_manager/services/storage_service.dart';
 
@@ -26,9 +28,7 @@ final settingsServiceProvider = ChangeNotifierProvider<SettingsService>(
   (ref) => SettingsService(),
 );
 
-final authServiceProvider = Provider<AuthService>(
-  (ref) => AuthService(),
-);
+final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
 final firestoreServiceProvider = Provider<FirestoreService>(
   (ref) => FirestoreService(),
@@ -154,3 +154,35 @@ final materialNameMapProvider = Provider<Map<String, String>>(
       item.id!: item.name,
   },
 );
+
+/// 原料 ID -> 原料のマップ
+final materialMapProvider = Provider<Map<String, Material>>(
+  (ref) => {
+    for (final item in ref.watch(materialsProvider).valueOrNull ?? <Material>[])
+      item.id!: item,
+  },
+);
+
+/// 写しを持たない既存のテストピースに埋めるべき写し (テストピース ID -> 写し)。
+///
+/// 4 つのコレクションがすべて値を持ち、かつ読み込み中でないときだけ計画を返す。
+/// 再購読の途中 (前の値を保ったまま読み込み中) に「釉薬が見つからない」と
+/// 誤って判断しないよう、hasValue だけでは判定しない。
+final snapshotBackfillPlanProvider = Provider<Map<String, TestPieceSnapshot>>((
+  ref,
+) {
+  final pieces = ref.watch(testPiecesProvider);
+  final glazes = ref.watch(glazesProvider);
+  final materials = ref.watch(materialsProvider);
+  final clays = ref.watch(claysProvider);
+  bool ready(AsyncValue<Object?> v) => v.hasValue && !v.isLoading;
+  if (!ready(pieces) || !ready(glazes) || !ready(materials) || !ready(clays)) {
+    return const {};
+  }
+  return planSnapshotBackfill(
+    pieces: pieces.requireValue,
+    glazeMap: {for (final g in glazes.requireValue) g.id!: g},
+    materialMap: {for (final m in materials.requireValue) m.id!: m},
+    clayMap: {for (final c in clays.requireValue) c.id!: c},
+  );
+});

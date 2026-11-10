@@ -12,6 +12,7 @@ import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/theme/app_theme.dart';
 import 'package:glaze_manager/utils/png_exporter.dart';
+import 'package:glaze_manager/utils/test_piece_display.dart';
 import 'package:glaze_manager/widgets/common/app_network_image.dart';
 import 'package:glaze_manager/widgets/common/color_swatch_row.dart';
 import 'package:glaze_manager/widgets/common/info_tile.dart';
@@ -120,7 +121,7 @@ class _TestPieceShareScreenState extends ConsumerState<TestPieceShareScreen> {
     final materials = ref.watch(materialsProvider).valueOrNull ?? [];
 
     final glaze = glazeMap[testPiece.glazeId];
-    final glazeName = glaze?.name ?? '不明な釉薬';
+    final glazeName = glazeDisplayName(testPiece, glazeMap);
     final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
     // 出力は常にライトテーマ (共有相手の環境や印刷を考慮)。
@@ -154,7 +155,7 @@ class _TestPieceShareScreenState extends ConsumerState<TestPieceShareScreen> {
                         testPiece,
                         glaze,
                         glazeName,
-                        clayMap[testPiece.clayId]?.name,
+                        clayDisplayName(testPiece, clayMap, fallback: '未設定'),
                         atmosphereMap[testPiece.firingAtmosphereId]?.name,
                         profileMap[testPiece.firingProfileId],
                         materials,
@@ -189,10 +190,16 @@ class _TestPieceShareScreenState extends ConsumerState<TestPieceShareScreen> {
     final theme = AppTheme.light;
     final createdAt = testPiece.createdAt.toDate();
     final dateText = '${createdAt.year}/${createdAt.month}/${createdAt.day}';
+    final glazeMap = ref.read(glazeMapProvider);
     final additionalGlazeNames = [
       for (final id in testPiece.additionalGlazeIds)
-        ref.read(glazeMapProvider)[id]?.name ?? '不明な釉薬',
+        additionalGlazeDisplayName(testPiece, id, glazeMap),
     ];
+    // 写しがあれば写しの調合を、なければ現在の釉薬の調合を使う
+    final snapshotGlaze = testPiece.snapshot?.glaze;
+    final hasRecipe = snapshotGlaze != null
+        ? snapshotGlaze.lines.isNotEmpty
+        : (glaze != null && glaze.recipe.isNotEmpty);
 
     return Material(
       // 透過PNGにならないよう背景を明示的に塗る
@@ -234,10 +241,16 @@ class _TestPieceShareScreenState extends ConsumerState<TestPieceShareScreen> {
                 ColorSwatchRow(colorData: testPiece.colorData!),
                 const SizedBox(height: 16),
               ],
-              if (glaze != null && glaze.recipe.isNotEmpty) ...[
+              if (hasRecipe) ...[
                 Text('調合', style: theme.textTheme.titleMedium),
                 const SizedBox(height: 8),
-                RecipeTable(recipe: glaze.recipe, materials: materials),
+                if (snapshotGlaze != null)
+                  RecipeTable.fromSnapshot(
+                    snapshot: snapshotGlaze,
+                    materials: materials,
+                  )
+                else
+                  RecipeTable(recipe: glaze!.recipe, materials: materials),
                 const Divider(height: 32),
               ],
               if (additionalGlazeNames.isNotEmpty)

@@ -263,8 +263,12 @@ void main() {
 
     // Tap to navigate
     await tester.tap(find.byType(TestPieceCard));
-    // 画面遷移 + データプロバイダのロード完了を待つ
-    await tester.pumpAndSettle();
+    // 画面遷移 + データプロバイダのロード完了を待つ。
+    // 釉薬が見つからなくても詳細画面は写真を表示するようになり、写真の読み込み
+    // 表示が回り続けるので pumpAndSettle ではなく時間を進めて待つ
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
     // Check if navigation happened by looking for title
     expect(find.text('テストピース詳細'), findsOneWidget);

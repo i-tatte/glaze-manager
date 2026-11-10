@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 /// 表形式データの1行分。[onTap] を渡すと行タップで遷移などができる。
+/// [highlighted] の行は背景をテーマの secondaryContainer で塗る。
 class StripedDataRow {
   final List<String> cells;
   final VoidCallback? onTap;
+  final bool highlighted;
 
-  const StripedDataRow(this.cells, {this.onTap});
+  const StripedDataRow(this.cells, {this.onTap, this.highlighted = false});
 }
 
 /// 表形式データ表示の共通ウィジェット。
@@ -28,6 +30,7 @@ class StripedDataTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final highlightColor = Theme.of(context).colorScheme.secondaryContainer;
     return DataTable(
       showCheckboxColumn: false,
       columns: [
@@ -41,8 +44,9 @@ class StripedDataTable extends StatelessWidget {
         for (var i = 0; i < rows.length; i++)
           DataRow(
             color: WidgetStateProperty.resolveWith<Color?>(
-              (states) =>
-                  i.isOdd ? Colors.grey.withValues(alpha: 0.1) : null,
+              (states) => rows[i].highlighted
+                  ? highlightColor
+                  : (i.isOdd ? Colors.grey.withValues(alpha: 0.1) : null),
             ),
             onSelectChanged: rows[i].onTap == null
                 ? null

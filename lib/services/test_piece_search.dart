@@ -5,6 +5,7 @@ import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
+import 'package:glaze_manager/utils/test_piece_display.dart';
 
 /// 検索クエリの語分割に使う正規表現。半角・全角スペースの連続を 1 区切りとして扱う。
 /// Dart(ECMAScript) の \s は U+3000 を含むため、全角スペースも分割対象になる。
@@ -38,7 +39,8 @@ enum TestPieceSortOrder {
 /// SearchScreen の `_applyFilters` から表示ロジック（setState 等）と分離して
 /// 抽出したもの。フィルタの挙動:
 ///  - テキストはスペース区切り AND、`-語` は除外語
-///  - 釉薬が [glazeMap] に無いテストピースはテキスト検索時に除外される
+///  - 釉薬が [glazeMap] に無く、調合の写しもないテストピースはテキスト検索時に
+///    除外される (写しがあれば写しの釉薬名・原料名で検索できる)
 ///  - 原料名のみにマッチしたものは、釉薬名等にマッチしたものより後ろに並ぶ
 ///  - タグは AND
 ///  - 色検索は ΔE 閾値以下を残す。[TestPieceSortOrder.colorDistance] 指定時は
@@ -75,26 +77,33 @@ List<TestPiece> filterTestPieces({
 
     for (final tp in filtered) {
       final glaze = glazeMap[tp.glazeId];
-      if (glaze == null) continue;
+      final snapshotGlaze = tp.snapshot?.glaze;
+      // 釉薬が見つからず、写しもないものは外す
+      if (glaze == null && snapshotGlaze == null) continue;
 
-      final clay = clayMap[tp.clayId];
       final atmosphere = atmosphereMap[tp.firingAtmosphereId];
       final profile = profileMap[tp.firingProfileId];
 
       // 検索対象の文字列を結合して検索しやすくする
+      // (釉薬名・素地土名は現存すれば現在の名前、なければ写しの名前。
+      //  タグは釉薬が現存するときだけ)
       final searchableText = [
-        glaze.name,
-        ...glaze.tags,
-        clay?.name ?? '',
+        glazeDisplayName(tp, glazeMap, fallback: ''),
+        ...?glaze?.tags,
+        clayDisplayName(tp, clayMap, fallback: ''),
         atmosphere?.name ?? '',
         profile?.name ?? '',
       ].join(' ').toLowerCase();
 
-      // 原料名の検索対象
-      final materialNames = glaze.recipe.keys
-          .map((id) => materialMap[id] ?? '')
-          .join(' ')
-          .toLowerCase();
+      // 原料名の検索対象 (写しがあれば写しの各行、なければ現在の調合)
+      final materialNames =
+          (snapshotGlaze != null
+                  ? snapshotGlaze.lines.map(
+                      (line) => materialMap[line.materialId] ?? line.name,
+                    )
+                  : glaze!.recipe.keys.map((id) => materialMap[id] ?? ''))
+              .join(' ')
+              .toLowerCase();
 
       // Negative Terms Check (Common)
       bool matchesNegative =

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:glaze_manager/models/recipe_snapshot.dart';
 import 'package:glaze_manager/services/app_exit.dart';
 import 'package:glaze_manager/screens/glaze_list_screen.dart';
 import 'package:glaze_manager/screens/materials_list_screen.dart';
@@ -128,6 +129,33 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
         screen: SettingsScreen(pageStorageKey: PageStorageKey('settings')),
       ),
     ];
+
+    // 写しを持たない既存のテストピースに、現在の調合から一度だけ写しを埋める。
+    // 書き込むとローカルのキャッシュがすぐ更新され、計画は空に戻る。
+    ref.listenManual<Map<String, TestPieceSnapshot>>(
+      snapshotBackfillPlanProvider,
+      (_, plan) => _applySnapshotBackfill(plan),
+      fireImmediately: true,
+    );
+  }
+
+  /// 同じセッションで二度書き込まないよう、書き込みを呼んだ ID を控える
+  final Set<String> _backfilledTestPieceIds = {};
+
+  void _applySnapshotBackfill(Map<String, TestPieceSnapshot> plan) {
+    final fieldsById = <String, Map<String, dynamic>>{
+      for (final entry in plan.entries)
+        if (!_backfilledTestPieceIds.contains(entry.key))
+          entry.key: {'snapshot': entry.value.toMap()},
+    };
+    if (fieldsById.isEmpty) return;
+    _backfilledTestPieceIds.addAll(fieldsById.keys);
+    ref
+        .read(firestoreServiceProvider)
+        .updateTestPieceFieldsBatch(fieldsById)
+        .catchError((Object e) {
+          debugPrint('Snapshot backfill failed: $e');
+        });
   }
 
   /// 戻るジェスチャの制御。

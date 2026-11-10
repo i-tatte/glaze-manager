@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:glaze_manager/models/recipe_snapshot.dart';
 
 class Glaze {
   final String? id;
@@ -9,6 +10,8 @@ class Glaze {
   final List<String> tags;
   final String? description;
   final Timestamp createdAt;
+  final String? parentGlazeId; // 複製元の釉薬 ID
+  final GlazeSnapshot? parentSnapshot; // 複製した時点の複製元の調合
 
   Glaze({
     this.id,
@@ -19,6 +22,8 @@ class Glaze {
     required List<String> tags,
     this.description,
     required this.createdAt,
+    this.parentGlazeId,
+    this.parentSnapshot,
   }) : recipe = Map.of(recipe),
        tags = List.of(tags);
 
@@ -38,6 +43,10 @@ class Glaze {
       tags: data.containsKey('tags') ? List<String>.from(data['tags']) : [],
       description: data['description'],
       createdAt: data['createdAt'] ?? Timestamp.now(),
+      parentGlazeId: data['parentGlazeId'] is String
+          ? data['parentGlazeId'] as String
+          : null,
+      parentSnapshot: GlazeSnapshot.tryFromMap(data['parentSnapshot']),
     );
   }
 
@@ -50,6 +59,8 @@ class Glaze {
       'tags': tags,
       'description': description,
       'createdAt': createdAt,
+      if (parentGlazeId != null) 'parentGlazeId': parentGlazeId,
+      if (parentSnapshot != null) 'parentSnapshot': parentSnapshot!.toMap(),
     };
   }
 }

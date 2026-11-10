@@ -4,6 +4,7 @@ import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
+import 'package:glaze_manager/utils/test_piece_display.dart';
 import 'package:glaze_manager/widgets/test_piece_card.dart';
 
 class TestPieceGrid extends StatelessWidget {
@@ -56,8 +57,8 @@ class TestPieceGrid extends StatelessWidget {
     required Map<String, FiringAtmosphere> firingAtmosphereMap,
     required Map<String, FiringProfile> firingProfileMap,
   }) {
-    final glazeName = glazeMap[testPiece.glazeId]?.name ?? '不明な釉薬';
-    final clayName = clayMap[testPiece.clayId]?.name ?? '不明な素地';
+    final glazeName = glazeDisplayName(testPiece, glazeMap);
+    final clayName = clayDisplayName(testPiece, clayMap);
     final firingAtmosphere = firingAtmosphereMap[testPiece.firingAtmosphereId];
     final firingAtmosphereName = firingAtmosphere?.name ?? '不明な雰囲気';
     final firingAtmosphereType =

@@ -34,6 +34,22 @@ class TestPieceRepository extends UserScopedRepository<TestPiece> {
     await collection.doc(id).update(fields);
   }
 
+  /// 複数のドキュメントの指定フィールドをまとめて更新する。
+  /// WriteBatch の上限に収まるよう、[chunkSize] 件ごとに区切って commit する。
+  Future<void> updateFieldsBatch(
+    Map<String, Map<String, dynamic>> fieldsById, {
+    int chunkSize = 400,
+  }) async {
+    final entries = fieldsById.entries.toList();
+    for (var start = 0; start < entries.length; start += chunkSize) {
+      final batch = db.batch();
+      for (final entry in entries.skip(start).take(chunkSize)) {
+        batch.update(collection.doc(entry.key), entry.value);
+      }
+      await batch.commit();
+    }
+  }
+
   /// 特定の釉薬を使用するテストピース一覧を監視する (メイン・追加釉薬の両方を含む)
   ///
   /// firestore.indexes.json の複合インデックス

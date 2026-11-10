@@ -10,6 +10,7 @@ import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/services/test_piece_search.dart';
+import 'package:glaze_manager/utils/test_piece_display.dart';
 import 'package:glaze_manager/widgets/common/tag_chip.dart';
 import 'package:glaze_manager/widgets/test_piece_grid.dart';
 import 'package:glaze_manager/widgets/tag_management_widget.dart';
@@ -294,7 +295,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final crossAxisCount = ref.watch(settingsServiceProvider).gridCrossAxisCount;
+    final crossAxisCount = ref
+        .watch(settingsServiceProvider)
+        .gridCrossAxisCount;
     final testPiecesAsync = ref.watch(testPiecesProvider);
 
     // データ更新で再ビルドさせるための監視。
@@ -679,10 +682,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           itemCount: recentPieces.length,
                           itemBuilder: (context, index) {
                             final testPiece = recentPieces[index];
-                            final glazeName =
-                                _glazeMap[testPiece.glazeId]?.name ?? '不明な釉薬';
-                            final clayName =
-                                _clayMap[testPiece.clayId]?.name ?? '不明な素地';
+                            final glazeName = glazeDisplayName(
+                              testPiece,
+                              _glazeMap,
+                            );
+                            final clayName = clayDisplayName(
+                              testPiece,
+                              _clayMap,
+                            );
                             final firingAtmosphere =
                                 _atmosphereMap[testPiece.firingAtmosphereId];
                             final firingAtmosphereName =
@@ -758,9 +765,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ],
                   ),
                   IconButton(
-                    icon: Icon(
-                      _isGridView ? Icons.view_list : Icons.grid_view,
-                    ),
+                    icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view),
                     tooltip: _isGridView ? 'リスト表示に切り替え' : 'グリッド表示に切り替え',
                     onPressed: () {
                       setState(() {
@@ -810,10 +815,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   itemCount: _searchResults.length,
                   itemBuilder: (context, index) {
                     final testPiece = _searchResults[index];
-                    final glazeName =
-                        _glazeMap[testPiece.glazeId]?.name ?? '不明な釉薬';
-                    final clayName =
-                        _clayMap[testPiece.clayId]?.name ?? '不明な素地';
+                    final glazeName = glazeDisplayName(testPiece, _glazeMap);
+                    final clayName = clayDisplayName(testPiece, _clayMap);
                     final firingAtmosphere =
                         _atmosphereMap[testPiece.firingAtmosphereId];
                     final firingAtmosphereName =
