@@ -22,9 +22,7 @@ void main() {
     when(mockSettingsService.addListener(any)).thenReturn(null);
     when(mockSettingsService.removeListener(any)).thenReturn(null);
     // 未ログイン扱い (アカウントセクションは非表示になる)
-    when(
-      mockAuthService.user,
-    ).thenAnswer((_) => Stream<User?>.value(null));
+    when(mockAuthService.user).thenAnswer((_) => Stream<User?>.value(null));
   });
 
   Widget createTestableWidget(Widget child) {
@@ -41,11 +39,17 @@ void main() {
     testWidgets('should display all settings sections', (
       WidgetTester tester,
     ) async {
+      // ListView は画面外の項目を作らないので、全項目が入る高さにする
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
       await tester.pumpWidget(createTestableWidget(const SettingsScreen()));
       await tester.pumpAndSettle();
 
       expect(find.text('表示'), findsOneWidget);
       expect(find.text('データ管理'), findsOneWidget);
+      expect(find.text('データの書き出し'), findsOneWidget);
       expect(find.text('サポート'), findsOneWidget);
     });
 

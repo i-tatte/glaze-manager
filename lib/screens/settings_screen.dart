@@ -1,4 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +10,10 @@ import 'package:glaze_manager/screens/firing_profile_list_screen.dart';
 import 'package:glaze_manager/screens/clay_list_screen.dart';
 import 'package:glaze_manager/screens/firing_atmosphere_list_screen.dart';
 import 'package:glaze_manager/screens/help_screen.dart';
+import 'package:glaze_manager/services/data_exporter.dart';
+import 'package:glaze_manager/utils/file_exporter.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
   final PageStorageKey? pageStorageKey;
@@ -111,21 +117,20 @@ class SettingsScreen extends ConsumerWidget {
           trailing: const Icon(Icons.chevron_right),
           onTap: () {
             Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const ClayListScreen(),
-              ),
+              MaterialPageRoute(builder: (context) => const ClayListScreen()),
             );
           },
         ),
+        const _DataExportTile(),
         const Divider(),
         const _SectionHeader(title: 'サポート'),
         ListTile(
           title: const Text('ヘルプ / FAQ'),
           trailing: const Icon(Icons.help_outline),
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (context) => const HelpScreen()),
-            );
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (context) => const HelpScreen()));
           },
         ),
       ],
@@ -306,9 +311,7 @@ class _AccountSectionState extends ConsumerState<_AccountSection> {
         emailController.text.trim(),
         passwordController.text,
       );
-      messenger.showSnackBar(
-        const SnackBar(content: Text('メールアドレスと連携しました。')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('メールアドレスと連携しました。')));
     } on FirebaseAuthException catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(_linkErrorMessage(e))));
     } catch (e) {
@@ -379,6 +382,95 @@ class _AccountSectionState extends ConsumerState<_AccountSection> {
     } finally {
       if (mounted) setState(() => _isBusy = false);
     }
+  }
+}
+
+/// 全データを ZIP に書き出す項目。処理中は副題に進行を出し、タップを無効にする。
+class _DataExportTile extends ConsumerStatefulWidget {
+  const _DataExportTile();
+
+  @override
+  ConsumerState<_DataExportTile> createState() => _DataExportTileState();
+}
+
+class _DataExportTileState extends ConsumerState<_DataExportTile> {
+  bool _isBusy = false;
+  String? _progress;
+
+  Future<void> _export() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final exporter = DataExporter(
+      firestoreService: ref.read(firestoreServiceProvider),
+      uploadQueue: ref.read(uploadQueueProvider),
+    );
+    setState(() {
+      _isBusy = true;
+      _progress = null;
+    });
+    Directory? workDir;
+    try {
+      final temp = await getTemporaryDirectory();
+      workDir = Directory(
+        p.join(
+          temp.path,
+          'glaze_export_${DateTime.now().millisecondsSinceEpoch}',
+        ),
+      );
+      await workDir.create(recursive: true);
+      final result = await exporter.export(
+        workDir: workDir,
+        onProgress: (progress) {
+          if (mounted) setState(() => _progress = progress.message);
+        },
+      );
+      final outcome = await FileExporter.export(
+        file: result.zipFile,
+        fileName: p.basename(result.zipFile.path),
+        mimeType: 'application/zip',
+        extension: 'zip',
+        dialogTitle: 'データの書き出し',
+      );
+      if (outcome == FileExportResult.success) {
+        final missing = result.missingImageCount;
+        if (missing > 0) {
+          messenger.showSnackBar(
+            SnackBar(content: Text('データを書き出しました（写真 $missing 枚は取得できませんでした）。')),
+          );
+        } else if (!FileExporter.isMobile) {
+          messenger.showSnackBar(const SnackBar(content: Text('データを書き出しました。')));
+        }
+      }
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('書き出しに失敗しました: $e')));
+    } finally {
+      try {
+        await workDir?.delete(recursive: true);
+      } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _isBusy = false;
+          _progress = null;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: const Text('データの書き出し'),
+      subtitle: Text(
+        _isBusy ? (_progress ?? '準備しています') : '釉薬・テストピース・写真を ZIP ファイルに保存します',
+      ),
+      trailing: _isBusy
+          ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.download_outlined),
+      onTap: _isBusy ? null : _export,
+    );
   }
 }
 
