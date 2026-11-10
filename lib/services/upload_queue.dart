@@ -69,6 +69,7 @@ class UploadQueue extends ChangeNotifier {
   final Future<void> Function(PendingUpload job, Uint8List bytes) _upload;
   final void Function(String message)? _onFailure;
   final Duration _retryDelay;
+  final Duration _offlineRetryDelay;
 
   UploadQueue({
     required PendingUploadStore store,
@@ -77,12 +78,14 @@ class UploadQueue extends ChangeNotifier {
     required Future<void> Function(PendingUpload job, Uint8List bytes) upload,
     void Function(String message)? onFailure,
     Duration retryDelay = const Duration(seconds: 20),
+    Duration offlineRetryDelay = const Duration(seconds: 60),
   }) : _store = store,
        _currentUid = currentUid,
        _checkDocument = checkDocument,
        _upload = upload,
        _onFailure = onFailure,
-       _retryDelay = retryDelay;
+       _retryDelay = retryDelay,
+       _offlineRetryDelay = offlineRetryDelay;
 
   static const failureMessage = '写真のアップロードに失敗しました。あとで再試行します。';
 
@@ -177,7 +180,14 @@ class UploadQueue extends ChangeNotifier {
         waitingForSync = false;
         for (final job in jobs) {
           if (_disposed) return;
-          final outcome = await _processOne(job);
+          UploadDocState outcome;
+          try {
+            outcome = await _processOne(job);
+          } catch (e) {
+            // 1 件の想定外の失敗で、残りの待ちを止めない
+            debugPrint('Pending upload failed unexpectedly: $e');
+            continue;
+          }
           if (outcome == UploadDocState.unreachable) {
             reachable = false;
             break;
@@ -188,8 +198,21 @@ class UploadQueue extends ChangeNotifier {
     } finally {
       _running = false;
     }
-    // 文書の同期待ちが残り、通信は可能だったら、少し待ってもう一度
-    if (reachable && waitingForSync && !_disposed && pending.isNotEmpty) {
+    if (_disposed) return;
+    // 実行中に届いた要求 (通信の回復など) が、通信不可での打ち切りで
+    // 処理されないまま残っていたら、もう一度回す
+    if (_rerunRequested) {
+      _rerunRequested = false;
+      Timer.run(processAll);
+      return;
+    }
+    if (pending.isEmpty) return;
+    if (!reachable) {
+      // 通信の回復の通知は、接続の種類が変わったときにしか来ない。同じ接続の
+      // まま疎通だけが戻った場合に備えて、間隔を空けて試し直す
+      _retryTimer = Timer(_offlineRetryDelay, processAll);
+    } else if (waitingForSync) {
+      // 文書の同期待ちが残り、通信は可能だったら、少し待ってもう一度
       _retryTimer = Timer(_retryDelay, processAll);
     }
   }
@@ -200,6 +223,8 @@ class UploadQueue extends ChangeNotifier {
     if (_jobs[job.testPieceId]?.storagePath != job.storagePath) {
       return UploadDocState.stale;
     }
+    // 利用者が切り替わっていたら、この回を打ち切る
+    if (_currentUid() != job.uid) return UploadDocState.unreachable;
 
     UploadDocState state;
     try {
@@ -208,6 +233,9 @@ class UploadQueue extends ChangeNotifier {
       debugPrint('Pending upload check failed: $e');
       state = UploadDocState.unreachable;
     }
+    // 文書を読んでいるあいだに利用者が切り替わっていたら、読んだのは別の
+    // 利用者の領域かもしれない。結果を使わず (待ちを捨てず)、この回を打ち切る
+    if (_currentUid() != job.uid) return UploadDocState.unreachable;
 
     switch (state) {
       case UploadDocState.unreachable:
@@ -242,11 +270,16 @@ class UploadQueue extends ChangeNotifier {
       await _upload(job, bytes);
     } catch (e) {
       final network = isNetworkError(e);
-      final updated = await _store.recordFailure(
-        job.testPieceId,
-        job.storagePath,
-        e.toString(),
-      );
+      PendingUpload? updated;
+      try {
+        updated = await _store.recordFailure(
+          job.testPieceId,
+          job.storagePath,
+          e.toString(),
+        );
+      } catch (recordError) {
+        debugPrint('Failed to record upload failure: $recordError');
+      }
       if (updated != null &&
           _jobs[job.testPieceId]?.storagePath == job.storagePath) {
         _jobs[job.testPieceId] = updated;

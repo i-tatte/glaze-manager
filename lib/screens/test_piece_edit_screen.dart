@@ -477,10 +477,9 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
 
         // Storageから画像とサムネイルを削除 (並行処理)
         // 新形式 (docIdフォルダ) はフォルダごと、旧形式はURL指定で削除する
+        final uploadQueue = ref.read(uploadQueueProvider);
         final deleteFutures = <Future>[
           storageService.deleteAllTestPieceFiles(widget.testPiece!.id!),
-          // 端末内のアップロード待ちも消す
-          ref.read(uploadQueueProvider).remove(widget.testPiece!.id!),
         ];
         if (widget.testPiece!.imageUrl != null) {
           deleteFutures.add(
@@ -498,6 +497,10 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
 
         // Firestoreからドキュメントを削除
         await firestoreService.deleteTestPiece(widget.testPiece!.id!);
+
+        // 端末内のアップロード待ちも消す。文書の削除が済んでから行う
+        // (削除に失敗して記録が残ったときに、まだ送っていない写真を失わないため)
+        await uploadQueue.remove(widget.testPiece!.id!);
 
         if (mounted) {
           // 編集画面と詳細画面を閉じて一覧画面まで戻る

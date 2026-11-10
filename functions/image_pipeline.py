@@ -334,11 +334,15 @@ def process_uploaded_image(event: storage_fn.CloudEvent): # type: ignore exporte
         #    処理中の画像より後に作られた画像 (さらに差し替えられた新しい画像) と
         #    そのサムネイルには触れない。
         if doc_id is not None:
-            image_blobs = list(
-                bucket.list_blobs(prefix=f"users/{user_id}/test_pieces/images/{doc_id}/")
-            )
+            # サムネイルの一覧を先に取る。サムネイルは元の画像より後に作られるので、
+            # この一覧にあるサムネイルの元の画像は、後から取る画像の一覧に必ず載る。
+            # 逆の順だと、2 つの一覧のあいだに処理を終えた新しい画像のサムネイルを
+            # 「対応する画像がない」と誤って削除しうる。
             thumb_blobs = list(
                 bucket.list_blobs(prefix=f"users/{user_id}/test_pieces/thumbnails/{doc_id}/")
+            )
+            image_blobs = list(
+                bucket.list_blobs(prefix=f"users/{user_id}/test_pieces/images/{doc_id}/")
             )
 
             # bucket.blob() で作った original_blob はメタデータを持たないことがあるため、

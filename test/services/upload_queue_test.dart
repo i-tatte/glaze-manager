@@ -23,20 +23,27 @@ void main() {
   String pathOf(String testPieceId, String fileName, {String user = 'me'}) =>
       'users/$user/test_pieces/images/$testPieceId/$fileName';
 
-  UploadQueue newQueue({Duration retryDelay = const Duration(hours: 1)}) =>
-      UploadQueue(
-        store: store,
-        currentUid: () => uid,
-        checkDocument: (job) async {
-          checked.add(job.storagePath);
-          final state = docStates[job.storagePath];
-          if (state == null) throw StateError('unexpected check');
-          return state;
-        },
-        upload: (job, bytes) => onUpload(job, bytes),
-        onFailure: failures.add,
-        retryDelay: retryDelay,
-      );
+  /// 文書の状態を調べる直前に呼ぶ (調べている最中の出来事を再現するため)
+  void Function(PendingUpload job)? onCheck;
+
+  UploadQueue newQueue({
+    Duration retryDelay = const Duration(hours: 1),
+    Duration offlineRetryDelay = const Duration(hours: 1),
+  }) => UploadQueue(
+    store: store,
+    currentUid: () => uid,
+    checkDocument: (job) async {
+      checked.add(job.storagePath);
+      final state = docStates[job.storagePath];
+      onCheck?.call(job);
+      if (state == null) throw StateError('unexpected check');
+      return state;
+    },
+    upload: (job, bytes) => onUpload(job, bytes),
+    onFailure: failures.add,
+    retryDelay: retryDelay,
+    offlineRetryDelay: offlineRetryDelay,
+  );
 
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('upload_queue_');
@@ -46,6 +53,7 @@ void main() {
     checked = [];
     uploaded = [];
     failures = [];
+    onCheck = null;
     onUpload = (job, bytes) async {
       uploaded.add((storagePath: job.storagePath, bytes: bytes.toList()));
     };
@@ -375,6 +383,62 @@ void main() {
       expect(queue.pending, isEmpty);
       await queue.processAll();
       expect(checked, isEmpty);
+    });
+
+    test('文書を読んでいるあいだに利用者が切り替わったら、待ちを捨てない', () async {
+      final mine = await seed('tp1', 'a.jpg');
+      // 切り替わった先の利用者の領域には文書がないので「削除済み」と読める
+      docStates[mine.storagePath] = UploadDocState.deleted;
+      onCheck = (_) => uid = 'other';
+
+      await queue.processAll();
+
+      expect(uploaded, isEmpty);
+      final stored = await store.loadAll();
+      expect(stored.map((j) => j.testPieceId), ['tp1']);
+      expect(await File(mine.localPath).exists(), isTrue);
+
+      // 元の利用者に戻れば送られる
+      onCheck = null;
+      uid = 'me';
+      docStates[mine.storagePath] = UploadDocState.ready;
+      await queue.processAll();
+      expect(uploaded.map((u) => u.storagePath), [mine.storagePath]);
+    });
+  });
+
+  group('試し直し', () {
+    test('通信できなかったら、間隔を空けて試し直す', () async {
+      queue.dispose();
+      queue = newQueue(offlineRetryDelay: const Duration(milliseconds: 50));
+      final a = await seed('tp1', 'a.jpg');
+      docStates[a.storagePath] = UploadDocState.unreachable;
+
+      await queue.processAll();
+      expect(uploaded, isEmpty);
+
+      // 疎通が戻れば、通信の回復の通知がなくても送られる
+      docStates[a.storagePath] = UploadDocState.ready;
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(uploaded.map((u) => u.storagePath), [a.storagePath]);
+      expect(queue.pending, isEmpty);
+    });
+
+    test('実行中に届いた要求は、その回が通信不可で終わっても処理する', () async {
+      final a = await seed('tp1', 'a.jpg');
+      docStates[a.storagePath] = UploadDocState.unreachable;
+      // 文書を調べている最中に通信が回復し、processAll がもう一度呼ばれる
+      onCheck = (job) {
+        onCheck = null;
+        docStates[job.storagePath] = UploadDocState.ready;
+        queue.processAll();
+      };
+
+      await queue.processAll();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(checked, [a.storagePath, a.storagePath]);
+      expect(uploaded.map((u) => u.storagePath), [a.storagePath]);
     });
 
     test('サインインしていなければ enqueue は失敗する', () async {
