@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:glaze_manager/models/clay.dart';
+import 'package:glaze_manager/models/firing.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
@@ -76,6 +77,12 @@ final firingProfilesProvider = StreamProvider<List<FiringProfile>>((ref) {
   return ref.watch(firestoreServiceProvider).getFiringProfiles();
 });
 
+/// 焼成回の一覧 (焼成日の新しい順)
+final firingsProvider = StreamProvider<List<Firing>>((ref) {
+  ref.watch(authStateChangesProvider);
+  return ref.watch(firestoreServiceProvider).getFirings();
+});
+
 final tagsProvider = StreamProvider<List<String>>((ref) {
   ref.watch(authStateChangesProvider);
   return ref.watch(firestoreServiceProvider).getTags();
@@ -143,6 +150,13 @@ final firingProfileMapProvider = Provider<Map<String, FiringProfile>>(
   (ref) => {
     for (final item
         in ref.watch(firingProfilesProvider).valueOrNull ?? <FiringProfile>[])
+      item.id!: item,
+  },
+);
+
+final firingMapProvider = Provider<Map<String, Firing>>(
+  (ref) => {
+    for (final item in ref.watch(firingsProvider).valueOrNull ?? <Firing>[])
       item.id!: item,
   },
 );

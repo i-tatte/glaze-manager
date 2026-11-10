@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:glaze_manager/models/test_piece_group_key.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
+import 'package:glaze_manager/screens/firing_list_screen.dart';
 import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
 import 'package:glaze_manager/utils/test_piece_grouping.dart';
 import 'package:glaze_manager/widgets/sectioned_test_piece_grid.dart';
@@ -32,6 +33,17 @@ class TestPieceListScreen extends ConsumerStatefulWidget {
     );
   }
 
+  // AppBarに表示する焼成回の一覧を開くボタン (グループ表示切替と同じ流儀)
+  static Widget buildFiringListButton(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.local_fire_department_outlined),
+      tooltip: '焼成回',
+      onPressed: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (context) => const FiringListScreen())),
+    );
+  }
+
   @override
   ConsumerState<TestPieceListScreen> createState() =>
       TestPieceListScreenState();
@@ -45,6 +57,7 @@ class TestPieceListScreenState extends ConsumerState<TestPieceListScreen> {
     ref.invalidate(claysProvider);
     ref.invalidate(firingAtmospheresProvider);
     ref.invalidate(firingProfilesProvider);
+    ref.invalidate(firingsProvider);
   }
 
   @override
@@ -54,6 +67,7 @@ class TestPieceListScreenState extends ConsumerState<TestPieceListScreen> {
     final clayMap = ref.watch(clayMapProvider);
     final atmosphereMap = ref.watch(firingAtmosphereMapProvider);
     final profileMap = ref.watch(firingProfileMapProvider);
+    final firingMap = ref.watch(firingMapProvider);
     final settings = ref.watch(settingsServiceProvider);
     final crossAxisCount = settings.gridCrossAxisCount;
     final groupKey = settings.testPieceGroupKey;
@@ -63,8 +77,7 @@ class TestPieceListScreenState extends ConsumerState<TestPieceListScreen> {
         children: [
           testPiecesAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) =>
-                Center(child: Text('テストピースの読込エラー: $error')),
+            error: (error, _) => Center(child: Text('テストピースの読込エラー: $error')),
             data: (testPieces) {
               if (testPieces.isEmpty) {
                 return const EmptyListPlaceholder(
@@ -78,6 +91,7 @@ class TestPieceListScreenState extends ConsumerState<TestPieceListScreen> {
                   clayMap: clayMap,
                   firingAtmosphereMap: atmosphereMap,
                   firingProfileMap: profileMap,
+                  firingMap: firingMap,
                   crossAxisCount: crossAxisCount,
                   onRefresh: handleRefresh,
                 );
@@ -89,6 +103,7 @@ class TestPieceListScreenState extends ConsumerState<TestPieceListScreen> {
                 clayMap: clayMap,
                 atmosphereMap: atmosphereMap,
                 profileMap: profileMap,
+                firingMap: firingMap,
               );
               return SectionedTestPieceGrid(
                 groups: groups,
@@ -96,6 +111,7 @@ class TestPieceListScreenState extends ConsumerState<TestPieceListScreen> {
                 clayMap: clayMap,
                 firingAtmosphereMap: atmosphereMap,
                 firingProfileMap: profileMap,
+                firingMap: firingMap,
                 crossAxisCount: crossAxisCount,
                 onRefresh: handleRefresh,
               );

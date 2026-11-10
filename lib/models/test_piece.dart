@@ -17,6 +17,9 @@ class TestPiece {
   final String? note; // 備考
   final Timestamp createdAt; // 作成日時
   final TestPieceSnapshot? snapshot; // 記録した時点の調合と素地土名の写し
+  final int? rating; // 評価 (星 1〜5)。null は未評価
+  final String? label; // ピースの番号 (実物に書いた番号。自由入力、重複可)
+  final String? firingId; // 焼成回の ID。あれば焼成の情報は焼成回を正とする
 
   TestPiece({
     this.id,
@@ -32,8 +35,24 @@ class TestPiece {
     this.note,
     required this.createdAt,
     this.snapshot,
+    this.rating,
+    this.label,
+    this.firingId,
   }) : additionalGlazeIds = List.of(additionalGlazeIds),
        colorData = colorData == null ? null : List.of(colorData);
+
+  /// 評価を読む。数値でないもの、1〜5 の範囲外は null (未評価) とする。
+  static int? _readRating(Object? value) {
+    if (value is! num) return null;
+    final rating = value.toInt();
+    return (rating >= 1 && rating <= 5) ? rating : null;
+  }
+
+  /// 空文字列を null として扱う。
+  static String? _readNonEmptyString(Object? value) {
+    if (value is! String || value.isEmpty) return null;
+    return value;
+  }
 
   factory TestPiece.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> snapshot,
@@ -57,6 +76,9 @@ class TestPiece {
       note: data['note'],
       createdAt: data['createdAt'] ?? Timestamp.now(),
       snapshot: TestPieceSnapshot.tryFromMap(data['snapshot']),
+      rating: _readRating(data['rating']),
+      label: _readNonEmptyString(data['label']),
+      firingId: _readNonEmptyString(data['firingId']),
     );
   }
 
@@ -76,6 +98,11 @@ class TestPiece {
       'note': note,
       'createdAt': createdAt,
       if (snapshot != null) 'snapshot': snapshot!.toMap(),
+      'rating': rating,
+      'label': label,
+      // null でも出力する。部分更新 (toUpdateFields) で「（なし）」に戻したとき、
+      // 文書の firingId を消すため
+      'firingId': firingId,
     };
   }
 

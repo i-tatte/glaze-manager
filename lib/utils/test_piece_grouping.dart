@@ -2,18 +2,27 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:glaze_manager/models/clay.dart';
+import 'package:glaze_manager/models/firing.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/lab_color.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/test_piece_group_key.dart';
+import 'package:glaze_manager/utils/test_piece_display.dart';
 
 /// グループ表示の1セクション
 class TestPieceGroup {
   final String label;
   final List<TestPiece> pieces;
 
-  const TestPieceGroup({required this.label, required this.pieces});
+  /// 焼成回のグループのとき、その焼成回の ID
+  final String? firingId;
+
+  const TestPieceGroup({
+    required this.label,
+    required this.pieces,
+    this.firingId,
+  });
 }
 
 // --- 色味バケツの閾値 (使用感に応じてチューニングする) ---
@@ -53,39 +62,164 @@ const String unsetGroupLabel = '未設定';
 /// 不明 (ID はあるがマスタに存在しない) グループのラベル
 const String unknownGroupLabel = '不明';
 
+/// 焼成回を参照しないテストピースのグループのラベル
+const String noFiringGroupLabel = '焼成回なし';
+
+/// 未評価のグループのラベル
+const String unratedGroupLabel = '未評価';
+
 /// テストピースをグループ分けする純関数。
 ///
 /// - 各グループ内の並びは [pieces] の入力順 (createdAt 降順) を維持する
 /// - 空のグループは返さない
-/// - 素地土/雰囲気/プロファイル: 名前昇順、末尾に「未設定」「不明」
+/// - 素地土/雰囲気/プロファイル: 名前昇順、末尾に「未設定」「不明」。
+///   雰囲気とプロファイルは [resolveFiring] で解決した名前で束ねる
+/// - 焼成回: 焼成日の降順、末尾に「焼成回なし」「不明」
 /// - 色味: [colorHueBucketOrder] の固定順、末尾に「色データなし」
+/// - 評価: ★5〜★1、末尾に「未評価」
 List<TestPieceGroup> groupTestPieces({
   required List<TestPiece> pieces,
   required TestPieceGroupKey key,
   required Map<String, Clay> clayMap,
   required Map<String, FiringAtmosphere> atmosphereMap,
   required Map<String, FiringProfile> profileMap,
+  required Map<String, Firing> firingMap,
 }) {
+  ResolvedFiring resolve(TestPiece tp) => resolveFiring(
+    tp,
+    firingMap: firingMap,
+    atmosphereMap: atmosphereMap,
+    profileMap: profileMap,
+  );
+
   switch (key) {
     case TestPieceGroupKey.none:
       return [TestPieceGroup(label: '', pieces: pieces)];
     case TestPieceGroupKey.clay:
       return _groupByName(pieces, (tp) => tp.clayId, (id) => clayMap[id]?.name);
     case TestPieceGroupKey.firingAtmosphere:
-      return _groupByName(
+      return _groupByResolvedName(
         pieces,
+        resolve,
+        (r) => r.atmosphereName,
         (tp) => tp.firingAtmosphereId,
-        (id) => atmosphereMap[id]?.name,
       );
     case TestPieceGroupKey.firingProfile:
-      return _groupByName(
+      return _groupByResolvedName(
         pieces,
+        resolve,
+        (r) => r.profileName,
         (tp) => tp.firingProfileId,
-        (id) => profileMap[id]?.name,
       );
+    case TestPieceGroupKey.firing:
+      return _groupByFiring(pieces, firingMap);
     case TestPieceGroupKey.colorHue:
       return _groupByColorHue(pieces);
+    case TestPieceGroupKey.rating:
+      return _groupByRating(pieces);
   }
+}
+
+/// [resolveFiring] で解決した名前でグループ化する。
+///
+/// 焼成回を参照するテストピースは、焼成回が見つからなければ「不明」、
+/// 名前がなければ「未設定」に入れる。焼成回を参照しないテストピースは従来通り、
+/// 参照 ([legacyIdOf]) がなければ「未設定」、参照先が見つからなければ「不明」。
+List<TestPieceGroup> _groupByResolvedName(
+  List<TestPiece> pieces,
+  ResolvedFiring Function(TestPiece) resolve,
+  String? Function(ResolvedFiring) nameOf,
+  String? Function(TestPiece) legacyIdOf,
+) {
+  final named = <String, List<TestPiece>>{};
+  final unset = <TestPiece>[];
+  final unknown = <TestPiece>[];
+
+  for (final tp in pieces) {
+    final resolved = resolve(tp);
+    final name = nameOf(resolved);
+    if (resolved.firingMissing) {
+      unknown.add(tp);
+    } else if (name != null && name.isNotEmpty) {
+      named.putIfAbsent(name, () => []).add(tp);
+    } else if (resolved.firing != null) {
+      unset.add(tp);
+    } else {
+      final id = legacyIdOf(tp);
+      (id == null || id.isEmpty ? unset : unknown).add(tp);
+    }
+  }
+
+  final sortedNames = named.keys.toList()..sort();
+  return [
+    for (final name in sortedNames)
+      TestPieceGroup(label: name, pieces: named[name]!),
+    if (unset.isNotEmpty) TestPieceGroup(label: unsetGroupLabel, pieces: unset),
+    if (unknown.isNotEmpty)
+      TestPieceGroup(label: unknownGroupLabel, pieces: unknown),
+  ];
+}
+
+/// 焼成回 ID でグループ化する。見出しは displayLabel、並びは焼成日の降順。
+/// 同じ日・同じ窯の焼成回が二つあれば、見出しは同じでも別のグループになる。
+List<TestPieceGroup> _groupByFiring(
+  List<TestPiece> pieces,
+  Map<String, Firing> firingMap,
+) {
+  final byId = <String, List<TestPiece>>{};
+  final none = <TestPiece>[];
+  final unknown = <TestPiece>[];
+
+  for (final tp in pieces) {
+    final id = tp.firingId;
+    if (id == null || id.isEmpty) {
+      none.add(tp);
+    } else if (!firingMap.containsKey(id)) {
+      unknown.add(tp);
+    } else {
+      byId.putIfAbsent(id, () => []).add(tp);
+    }
+  }
+
+  final ids = byId.keys.toList()
+    ..sort((a, b) {
+      final byDate = firingMap[b]!.firedOn.compareTo(firingMap[a]!.firedOn);
+      if (byDate != 0) return byDate;
+      return firingMap[b]!.createdAt.compareTo(firingMap[a]!.createdAt);
+    });
+  return [
+    for (final id in ids)
+      TestPieceGroup(
+        label: firingMap[id]!.displayLabel,
+        pieces: byId[id]!,
+        firingId: id,
+      ),
+    if (none.isNotEmpty)
+      TestPieceGroup(label: noFiringGroupLabel, pieces: none),
+    if (unknown.isNotEmpty)
+      TestPieceGroup(label: unknownGroupLabel, pieces: unknown),
+  ];
+}
+
+/// 評価でグループ化する。「★5」〜「★1」「未評価」の固定の順。
+List<TestPieceGroup> _groupByRating(List<TestPiece> pieces) {
+  final byRating = <int, List<TestPiece>>{};
+  final unrated = <TestPiece>[];
+  for (final tp in pieces) {
+    final rating = tp.rating;
+    if (rating == null) {
+      unrated.add(tp);
+    } else {
+      byRating.putIfAbsent(rating, () => []).add(tp);
+    }
+  }
+  return [
+    for (var rating = 5; rating >= 1; rating--)
+      if (byRating.containsKey(rating))
+        TestPieceGroup(label: '★$rating', pieces: byRating[rating]!),
+    if (unrated.isNotEmpty)
+      TestPieceGroup(label: unratedGroupLabel, pieces: unrated),
+  ];
 }
 
 /// ID → マスタ名 でグループ化する共通処理

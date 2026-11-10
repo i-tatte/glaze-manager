@@ -237,4 +237,93 @@ void main() {
       expect(off.containsKey('snapshot'), isFalse);
     });
   });
+
+  group('TestPiece の評価と番号', () {
+    Future<TestPiece> readBack(Map<String, dynamic> data) async {
+      final fakeDb = FakeFirebaseFirestore();
+      await fakeDb.collection('test_pieces').doc('tp1').set(data);
+      final doc = await fakeDb.collection('test_pieces').doc('tp1').get();
+      return TestPiece.fromFirestore(doc);
+    }
+
+    test('rating と label は Firestore を往復できる', () async {
+      final piece = TestPiece(
+        glazeId: 'g1',
+        clayId: 'c1',
+        createdAt: Timestamp.now(),
+        rating: 4,
+        label: '1108-3',
+      );
+      final read = await readBack(piece.toFirestore());
+      expect(read.rating, 4);
+      expect(read.label, '1108-3');
+    });
+
+    test('rating と label は null でも出力する', () {
+      final map = TestPiece(
+        glazeId: 'g1',
+        clayId: 'c1',
+        createdAt: Timestamp.now(),
+      ).toFirestore();
+      expect(map.containsKey('rating'), isTrue);
+      expect(map['rating'], isNull);
+      expect(map.containsKey('label'), isTrue);
+      expect(map['label'], isNull);
+    });
+
+    test('範囲外の rating は未評価として読む', () async {
+      expect((await readBack({'rating': 0})).rating, isNull);
+      expect((await readBack({'rating': 6})).rating, isNull);
+      expect((await readBack({'rating': 'x'})).rating, isNull);
+      expect((await readBack({})).rating, isNull);
+    });
+
+    test('double で保存された rating は整数として読む', () async {
+      expect((await readBack({'rating': 3.0})).rating, 3);
+    });
+
+    test('空文字列の label は null として読む', () async {
+      expect((await readBack({'label': ''})).label, isNull);
+    });
+  });
+
+  group('TestPiece の焼成回', () {
+    test('firingId は Firestore を往復できる', () async {
+      final fakeDb = FakeFirebaseFirestore();
+      final piece = TestPiece(
+        glazeId: 'g1',
+        clayId: 'c1',
+        createdAt: Timestamp.now(),
+        firingId: 'f1',
+      );
+      await fakeDb
+          .collection('test_pieces')
+          .doc('tp1')
+          .set(piece.toFirestore());
+      final doc = await fakeDb.collection('test_pieces').doc('tp1').get();
+      expect(TestPiece.fromFirestore(doc).firingId, 'f1');
+    });
+
+    test('firingId は null でも toUpdateFields に含まれる', () {
+      final fields =
+          TestPiece(
+            glazeId: 'g1',
+            clayId: 'c1',
+            createdAt: Timestamp.now(),
+          ).toUpdateFields(
+            includeImagePath: false,
+            includeColorData: false,
+            includeSnapshot: false,
+          );
+      expect(fields.containsKey('firingId'), isTrue);
+      expect(fields['firingId'], isNull);
+    });
+
+    test('firingId のない文書は null として読む', () async {
+      final fakeDb = FakeFirebaseFirestore();
+      await fakeDb.collection('test_pieces').doc('tp1').set({'glazeId': 'g1'});
+      final doc = await fakeDb.collection('test_pieces').doc('tp1').get();
+      expect(TestPiece.fromFirestore(doc).firingId, isNull);
+    });
+  });
 }

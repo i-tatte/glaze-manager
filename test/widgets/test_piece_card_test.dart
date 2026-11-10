@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/models/clay.dart';
+import 'package:glaze_manager/models/firing.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
@@ -47,6 +48,9 @@ class MockFirestoreService extends Mock implements FirestoreService {
 
   @override
   Stream<List<app.Material>> getMaterials() => Stream.value(<app.Material>[]);
+
+  @override
+  Stream<List<Firing>> getFirings() => Stream.value(<Firing>[]);
 
   @override
   Stream<List<String>> getTags() => Stream.value(<String>[]);
@@ -342,5 +346,54 @@ void main() {
 
     final card = tester.widget<Card>(find.byType(Card));
     expect(card.color, AppColors.reductionCardLight);
+  });
+
+  group('評価のラベル', () {
+    Widget card(TestPiece testPiece) => MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 200,
+            height: 300,
+            child: TestPieceCard(
+              testPiece: testPiece,
+              glazeName: 'Test Glaze',
+              clayName: 'Test Clay',
+              firingAtmosphereName: '未設定',
+              firingProfileName: '未設定',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    testWidgets('評価があれば画像の右上に「★N」を表示する', (tester) async {
+      await tester.pumpWidget(
+        card(
+          TestPiece(
+            id: 'tp1',
+            glazeId: 'g1',
+            clayId: 'c1',
+            createdAt: Timestamp.now(),
+            rating: 4,
+          ),
+        ),
+      );
+      expect(find.text('★4'), findsOneWidget);
+    });
+
+    testWidgets('未評価なら表示しない', (tester) async {
+      await tester.pumpWidget(
+        card(
+          TestPiece(
+            id: 'tp1',
+            glazeId: 'g1',
+            clayId: 'c1',
+            createdAt: Timestamp.now(),
+          ),
+        ),
+      );
+      expect(find.textContaining('★'), findsNothing);
+    });
   });
 }

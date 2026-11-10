@@ -352,7 +352,10 @@ class _MainTabScreenState extends ConsumerState<MainTabScreen> {
           ),
         ];
       case _MainTab.testPieces:
-        return [TestPieceListScreen.buildGroupKeySelector(ref)];
+        return [
+          TestPieceListScreen.buildFiringListButton(context),
+          TestPieceListScreen.buildGroupKeySelector(ref),
+        ];
       case _MainTab.search:
         return const [];
     }

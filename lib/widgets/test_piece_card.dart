@@ -50,13 +50,40 @@ class TestPieceCard extends StatelessWidget {
             // 画像部分
             // 一覧の小さなカードではサムネイル(200px)を優先して帯域とメモリを節約する。
             // 原寸画像は詳細画面でのみ読み込む。
+            // 評価は画像の右上に重ねる (文字の領域の高さはグリッドの縦横比の前提)
             AspectRatio(
               aspectRatio: 1.0,
-              child: Hero(
-                tag: 'testPieceImage_${testPiece.id}',
-                child: AppNetworkImage(
-                  url: testPiece.thumbnailUrl ?? testPiece.imageUrl,
-                ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Hero(
+                    tag: 'testPieceImage_${testPiece.id}',
+                    child: AppNetworkImage(
+                      url: testPiece.thumbnailUrl ?? testPiece.imageUrl,
+                    ),
+                  ),
+                  if (testPiece.rating != null)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '★${testPiece.rating}',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.labelSmall?.copyWith(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             // テキスト部分

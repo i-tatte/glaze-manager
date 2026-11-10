@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:glaze_manager/models/material.dart';
 import 'package:glaze_manager/models/clay.dart';
+import 'package:glaze_manager/models/firing.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
@@ -9,6 +10,7 @@ import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/repositories/clay_repository.dart';
 import 'package:glaze_manager/repositories/firing_atmosphere_repository.dart';
 import 'package:glaze_manager/repositories/firing_profile_repository.dart';
+import 'package:glaze_manager/repositories/firing_repository.dart';
 import 'package:glaze_manager/repositories/glaze_repository.dart';
 import 'package:glaze_manager/repositories/material_repository.dart';
 import 'package:glaze_manager/repositories/tag_repository.dart';
@@ -28,6 +30,7 @@ class FirestoreService {
   final ClayRepository clays;
   final FiringProfileRepository firingProfiles;
   final FiringAtmosphereRepository firingAtmospheres;
+  final FiringRepository firings;
   final TagRepository tags;
   final ViewHistoryRepository viewHistory;
 
@@ -38,6 +41,7 @@ class FirestoreService {
       clays = ClayRepository(db: db, auth: auth),
       firingProfiles = FiringProfileRepository(db: db, auth: auth),
       firingAtmospheres = FiringAtmosphereRepository(db: db, auth: auth),
+      firings = FiringRepository(db: db, auth: auth),
       tags = TagRepository(db: db, auth: auth),
       viewHistory = ViewHistoryRepository(db: db, auth: auth);
 
@@ -211,6 +215,28 @@ class FirestoreService {
   /// 焼成雰囲気を削除
   Future<void> deleteFiringAtmosphere(String atmosphereId) =>
       firingAtmospheres.deleteById(atmosphereId);
+
+  // --- Firing Methods ---
+
+  /// 焼成回の新規ドキュメントIDを発行する (書き込みはまだ行わない)
+  String createFiringId() => firings.newDocumentId();
+
+  /// 指定IDで焼成回を作成する (createFiringIdとセットで使用)
+  Future<void> setFiring(String id, Firing firing) =>
+      firings.setById(id, firing);
+
+  /// 焼成回一覧を取得 (リアルタイム。焼成日の新しい順)
+  Stream<List<Firing>> getFirings() => firings.watchAll();
+
+  /// 焼成回一覧を1回だけ取得
+  Future<List<Firing>> getFiringsOnce() => firings.getAll();
+
+  /// 焼成回を更新
+  Future<void> updateFiring(Firing firing) =>
+      firings.updateById(firing.id, firing);
+
+  /// 焼成回を削除
+  Future<void> deleteFiring(String firingId) => firings.deleteById(firingId);
 
   // --- Clay Methods ---
 

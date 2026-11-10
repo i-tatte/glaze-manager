@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glaze_manager/models/firing.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/lab_color.dart' as cs;
@@ -22,6 +23,10 @@ void main() {
 
   setUp(() {
     mockFirestoreService = MockFirestoreService();
+
+    when(
+      mockFirestoreService.getFirings(),
+    ).thenAnswer((_) => Stream.value(<Firing>[]));
     mockSettingsService = MockSettingsService();
 
     // SettingsService stubs
@@ -394,5 +399,86 @@ void main() {
         expect(find.text('Glaze 1'), findsOneWidget);
       },
     );
+  });
+
+  testWidgets('評価だけで絞り込んでも結果を表示し、チップから解除できる', (tester) async {
+    tester.view.physicalSize = const Size(1080, 1920);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    when(mockFirestoreService.getGlazes()).thenAnswer(
+      (_) => Stream.value([
+        Glaze(
+          id: 'g1',
+          name: 'Glaze 1',
+          recipe: {},
+          tags: [],
+          createdAt: Timestamp.now(),
+        ),
+        Glaze(
+          id: 'g2',
+          name: 'Glaze 2',
+          recipe: {},
+          tags: [],
+          createdAt: Timestamp.now(),
+        ),
+      ]),
+    );
+    when(mockFirestoreService.getTestPieces()).thenAnswer(
+      (_) => Stream.value([
+        TestPiece(
+          id: 'tp1',
+          glazeId: 'g1',
+          clayId: 'c1',
+          createdAt: Timestamp.now(),
+          rating: 4,
+        ),
+        TestPiece(
+          id: 'tp2',
+          glazeId: 'g2',
+          clayId: 'c1',
+          createdAt: Timestamp.now(),
+          rating: 2,
+        ),
+      ]),
+    );
+    when(
+      mockFirestoreService.getFiringAtmospheres(),
+    ).thenAnswer((_) => Stream.value(<FiringAtmosphere>[]));
+    when(
+      mockFirestoreService.getFiringProfiles(),
+    ).thenAnswer((_) => Stream.value(<FiringProfile>[]));
+    when(
+      mockFirestoreService.getClays(),
+    ).thenAnswer((_) => Stream.value(<Clay>[]));
+    when(mockFirestoreService.getTags()).thenAnswer((_) => Stream.value([]));
+    when(
+      mockFirestoreService.getMaterials(),
+    ).thenAnswer((_) => Stream.value(<m.Material>[]));
+    when(
+      mockFirestoreService.getRecentTestPieceIds(),
+    ).thenAnswer((_) => Stream.value([]));
+
+    await tester.pumpWidget(createTestableWidget(const SearchScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('評価で絞り込み'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('★3 以上'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('検索結果'), findsOneWidget);
+    expect(find.text('Glaze 1'), findsOneWidget);
+    expect(find.text('Glaze 2'), findsNothing);
+
+    // チップを消すと条件が空になり、検索をやめる
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(Chip, '★3 以上'),
+        matching: find.byIcon(Icons.cancel),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('検索結果'), findsNothing);
   });
 }

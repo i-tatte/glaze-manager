@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/clay.dart';
+import 'package:glaze_manager/models/firing.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
+import 'package:glaze_manager/screens/firing_detail_screen.dart';
 import 'package:glaze_manager/utils/test_piece_grouping.dart';
 import 'package:glaze_manager/widgets/test_piece_grid.dart';
 
@@ -17,6 +19,7 @@ class SectionedTestPieceGrid extends StatelessWidget {
   final Map<String, Clay> clayMap;
   final Map<String, FiringAtmosphere> firingAtmosphereMap;
   final Map<String, FiringProfile> firingProfileMap;
+  final Map<String, Firing> firingMap;
   final int crossAxisCount;
   final Future<void> Function()? onRefresh;
 
@@ -27,6 +30,7 @@ class SectionedTestPieceGrid extends StatelessWidget {
     required this.clayMap,
     required this.firingAtmosphereMap,
     required this.firingProfileMap,
+    required this.firingMap,
     required this.crossAxisCount,
     this.onRefresh,
   });
@@ -46,17 +50,7 @@ class SectionedTestPieceGrid extends StatelessWidget {
         for (final group in groups)
           SliverMainAxisGroup(
             slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12.0, 16.0, 12.0, 0),
-                  child: Text(
-                    '${group.label} (${group.pieces.length})',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
+              SliverToBoxAdapter(child: _buildHeader(context, group)),
               SliverPadding(
                 padding: const EdgeInsets.all(8.0),
                 sliver: SliverGrid.builder(
@@ -68,6 +62,7 @@ class SectionedTestPieceGrid extends StatelessWidget {
                     clayMap: clayMap,
                     firingAtmosphereMap: firingAtmosphereMap,
                     firingProfileMap: firingProfileMap,
+                    firingMap: firingMap,
                   ),
                 ),
               ),
@@ -81,5 +76,28 @@ class SectionedTestPieceGrid extends StatelessWidget {
     return onRefresh != null
         ? RefreshIndicator(onRefresh: onRefresh!, child: scrollView)
         : scrollView;
+  }
+
+  /// セクションの見出し。焼成回のグループではタップで焼成回の詳細を開く。
+  Widget _buildHeader(BuildContext context, TestPieceGroup group) {
+    final text = Padding(
+      padding: const EdgeInsets.fromLTRB(12.0, 16.0, 12.0, 0),
+      child: Text(
+        '${group.label} (${group.pieces.length})',
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+      ),
+    );
+    final firingId = group.firingId;
+    if (firingId == null) return text;
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => FiringDetailScreen(firingId: firingId),
+        ),
+      ),
+      child: text,
+    );
   }
 }

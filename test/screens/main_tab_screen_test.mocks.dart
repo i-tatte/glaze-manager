@@ -3,36 +3,38 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i12;
-import 'dart:typed_data' as _i22;
-import 'dart:ui' as _i26;
+import 'dart:async' as _i13;
+import 'dart:typed_data' as _i24;
+import 'dart:ui' as _i28;
 
 import 'package:firebase_auth/firebase_auth.dart' as _i2;
-import 'package:flutter/material.dart' as _i25;
-import 'package:glaze_manager/models/clay.dart' as _i20;
-import 'package:glaze_manager/models/firing_atmosphere.dart' as _i19;
-import 'package:glaze_manager/models/firing_profile.dart' as _i18;
-import 'package:glaze_manager/models/glaze.dart' as _i16;
-import 'package:glaze_manager/models/material.dart' as _i15;
-import 'package:glaze_manager/models/test_piece.dart' as _i17;
-import 'package:glaze_manager/models/test_piece_group_key.dart' as _i24;
+import 'package:flutter/material.dart' as _i27;
+import 'package:glaze_manager/models/clay.dart' as _i22;
+import 'package:glaze_manager/models/firing.dart' as _i21;
+import 'package:glaze_manager/models/firing_atmosphere.dart' as _i20;
+import 'package:glaze_manager/models/firing_profile.dart' as _i19;
+import 'package:glaze_manager/models/glaze.dart' as _i17;
+import 'package:glaze_manager/models/material.dart' as _i16;
+import 'package:glaze_manager/models/test_piece.dart' as _i18;
+import 'package:glaze_manager/models/test_piece_group_key.dart' as _i26;
 import 'package:glaze_manager/repositories/clay_repository.dart' as _i6;
 import 'package:glaze_manager/repositories/firing_atmosphere_repository.dart'
     as _i8;
 import 'package:glaze_manager/repositories/firing_profile_repository.dart'
     as _i7;
+import 'package:glaze_manager/repositories/firing_repository.dart' as _i9;
 import 'package:glaze_manager/repositories/glaze_repository.dart' as _i4;
 import 'package:glaze_manager/repositories/material_repository.dart' as _i3;
-import 'package:glaze_manager/repositories/tag_repository.dart' as _i9;
+import 'package:glaze_manager/repositories/tag_repository.dart' as _i10;
 import 'package:glaze_manager/repositories/test_piece_repository.dart' as _i5;
 import 'package:glaze_manager/repositories/view_history_repository.dart'
-    as _i10;
-import 'package:glaze_manager/services/auth_service.dart' as _i11;
-import 'package:glaze_manager/services/firestore_service.dart' as _i14;
-import 'package:glaze_manager/services/settings_service.dart' as _i23;
-import 'package:glaze_manager/services/storage_service.dart' as _i21;
+    as _i11;
+import 'package:glaze_manager/services/auth_service.dart' as _i12;
+import 'package:glaze_manager/services/firestore_service.dart' as _i15;
+import 'package:glaze_manager/services/settings_service.dart' as _i25;
+import 'package:glaze_manager/services/storage_service.dart' as _i23;
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:mockito/src/dummies.dart' as _i13;
+import 'package:mockito/src/dummies.dart' as _i14;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values
@@ -91,32 +93,38 @@ class _FakeFiringAtmosphereRepository_6 extends _i1.SmartFake
     : super(parent, parentInvocation);
 }
 
-class _FakeTagRepository_7 extends _i1.SmartFake implements _i9.TagRepository {
-  _FakeTagRepository_7(Object parent, Invocation parentInvocation)
+class _FakeFiringRepository_7 extends _i1.SmartFake
+    implements _i9.FiringRepository {
+  _FakeFiringRepository_7(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
-class _FakeViewHistoryRepository_8 extends _i1.SmartFake
-    implements _i10.ViewHistoryRepository {
-  _FakeViewHistoryRepository_8(Object parent, Invocation parentInvocation)
+class _FakeTagRepository_8 extends _i1.SmartFake implements _i10.TagRepository {
+  _FakeTagRepository_8(Object parent, Invocation parentInvocation)
+    : super(parent, parentInvocation);
+}
+
+class _FakeViewHistoryRepository_9 extends _i1.SmartFake
+    implements _i11.ViewHistoryRepository {
+  _FakeViewHistoryRepository_9(Object parent, Invocation parentInvocation)
     : super(parent, parentInvocation);
 }
 
 /// A class which mocks [AuthService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockAuthService extends _i1.Mock implements _i11.AuthService {
+class MockAuthService extends _i1.Mock implements _i12.AuthService {
   MockAuthService() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i12.Stream<_i2.User?> get user =>
+  _i13.Stream<_i2.User?> get user =>
       (super.noSuchMethod(
             Invocation.getter(#user),
-            returnValue: _i12.Stream<_i2.User?>.empty(),
+            returnValue: _i13.Stream<_i2.User?>.empty(),
           )
-          as _i12.Stream<_i2.User?>);
+          as _i13.Stream<_i2.User?>);
 
   @override
   bool get isAnonymous =>
@@ -124,102 +132,102 @@ class MockAuthService extends _i1.Mock implements _i11.AuthService {
           as bool);
 
   @override
-  _i12.Future<_i2.User?> signInAnonymously() =>
+  _i13.Future<_i2.User?> signInAnonymously() =>
       (super.noSuchMethod(
             Invocation.method(#signInAnonymously, []),
-            returnValue: _i12.Future<_i2.User?>.value(),
+            returnValue: _i13.Future<_i2.User?>.value(),
           )
-          as _i12.Future<_i2.User?>);
+          as _i13.Future<_i2.User?>);
 
   @override
-  _i12.Future<_i2.User?> signUpWithEmailAndPassword(
+  _i13.Future<_i2.User?> signUpWithEmailAndPassword(
     String? email,
     String? password,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#signUpWithEmailAndPassword, [email, password]),
-            returnValue: _i12.Future<_i2.User?>.value(),
+            returnValue: _i13.Future<_i2.User?>.value(),
           )
-          as _i12.Future<_i2.User?>);
+          as _i13.Future<_i2.User?>);
 
   @override
-  _i12.Future<_i2.User?> signInWithEmailAndPassword(
+  _i13.Future<_i2.User?> signInWithEmailAndPassword(
     String? email,
     String? password,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#signInWithEmailAndPassword, [email, password]),
-            returnValue: _i12.Future<_i2.User?>.value(),
+            returnValue: _i13.Future<_i2.User?>.value(),
           )
-          as _i12.Future<_i2.User?>);
+          as _i13.Future<_i2.User?>);
 
   @override
-  _i12.Future<_i2.UserCredential?> signInWithGoogle() =>
+  _i13.Future<_i2.UserCredential?> signInWithGoogle() =>
       (super.noSuchMethod(
             Invocation.method(#signInWithGoogle, []),
-            returnValue: _i12.Future<_i2.UserCredential?>.value(),
+            returnValue: _i13.Future<_i2.UserCredential?>.value(),
           )
-          as _i12.Future<_i2.UserCredential?>);
+          as _i13.Future<_i2.UserCredential?>);
 
   @override
-  _i12.Future<_i2.UserCredential?> linkWithGoogle() =>
+  _i13.Future<_i2.UserCredential?> linkWithGoogle() =>
       (super.noSuchMethod(
             Invocation.method(#linkWithGoogle, []),
-            returnValue: _i12.Future<_i2.UserCredential?>.value(),
+            returnValue: _i13.Future<_i2.UserCredential?>.value(),
           )
-          as _i12.Future<_i2.UserCredential?>);
+          as _i13.Future<_i2.UserCredential?>);
 
   @override
-  _i12.Future<_i2.UserCredential> linkWithEmailAndPassword(
+  _i13.Future<_i2.UserCredential> linkWithEmailAndPassword(
     String? email,
     String? password,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#linkWithEmailAndPassword, [email, password]),
-            returnValue: _i12.Future<_i2.UserCredential>.value(
+            returnValue: _i13.Future<_i2.UserCredential>.value(
               _FakeUserCredential_0(
                 this,
                 Invocation.method(#linkWithEmailAndPassword, [email, password]),
               ),
             ),
           )
-          as _i12.Future<_i2.UserCredential>);
+          as _i13.Future<_i2.UserCredential>);
 
   @override
-  _i12.Future<String> issueTransferCode() =>
+  _i13.Future<String> issueTransferCode() =>
       (super.noSuchMethod(
             Invocation.method(#issueTransferCode, []),
-            returnValue: _i12.Future<String>.value(
-              _i13.dummyValue<String>(
+            returnValue: _i13.Future<String>.value(
+              _i14.dummyValue<String>(
                 this,
                 Invocation.method(#issueTransferCode, []),
               ),
             ),
           )
-          as _i12.Future<String>);
+          as _i13.Future<String>);
 
   @override
-  _i12.Future<_i2.User?> signInWithTransferCode(String? code) =>
+  _i13.Future<_i2.User?> signInWithTransferCode(String? code) =>
       (super.noSuchMethod(
             Invocation.method(#signInWithTransferCode, [code]),
-            returnValue: _i12.Future<_i2.User?>.value(),
+            returnValue: _i13.Future<_i2.User?>.value(),
           )
-          as _i12.Future<_i2.User?>);
+          as _i13.Future<_i2.User?>);
 
   @override
-  _i12.Future<void> signOut() =>
+  _i13.Future<void> signOut() =>
       (super.noSuchMethod(
             Invocation.method(#signOut, []),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 }
 
 /// A class which mocks [FirestoreService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockFirestoreService extends _i1.Mock implements _i14.FirestoreService {
+class MockFirestoreService extends _i1.Mock implements _i15.FirestoreService {
   MockFirestoreService() {
     _i1.throwOnMissingStub(this);
   }
@@ -288,199 +296,210 @@ class MockFirestoreService extends _i1.Mock implements _i14.FirestoreService {
           as _i8.FiringAtmosphereRepository);
 
   @override
-  _i9.TagRepository get tags =>
+  _i9.FiringRepository get firings =>
       (super.noSuchMethod(
-            Invocation.getter(#tags),
-            returnValue: _FakeTagRepository_7(this, Invocation.getter(#tags)),
+            Invocation.getter(#firings),
+            returnValue: _FakeFiringRepository_7(
+              this,
+              Invocation.getter(#firings),
+            ),
           )
-          as _i9.TagRepository);
+          as _i9.FiringRepository);
 
   @override
-  _i10.ViewHistoryRepository get viewHistory =>
+  _i10.TagRepository get tags =>
+      (super.noSuchMethod(
+            Invocation.getter(#tags),
+            returnValue: _FakeTagRepository_8(this, Invocation.getter(#tags)),
+          )
+          as _i10.TagRepository);
+
+  @override
+  _i11.ViewHistoryRepository get viewHistory =>
       (super.noSuchMethod(
             Invocation.getter(#viewHistory),
-            returnValue: _FakeViewHistoryRepository_8(
+            returnValue: _FakeViewHistoryRepository_9(
               this,
               Invocation.getter(#viewHistory),
             ),
           )
-          as _i10.ViewHistoryRepository);
+          as _i11.ViewHistoryRepository);
 
   @override
-  _i12.Future<void> addMaterial(_i15.Material? material) =>
+  _i13.Future<void> addMaterial(_i16.Material? material) =>
       (super.noSuchMethod(
             Invocation.method(#addMaterial, [material]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Stream<List<_i15.Material>> getMaterials() =>
+  _i13.Stream<List<_i16.Material>> getMaterials() =>
       (super.noSuchMethod(
             Invocation.method(#getMaterials, []),
-            returnValue: _i12.Stream<List<_i15.Material>>.empty(),
+            returnValue: _i13.Stream<List<_i16.Material>>.empty(),
           )
-          as _i12.Stream<List<_i15.Material>>);
+          as _i13.Stream<List<_i16.Material>>);
 
   @override
-  _i12.Future<List<_i15.Material>> getMaterialsOnce() =>
+  _i13.Future<List<_i16.Material>> getMaterialsOnce() =>
       (super.noSuchMethod(
             Invocation.method(#getMaterialsOnce, []),
-            returnValue: _i12.Future<List<_i15.Material>>.value(
-              <_i15.Material>[],
+            returnValue: _i13.Future<List<_i16.Material>>.value(
+              <_i16.Material>[],
             ),
           )
-          as _i12.Future<List<_i15.Material>>);
+          as _i13.Future<List<_i16.Material>>);
 
   @override
-  _i12.Stream<_i15.Material> getMaterialStream(String? id) =>
+  _i13.Stream<_i16.Material> getMaterialStream(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#getMaterialStream, [id]),
-            returnValue: _i12.Stream<_i15.Material>.empty(),
+            returnValue: _i13.Stream<_i16.Material>.empty(),
           )
-          as _i12.Stream<_i15.Material>);
+          as _i13.Stream<_i16.Material>);
 
   @override
-  _i12.Future<String?> getMaterialIdByName(String? name) =>
+  _i13.Future<String?> getMaterialIdByName(String? name) =>
       (super.noSuchMethod(
             Invocation.method(#getMaterialIdByName, [name]),
-            returnValue: _i12.Future<String?>.value(),
+            returnValue: _i13.Future<String?>.value(),
           )
-          as _i12.Future<String?>);
+          as _i13.Future<String?>);
 
   @override
-  _i12.Future<void> updateMaterial(_i15.Material? material) =>
+  _i13.Future<void> updateMaterial(_i16.Material? material) =>
       (super.noSuchMethod(
             Invocation.method(#updateMaterial, [material]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> deleteMaterial(String? materialId) =>
+  _i13.Future<void> deleteMaterial(String? materialId) =>
       (super.noSuchMethod(
             Invocation.method(#deleteMaterial, [materialId]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> updateMaterialOrder(List<_i15.Material>? list) =>
+  _i13.Future<void> updateMaterialOrder(List<_i16.Material>? list) =>
       (super.noSuchMethod(
             Invocation.method(#updateMaterialOrder, [list]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<List<String>> findOrCreateMaterials(
+  _i13.Future<List<String>> findOrCreateMaterials(
     List<String>? materialNames,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#findOrCreateMaterials, [materialNames]),
-            returnValue: _i12.Future<List<String>>.value(<String>[]),
+            returnValue: _i13.Future<List<String>>.value(<String>[]),
           )
-          as _i12.Future<List<String>>);
+          as _i13.Future<List<String>>);
 
   @override
-  _i12.Future<String> findOrCreatePigmentID(String? pigmentName) =>
+  _i13.Future<String> findOrCreatePigmentID(String? pigmentName) =>
       (super.noSuchMethod(
             Invocation.method(#findOrCreatePigmentID, [pigmentName]),
-            returnValue: _i12.Future<String>.value(
-              _i13.dummyValue<String>(
+            returnValue: _i13.Future<String>.value(
+              _i14.dummyValue<String>(
                 this,
                 Invocation.method(#findOrCreatePigmentID, [pigmentName]),
               ),
             ),
           )
-          as _i12.Future<String>);
+          as _i13.Future<String>);
 
   @override
-  _i12.Future<List<String>> findOrCreatePigments(List<String>? pigmentNames) =>
+  _i13.Future<List<String>> findOrCreatePigments(List<String>? pigmentNames) =>
       (super.noSuchMethod(
             Invocation.method(#findOrCreatePigments, [pigmentNames]),
-            returnValue: _i12.Future<List<String>>.value(<String>[]),
+            returnValue: _i13.Future<List<String>>.value(<String>[]),
           )
-          as _i12.Future<List<String>>);
+          as _i13.Future<List<String>>);
 
   @override
-  _i12.Future<void> addGlaze(_i16.Glaze? glaze) =>
+  _i13.Future<void> addGlaze(_i17.Glaze? glaze) =>
       (super.noSuchMethod(
             Invocation.method(#addGlaze, [glaze]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> addGlazesBatch(List<_i16.Glaze>? list) =>
+  _i13.Future<void> addGlazesBatch(List<_i17.Glaze>? list) =>
       (super.noSuchMethod(
             Invocation.method(#addGlazesBatch, [list]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Stream<List<_i16.Glaze>> getGlazes() =>
+  _i13.Stream<List<_i17.Glaze>> getGlazes() =>
       (super.noSuchMethod(
             Invocation.method(#getGlazes, []),
-            returnValue: _i12.Stream<List<_i16.Glaze>>.empty(),
+            returnValue: _i13.Stream<List<_i17.Glaze>>.empty(),
           )
-          as _i12.Stream<List<_i16.Glaze>>);
+          as _i13.Stream<List<_i17.Glaze>>);
 
   @override
-  _i12.Future<List<_i16.Glaze>> getGlazesOnce() =>
+  _i13.Future<List<_i17.Glaze>> getGlazesOnce() =>
       (super.noSuchMethod(
             Invocation.method(#getGlazesOnce, []),
-            returnValue: _i12.Future<List<_i16.Glaze>>.value(<_i16.Glaze>[]),
+            returnValue: _i13.Future<List<_i17.Glaze>>.value(<_i17.Glaze>[]),
           )
-          as _i12.Future<List<_i16.Glaze>>);
+          as _i13.Future<List<_i17.Glaze>>);
 
   @override
-  _i12.Stream<_i16.Glaze> getGlazeStream(String? id) =>
+  _i13.Stream<_i17.Glaze> getGlazeStream(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#getGlazeStream, [id]),
-            returnValue: _i12.Stream<_i16.Glaze>.empty(),
+            returnValue: _i13.Stream<_i17.Glaze>.empty(),
           )
-          as _i12.Stream<_i16.Glaze>);
+          as _i13.Stream<_i17.Glaze>);
 
   @override
-  _i12.Future<void> updateGlaze(_i16.Glaze? glaze) =>
+  _i13.Future<void> updateGlaze(_i17.Glaze? glaze) =>
       (super.noSuchMethod(
             Invocation.method(#updateGlaze, [glaze]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> deleteGlaze(String? glazeId) =>
+  _i13.Future<void> deleteGlaze(String? glazeId) =>
       (super.noSuchMethod(
             Invocation.method(#deleteGlaze, [glazeId]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> addTestPiece(_i17.TestPiece? testPiece) =>
+  _i13.Future<void> addTestPiece(_i18.TestPiece? testPiece) =>
       (super.noSuchMethod(
             Invocation.method(#addTestPiece, [testPiece]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
   String createTestPieceId() =>
       (super.noSuchMethod(
             Invocation.method(#createTestPieceId, []),
-            returnValue: _i13.dummyValue<String>(
+            returnValue: _i14.dummyValue<String>(
               this,
               Invocation.method(#createTestPieceId, []),
             ),
@@ -488,311 +507,365 @@ class MockFirestoreService extends _i1.Mock implements _i14.FirestoreService {
           as String);
 
   @override
-  _i12.Future<void> setTestPiece(String? id, _i17.TestPiece? testPiece) =>
+  _i13.Future<void> setTestPiece(String? id, _i18.TestPiece? testPiece) =>
       (super.noSuchMethod(
             Invocation.method(#setTestPiece, [id, testPiece]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Stream<List<_i17.TestPiece>> getTestPieces() =>
+  _i13.Stream<List<_i18.TestPiece>> getTestPieces() =>
       (super.noSuchMethod(
             Invocation.method(#getTestPieces, []),
-            returnValue: _i12.Stream<List<_i17.TestPiece>>.empty(),
+            returnValue: _i13.Stream<List<_i18.TestPiece>>.empty(),
           )
-          as _i12.Stream<List<_i17.TestPiece>>);
+          as _i13.Stream<List<_i18.TestPiece>>);
 
   @override
-  _i12.Future<List<_i17.TestPiece>> getTestPiecesOnce() =>
+  _i13.Future<List<_i18.TestPiece>> getTestPiecesOnce() =>
       (super.noSuchMethod(
             Invocation.method(#getTestPiecesOnce, []),
-            returnValue: _i12.Future<List<_i17.TestPiece>>.value(
-              <_i17.TestPiece>[],
+            returnValue: _i13.Future<List<_i18.TestPiece>>.value(
+              <_i18.TestPiece>[],
             ),
           )
-          as _i12.Future<List<_i17.TestPiece>>);
+          as _i13.Future<List<_i18.TestPiece>>);
 
   @override
-  _i12.Stream<List<_i17.TestPiece>> getTestPiecesForGlaze(String? glazeId) =>
+  _i13.Stream<List<_i18.TestPiece>> getTestPiecesForGlaze(String? glazeId) =>
       (super.noSuchMethod(
             Invocation.method(#getTestPiecesForGlaze, [glazeId]),
-            returnValue: _i12.Stream<List<_i17.TestPiece>>.empty(),
+            returnValue: _i13.Stream<List<_i18.TestPiece>>.empty(),
           )
-          as _i12.Stream<List<_i17.TestPiece>>);
+          as _i13.Stream<List<_i18.TestPiece>>);
 
   @override
-  _i12.Stream<_i17.TestPiece> getTestPieceStream(String? id) =>
+  _i13.Stream<_i18.TestPiece> getTestPieceStream(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#getTestPieceStream, [id]),
-            returnValue: _i12.Stream<_i17.TestPiece>.empty(),
+            returnValue: _i13.Stream<_i18.TestPiece>.empty(),
           )
-          as _i12.Stream<_i17.TestPiece>);
+          as _i13.Stream<_i18.TestPiece>);
 
   @override
-  _i12.Future<void> updateTestPieceFields(
+  _i13.Future<void> updateTestPieceFields(
     String? id,
     Map<String, dynamic>? fields,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#updateTestPieceFields, [id, fields]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> updateTestPieceFieldsBatch(
+  _i13.Future<void> updateTestPieceFieldsBatch(
     Map<String, Map<String, dynamic>>? fieldsById,
   ) =>
       (super.noSuchMethod(
             Invocation.method(#updateTestPieceFieldsBatch, [fieldsById]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> deleteTestPiece(String? testPieceId) =>
+  _i13.Future<void> deleteTestPiece(String? testPieceId) =>
       (super.noSuchMethod(
             Invocation.method(#deleteTestPiece, [testPieceId]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> updateViewHistory(String? testPieceId) =>
+  _i13.Future<void> updateViewHistory(String? testPieceId) =>
       (super.noSuchMethod(
             Invocation.method(#updateViewHistory, [testPieceId]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Stream<List<String>> getRecentTestPieceIds({int? limit = 20}) =>
+  _i13.Stream<List<String>> getRecentTestPieceIds({int? limit = 20}) =>
       (super.noSuchMethod(
             Invocation.method(#getRecentTestPieceIds, [], {#limit: limit}),
-            returnValue: _i12.Stream<List<String>>.empty(),
+            returnValue: _i13.Stream<List<String>>.empty(),
           )
-          as _i12.Stream<List<String>>);
+          as _i13.Stream<List<String>>);
 
   @override
-  _i12.Future<void> addFiringProfile(_i18.FiringProfile? profile) =>
+  _i13.Future<void> addFiringProfile(_i19.FiringProfile? profile) =>
       (super.noSuchMethod(
             Invocation.method(#addFiringProfile, [profile]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Stream<List<_i18.FiringProfile>> getFiringProfiles() =>
+  _i13.Stream<List<_i19.FiringProfile>> getFiringProfiles() =>
       (super.noSuchMethod(
             Invocation.method(#getFiringProfiles, []),
-            returnValue: _i12.Stream<List<_i18.FiringProfile>>.empty(),
+            returnValue: _i13.Stream<List<_i19.FiringProfile>>.empty(),
           )
-          as _i12.Stream<List<_i18.FiringProfile>>);
+          as _i13.Stream<List<_i19.FiringProfile>>);
 
   @override
-  _i12.Future<List<_i18.FiringProfile>> getFiringProfilesOnce() =>
+  _i13.Future<List<_i19.FiringProfile>> getFiringProfilesOnce() =>
       (super.noSuchMethod(
             Invocation.method(#getFiringProfilesOnce, []),
-            returnValue: _i12.Future<List<_i18.FiringProfile>>.value(
-              <_i18.FiringProfile>[],
+            returnValue: _i13.Future<List<_i19.FiringProfile>>.value(
+              <_i19.FiringProfile>[],
             ),
           )
-          as _i12.Future<List<_i18.FiringProfile>>);
+          as _i13.Future<List<_i19.FiringProfile>>);
 
   @override
-  _i12.Stream<_i18.FiringProfile> getFiringProfileStream(String? id) =>
+  _i13.Stream<_i19.FiringProfile> getFiringProfileStream(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#getFiringProfileStream, [id]),
-            returnValue: _i12.Stream<_i18.FiringProfile>.empty(),
+            returnValue: _i13.Stream<_i19.FiringProfile>.empty(),
           )
-          as _i12.Stream<_i18.FiringProfile>);
+          as _i13.Stream<_i19.FiringProfile>);
 
   @override
-  _i12.Future<void> updateFiringProfile(_i18.FiringProfile? profile) =>
+  _i13.Future<void> updateFiringProfile(_i19.FiringProfile? profile) =>
       (super.noSuchMethod(
             Invocation.method(#updateFiringProfile, [profile]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> deleteFiringProfile(String? profileId) =>
+  _i13.Future<void> deleteFiringProfile(String? profileId) =>
       (super.noSuchMethod(
             Invocation.method(#deleteFiringProfile, [profileId]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> addFiringAtmosphere(_i19.FiringAtmosphere? atmosphere) =>
+  _i13.Future<void> addFiringAtmosphere(_i20.FiringAtmosphere? atmosphere) =>
       (super.noSuchMethod(
             Invocation.method(#addFiringAtmosphere, [atmosphere]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Stream<List<_i19.FiringAtmosphere>> getFiringAtmospheres() =>
+  _i13.Stream<List<_i20.FiringAtmosphere>> getFiringAtmospheres() =>
       (super.noSuchMethod(
             Invocation.method(#getFiringAtmospheres, []),
-            returnValue: _i12.Stream<List<_i19.FiringAtmosphere>>.empty(),
+            returnValue: _i13.Stream<List<_i20.FiringAtmosphere>>.empty(),
           )
-          as _i12.Stream<List<_i19.FiringAtmosphere>>);
+          as _i13.Stream<List<_i20.FiringAtmosphere>>);
 
   @override
-  _i12.Future<List<_i19.FiringAtmosphere>> getFiringAtmospheresOnce() =>
+  _i13.Future<List<_i20.FiringAtmosphere>> getFiringAtmospheresOnce() =>
       (super.noSuchMethod(
             Invocation.method(#getFiringAtmospheresOnce, []),
-            returnValue: _i12.Future<List<_i19.FiringAtmosphere>>.value(
-              <_i19.FiringAtmosphere>[],
+            returnValue: _i13.Future<List<_i20.FiringAtmosphere>>.value(
+              <_i20.FiringAtmosphere>[],
             ),
           )
-          as _i12.Future<List<_i19.FiringAtmosphere>>);
+          as _i13.Future<List<_i20.FiringAtmosphere>>);
 
   @override
-  _i12.Stream<_i19.FiringAtmosphere> getFiringAtmosphereStream(String? id) =>
+  _i13.Stream<_i20.FiringAtmosphere> getFiringAtmosphereStream(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#getFiringAtmosphereStream, [id]),
-            returnValue: _i12.Stream<_i19.FiringAtmosphere>.empty(),
+            returnValue: _i13.Stream<_i20.FiringAtmosphere>.empty(),
           )
-          as _i12.Stream<_i19.FiringAtmosphere>);
+          as _i13.Stream<_i20.FiringAtmosphere>);
 
   @override
-  _i12.Future<void> updateFiringAtmosphere(_i19.FiringAtmosphere? atmosphere) =>
+  _i13.Future<void> updateFiringAtmosphere(_i20.FiringAtmosphere? atmosphere) =>
       (super.noSuchMethod(
             Invocation.method(#updateFiringAtmosphere, [atmosphere]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> deleteFiringAtmosphere(String? atmosphereId) =>
+  _i13.Future<void> deleteFiringAtmosphere(String? atmosphereId) =>
       (super.noSuchMethod(
             Invocation.method(#deleteFiringAtmosphere, [atmosphereId]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> addClay(_i20.Clay? clay) =>
+  String createFiringId() =>
+      (super.noSuchMethod(
+            Invocation.method(#createFiringId, []),
+            returnValue: _i14.dummyValue<String>(
+              this,
+              Invocation.method(#createFiringId, []),
+            ),
+          )
+          as String);
+
+  @override
+  _i13.Future<void> setFiring(String? id, _i21.Firing? firing) =>
+      (super.noSuchMethod(
+            Invocation.method(#setFiring, [id, firing]),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
+          )
+          as _i13.Future<void>);
+
+  @override
+  _i13.Stream<List<_i21.Firing>> getFirings() =>
+      (super.noSuchMethod(
+            Invocation.method(#getFirings, []),
+            returnValue: _i13.Stream<List<_i21.Firing>>.empty(),
+          )
+          as _i13.Stream<List<_i21.Firing>>);
+
+  @override
+  _i13.Future<List<_i21.Firing>> getFiringsOnce() =>
+      (super.noSuchMethod(
+            Invocation.method(#getFiringsOnce, []),
+            returnValue: _i13.Future<List<_i21.Firing>>.value(<_i21.Firing>[]),
+          )
+          as _i13.Future<List<_i21.Firing>>);
+
+  @override
+  _i13.Future<void> updateFiring(_i21.Firing? firing) =>
+      (super.noSuchMethod(
+            Invocation.method(#updateFiring, [firing]),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
+          )
+          as _i13.Future<void>);
+
+  @override
+  _i13.Future<void> deleteFiring(String? firingId) =>
+      (super.noSuchMethod(
+            Invocation.method(#deleteFiring, [firingId]),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
+          )
+          as _i13.Future<void>);
+
+  @override
+  _i13.Future<void> addClay(_i22.Clay? clay) =>
       (super.noSuchMethod(
             Invocation.method(#addClay, [clay]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Stream<List<_i20.Clay>> getClays() =>
+  _i13.Stream<List<_i22.Clay>> getClays() =>
       (super.noSuchMethod(
             Invocation.method(#getClays, []),
-            returnValue: _i12.Stream<List<_i20.Clay>>.empty(),
+            returnValue: _i13.Stream<List<_i22.Clay>>.empty(),
           )
-          as _i12.Stream<List<_i20.Clay>>);
+          as _i13.Stream<List<_i22.Clay>>);
 
   @override
-  _i12.Future<List<_i20.Clay>> getClaysOnce() =>
+  _i13.Future<List<_i22.Clay>> getClaysOnce() =>
       (super.noSuchMethod(
             Invocation.method(#getClaysOnce, []),
-            returnValue: _i12.Future<List<_i20.Clay>>.value(<_i20.Clay>[]),
+            returnValue: _i13.Future<List<_i22.Clay>>.value(<_i22.Clay>[]),
           )
-          as _i12.Future<List<_i20.Clay>>);
+          as _i13.Future<List<_i22.Clay>>);
 
   @override
-  _i12.Stream<_i20.Clay> getClayStream(String? id) =>
+  _i13.Stream<_i22.Clay> getClayStream(String? id) =>
       (super.noSuchMethod(
             Invocation.method(#getClayStream, [id]),
-            returnValue: _i12.Stream<_i20.Clay>.empty(),
+            returnValue: _i13.Stream<_i22.Clay>.empty(),
           )
-          as _i12.Stream<_i20.Clay>);
+          as _i13.Stream<_i22.Clay>);
 
   @override
-  _i12.Future<void> updateClay(_i20.Clay? clay) =>
+  _i13.Future<void> updateClay(_i22.Clay? clay) =>
       (super.noSuchMethod(
             Invocation.method(#updateClay, [clay]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> deleteClay(String? clayId) =>
+  _i13.Future<void> deleteClay(String? clayId) =>
       (super.noSuchMethod(
             Invocation.method(#deleteClay, [clayId]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> updateClayOrder(List<_i20.Clay>? list) =>
+  _i13.Future<void> updateClayOrder(List<_i22.Clay>? list) =>
       (super.noSuchMethod(
             Invocation.method(#updateClayOrder, [list]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Stream<List<String>> getTags() =>
+  _i13.Stream<List<String>> getTags() =>
       (super.noSuchMethod(
             Invocation.method(#getTags, []),
-            returnValue: _i12.Stream<List<String>>.empty(),
+            returnValue: _i13.Stream<List<String>>.empty(),
           )
-          as _i12.Stream<List<String>>);
+          as _i13.Stream<List<String>>);
 
   @override
-  _i12.Future<List<String>> getTagsOnce() =>
+  _i13.Future<List<String>> getTagsOnce() =>
       (super.noSuchMethod(
             Invocation.method(#getTagsOnce, []),
-            returnValue: _i12.Future<List<String>>.value(<String>[]),
+            returnValue: _i13.Future<List<String>>.value(<String>[]),
           )
-          as _i12.Future<List<String>>);
+          as _i13.Future<List<String>>);
 
   @override
-  _i12.Future<void> addTag(String? tagName) =>
+  _i13.Future<void> addTag(String? tagName) =>
       (super.noSuchMethod(
             Invocation.method(#addTag, [tagName]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> addTags(List<String>? tagNames) =>
+  _i13.Future<void> addTags(List<String>? tagNames) =>
       (super.noSuchMethod(
             Invocation.method(#addTags, [tagNames]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> deleteTag(String? tagName) =>
+  _i13.Future<void> deleteTag(String? tagName) =>
       (super.noSuchMethod(
             Invocation.method(#deleteTag, [tagName]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 }
 
 /// A class which mocks [StorageService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockStorageService extends _i1.Mock implements _i21.StorageService {
+class MockStorageService extends _i1.Mock implements _i23.StorageService {
   MockStorageService() {
     _i1.throwOnMissingStub(this);
   }
@@ -804,7 +877,7 @@ class MockStorageService extends _i1.Mock implements _i21.StorageService {
               #testPieceId: testPieceId,
               #name: name,
             }),
-            returnValue: _i13.dummyValue<String>(
+            returnValue: _i14.dummyValue<String>(
               this,
               Invocation.method(#getUploadPath, [], {
                 #testPieceId: testPieceId,
@@ -815,10 +888,10 @@ class MockStorageService extends _i1.Mock implements _i21.StorageService {
           as String);
 
   @override
-  _i12.Future<void> uploadTestPieceImage({
+  _i13.Future<void> uploadTestPieceImage({
     required String? testPieceId,
     required String? name,
-    required _i22.Uint8List? bytes,
+    required _i24.Uint8List? bytes,
     String? mimeType,
   }) =>
       (super.noSuchMethod(
@@ -828,34 +901,34 @@ class MockStorageService extends _i1.Mock implements _i21.StorageService {
               #bytes: bytes,
               #mimeType: mimeType,
             }),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> deleteTestPieceImage(String? imageUrl) =>
+  _i13.Future<void> deleteTestPieceImage(String? imageUrl) =>
       (super.noSuchMethod(
             Invocation.method(#deleteTestPieceImage, [imageUrl]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> deleteAllTestPieceFiles(String? testPieceId) =>
+  _i13.Future<void> deleteAllTestPieceFiles(String? testPieceId) =>
       (super.noSuchMethod(
             Invocation.method(#deleteAllTestPieceFiles, [testPieceId]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 }
 
 /// A class which mocks [SettingsService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockSettingsService extends _i1.Mock implements _i23.SettingsService {
+class MockSettingsService extends _i1.Mock implements _i25.SettingsService {
   MockSettingsService() {
     _i1.throwOnMissingStub(this);
   }
@@ -869,12 +942,12 @@ class MockSettingsService extends _i1.Mock implements _i23.SettingsService {
           as int);
 
   @override
-  _i24.TestPieceGroupKey get testPieceGroupKey =>
+  _i26.TestPieceGroupKey get testPieceGroupKey =>
       (super.noSuchMethod(
             Invocation.getter(#testPieceGroupKey),
-            returnValue: _i24.TestPieceGroupKey.none,
+            returnValue: _i26.TestPieceGroupKey.none,
           )
-          as _i24.TestPieceGroupKey);
+          as _i26.TestPieceGroupKey);
 
   @override
   int get maxGridCrossAxisCount =>
@@ -885,12 +958,12 @@ class MockSettingsService extends _i1.Mock implements _i23.SettingsService {
           as int);
 
   @override
-  _i25.ThemeMode get themeMode =>
+  _i27.ThemeMode get themeMode =>
       (super.noSuchMethod(
             Invocation.getter(#themeMode),
-            returnValue: _i25.ThemeMode.system,
+            returnValue: _i27.ThemeMode.system,
           )
-          as _i25.ThemeMode);
+          as _i27.ThemeMode);
 
   @override
   bool get hasListeners =>
@@ -898,40 +971,40 @@ class MockSettingsService extends _i1.Mock implements _i23.SettingsService {
           as bool);
 
   @override
-  _i12.Future<void> setGridCrossAxisCount(int? count) =>
+  _i13.Future<void> setGridCrossAxisCount(int? count) =>
       (super.noSuchMethod(
             Invocation.method(#setGridCrossAxisCount, [count]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> setTestPieceGroupKey(_i24.TestPieceGroupKey? key) =>
+  _i13.Future<void> setTestPieceGroupKey(_i26.TestPieceGroupKey? key) =>
       (super.noSuchMethod(
             Invocation.method(#setTestPieceGroupKey, [key]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  _i12.Future<void> setThemeMode(_i25.ThemeMode? mode) =>
+  _i13.Future<void> setThemeMode(_i27.ThemeMode? mode) =>
       (super.noSuchMethod(
             Invocation.method(#setThemeMode, [mode]),
-            returnValue: _i12.Future<void>.value(),
-            returnValueForMissingStub: _i12.Future<void>.value(),
+            returnValue: _i13.Future<void>.value(),
+            returnValueForMissingStub: _i13.Future<void>.value(),
           )
-          as _i12.Future<void>);
+          as _i13.Future<void>);
 
   @override
-  void addListener(_i26.VoidCallback? listener) => super.noSuchMethod(
+  void addListener(_i28.VoidCallback? listener) => super.noSuchMethod(
     Invocation.method(#addListener, [listener]),
     returnValueForMissingStub: null,
   );
 
   @override
-  void removeListener(_i26.VoidCallback? listener) => super.noSuchMethod(
+  void removeListener(_i28.VoidCallback? listener) => super.noSuchMethod(
     Invocation.method(#removeListener, [listener]),
     returnValueForMissingStub: null,
   );

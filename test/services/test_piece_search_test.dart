@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/models/clay.dart';
+import 'package:glaze_manager/models/firing.dart';
 import 'package:glaze_manager/models/lab_color.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
@@ -30,6 +31,9 @@ TestPiece _piece(
   String glazeId, {
   List<LabColor>? colorData,
   Timestamp? createdAt,
+  int? rating,
+  String? label,
+  String? firingId,
 }) {
   return TestPiece(
     id: id,
@@ -37,6 +41,9 @@ TestPiece _piece(
     clayId: 'c1',
     colorData: colorData,
     createdAt: createdAt ?? Timestamp.now(),
+    rating: rating,
+    label: label,
+    firingId: firingId,
   );
 }
 
@@ -45,23 +52,28 @@ List<TestPiece> _filter({
   required List<TestPiece> pieces,
   String query = '',
   List<String> selectedTags = const [],
+  int? minRating,
   Color? color,
   double deltaEThreshold = 30.0,
   TestPieceSortOrder sortOrder = TestPieceSortOrder.relevance,
   required Map<String, Glaze> glazeMap,
   Map<String, String> materialMap = const {},
+  Map<String, FiringAtmosphere> atmosphereMap = const {},
+  Map<String, Firing> firingMap = const {},
 }) {
   return filterTestPieces(
     pieces: pieces,
     query: query,
     selectedTags: selectedTags,
+    minRating: minRating,
     color: color,
     deltaEThreshold: deltaEThreshold,
     sortOrder: sortOrder,
     glazeMap: glazeMap,
     clayMap: const <String, Clay>{},
-    atmosphereMap: const <String, FiringAtmosphere>{},
+    atmosphereMap: atmosphereMap,
     profileMap: const <String, FiringProfile>{},
+    firingMap: firingMap,
     materialMap: materialMap,
   );
 }
@@ -369,6 +381,99 @@ void main() {
         _filter(pieces: pieces, selectedTags: ['glossy'], glazeMap: glazeMap),
         [tp1],
       );
+    });
+  });
+
+  group('評価と番号', () {
+    final glazeMap = {'g1': _glaze('g1', 'Blue Glaze')};
+    final tp5 = _piece('tp5', 'g1', rating: 5, label: '1108-1');
+    final tp3 = _piece('tp3', 'g1', rating: 3, label: '1108-2');
+    final tpNone = _piece('tpNone', 'g1');
+    final tp4 = _piece('tp4', 'g1', rating: 4);
+    final pieces = [tp3, tpNone, tp5, tp4];
+
+    test('minRating 以上だけを残し、未評価は外れる', () {
+      final result = _filter(pieces: pieces, minRating: 4, glazeMap: glazeMap);
+      expect(result, [tp5, tp4]);
+    });
+
+    test('minRating がなければ絞り込まない', () {
+      final result = _filter(pieces: pieces, glazeMap: glazeMap);
+      expect(result, pieces);
+    });
+
+    test('番号で検索できる', () {
+      final result = _filter(
+        pieces: pieces,
+        query: '1108-2',
+        glazeMap: glazeMap,
+      );
+      expect(result, [tp3]);
+    });
+
+    test('評価が高い順に並び、未評価は末尾', () {
+      final result = _filter(
+        pieces: pieces,
+        sortOrder: TestPieceSortOrder.ratingDesc,
+        glazeMap: glazeMap,
+      );
+      expect(result, [tp5, tp4, tp3, tpNone]);
+    });
+
+    test('評価が同じものは元の順序を保つ', () {
+      final a = _piece('a', 'g1', rating: 2);
+      final b = _piece('b', 'g1', rating: 2);
+      final c = _piece('c', 'g1', rating: 2);
+      final result = _filter(
+        pieces: [a, b, c],
+        sortOrder: TestPieceSortOrder.ratingDesc,
+        glazeMap: glazeMap,
+      );
+      expect(result, [a, b, c]);
+    });
+  });
+
+  group('焼成回', () {
+    final glazeMap = {'g1': _glaze('g1', 'Blue Glaze')};
+    final firing = Firing(
+      id: 'f1',
+      firedOn: Timestamp.fromDate(DateTime(2026, 11, 8, 12)),
+      kilnName: '電気窯',
+      firingAtmosphereId: 'a-deleted',
+      atmosphereName: '還元',
+      createdAt: Timestamp.now(),
+    );
+    final inFiring = _piece('in', 'g1', firingId: 'f1');
+    final other = _piece('other', 'g1');
+
+    test('窯の名前で検索できる', () {
+      final result = _filter(
+        pieces: [inFiring, other],
+        query: '電気窯',
+        glazeMap: glazeMap,
+        firingMap: {'f1': firing},
+      );
+      expect(result, [inFiring]);
+    });
+
+    test('焼成日で検索できる', () {
+      final result = _filter(
+        pieces: [inFiring, other],
+        query: '2026/11/8',
+        glazeMap: glazeMap,
+        firingMap: {'f1': firing},
+      );
+      expect(result, [inFiring]);
+    });
+
+    test('雰囲気名は焼成回から解決する', () {
+      final result = _filter(
+        pieces: [inFiring, other],
+        query: '還元',
+        glazeMap: glazeMap,
+        firingMap: {'f1': firing},
+      );
+      expect(result, [inFiring]);
     });
   });
 }

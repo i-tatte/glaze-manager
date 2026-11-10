@@ -211,6 +211,7 @@ void main() {
             clayMap: clayMap,
             firingAtmosphereMap: const {},
             firingProfileMap: const {},
+            firingMap: const {},
             crossAxisCount: 2,
           ),
         ),
@@ -222,6 +223,36 @@ void main() {
     expect(find.text('Glaze 2'), findsOneWidget);
     expect(find.text('Clay 1'), findsOneWidget);
     expect(find.text('Clay 2'), findsOneWidget);
+    // 焼成雰囲気が未設定のものは「未設定」と表示する
+    expect(find.text('未設定'), findsNWidgets(2));
+  });
+
+  testWidgets('焼成回が見つからないテストピースは「不明」と表示する', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TestPieceGrid(
+            testPieces: [
+              TestPiece(
+                id: 'tp1',
+                glazeId: 'g1',
+                clayId: 'c1',
+                createdAt: Timestamp.now(),
+                firingId: 'f-deleted',
+              ),
+            ],
+            glazeMap: const {},
+            clayMap: const {},
+            firingAtmosphereMap: const {},
+            firingProfileMap: const {},
+            firingMap: const {},
+            crossAxisCount: 2,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('不明'), findsOneWidget);
   });
 
   testWidgets('TestPieceGrid shows refresh indicator', (
@@ -237,6 +268,7 @@ void main() {
             clayMap: {},
             firingAtmosphereMap: {},
             firingProfileMap: {},
+            firingMap: {},
             crossAxisCount: 2,
             onRefresh: () async {
               refreshed = true;

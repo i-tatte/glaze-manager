@@ -6,6 +6,7 @@ import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/lab_color.dart';
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/glaze.dart';
+import 'package:glaze_manager/models/firing.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/recipe_snapshot.dart';
@@ -14,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'
     show ConsumerStatefulWidget, ConsumerState, AsyncValueX;
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/color_pick_screen.dart';
+import 'package:glaze_manager/screens/firing_edit_screen.dart';
 import 'package:glaze_manager/screens/image_crop_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dropdown_search/dropdown_search.dart';
@@ -22,11 +24,16 @@ import 'package:uuid/uuid.dart';
 import 'package:path/path.dart' as p;
 import 'package:glaze_manager/widgets/common/unsaved_changes_pop_scope.dart';
 import 'package:glaze_manager/widgets/common/common_app_bar_actions.dart';
+import 'package:glaze_manager/widgets/common/info_tile.dart';
+import 'package:glaze_manager/widgets/common/rating_stars.dart';
 
 class TestPieceEditScreen extends ConsumerStatefulWidget {
   final TestPiece? testPiece;
 
-  const TestPieceEditScreen({super.key, this.testPiece});
+  /// 新規作成のときに最初から選んでおく焼成回 (焼成回の詳細画面から開くとき)
+  final String? initialFiringId;
+
+  const TestPieceEditScreen({super.key, this.testPiece, this.initialFiringId});
 
   @override
   ConsumerState<TestPieceEditScreen> createState() =>
@@ -41,13 +48,17 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
   String? _selectedClayId;
   String? _selectedFiringProfileId;
   String? _selectedFiringAtmosphereId;
+  String? _selectedFiringId;
   final _noteController = TextEditingController();
+  final _labelController = TextEditingController();
+  int? _rating;
 
   // ドロップダウンの選択肢 (buildでプロバイダから更新される)
   List<FiringProfile> _availableFiringProfiles = [];
   List<FiringAtmosphere> _availableFiringAtmospheres = [];
   List<Clay> _availableClays = [];
   List<Glaze> _availableGlazes = [];
+  List<Firing> _availableFirings = [];
 
   String? _newImageFileName; // 新しく生成されたファイル名
   Uint8List? _newImageBytes; // 新しく生成された画像のバイトデータ
@@ -67,11 +78,17 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
     _selectedClayId = widget.testPiece?.clayId;
     _selectedFiringAtmosphereId = widget.testPiece?.firingAtmosphereId;
     _selectedFiringProfileId = widget.testPiece?.firingProfileId;
+    _selectedFiringId = widget.testPiece != null
+        ? widget.testPiece!.firingId
+        : widget.initialFiringId;
     _networkImageUrl = widget.testPiece?.imageUrl;
     _colorData = List<LabColor>.from(widget.testPiece?.colorData ?? []);
     _noteController.text = widget.testPiece?.note ?? '';
+    _labelController.text = widget.testPiece?.label ?? '';
+    _rating = widget.testPiece?.rating;
 
     _noteController.addListener(_markAsDirty);
+    _labelController.addListener(_markAsDirty);
   }
 
   void _markAsDirty() {
@@ -83,6 +100,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
   @override
   void dispose() {
     _noteController.dispose();
+    _labelController.dispose();
     super.dispose();
   }
 
@@ -196,14 +214,25 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
         imageUrl: widget.testPiece?.imageUrl,
         imagePath: imagePath,
         thumbnailUrl: widget.testPiece?.thumbnailUrl,
-        firingAtmosphereId: _selectedFiringAtmosphereId,
+        // 焼成回を選んでいれば焼成の情報は焼成回を正とし、
+        // テストピースごとの焼成雰囲気・焼成プロファイルは持たない
+        firingAtmosphereId: _selectedFiringId == null
+            ? _selectedFiringAtmosphereId
+            : null,
         colorData: List<LabColor>.of(_colorData),
-        firingProfileId: _selectedFiringProfileId,
+        firingProfileId: _selectedFiringId == null
+            ? _selectedFiringProfileId
+            : null,
+        firingId: _selectedFiringId,
         note: _noteController.text.trim().isEmpty
             ? null
             : _noteController.text.trim(),
         createdAt: widget.testPiece?.createdAt ?? Timestamp.now(),
         snapshot: snapshot,
+        rating: _rating,
+        label: _labelController.text.trim().isEmpty
+            ? null
+            : _labelController.text.trim(),
       );
 
       // §2.3 順序制約: サーバーACK後にアップロード開始 (UIはブロックしない)
@@ -328,6 +357,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
         ref.watch(firingProfilesProvider).valueOrNull ?? [];
     _availableFiringAtmospheres =
         ref.watch(firingAtmospheresProvider).valueOrNull ?? [];
+    _availableFirings = ref.watch(firingsProvider).valueOrNull ?? [];
     // 保存時に調合の写しを作るため、原料の購読を保っておく
     ref.watch(materialMapProvider);
 
@@ -509,48 +539,105 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
         compareFn: (Clay a, Clay b) => a.id == b.id,
       ),
       const SizedBox(height: 16),
-      // 焼成雰囲気
-      DropdownButtonFormField<String>(
-        decoration: const InputDecoration(labelText: '焼成雰囲気'),
-        initialValue: _selectedFiringAtmosphereId,
-        hint: const Text('焼成雰囲気を選択 (任意)'),
-        isExpanded: true,
-        items: _availableFiringAtmospheres
-            .map(
-              (atmosphere) => DropdownMenuItem(
-                value: atmosphere.id,
-                child: Text(atmosphere.name),
-              ),
-            )
-            .toList(),
-        onChanged: (value) {
-          _markAsDirty();
-          setState(() => _selectedFiringAtmosphereId = value);
-        },
-        validator: null,
+      // 番号
+      TextFormField(
+        controller: _labelController,
+        decoration: const InputDecoration(
+          labelText: '番号',
+          hintText: '実物に書いた番号（任意）',
+        ),
       ),
       const SizedBox(height: 16),
-      // 焼成プロファイル
-      DropdownButtonFormField<String>(
-        decoration: const InputDecoration(labelText: '焼成プロファイル'),
-        initialValue: _selectedFiringProfileId,
-        hint: const Text('焼成プロファイルを選択 (任意)'),
-        isExpanded: true,
-        items: _availableFiringProfiles
-            .map(
-              (profile) => DropdownMenuItem(
-                value: profile.id,
-                child: Text(profile.name),
-              ),
-            )
-            .toList(),
-        onChanged: (value) {
-          _markAsDirty();
-          setState(() => _selectedFiringProfileId = value);
-        },
-        validator: null,
+      // 評価
+      Row(
+        children: [
+          Text('評価', style: Theme.of(context).textTheme.bodyLarge),
+          const SizedBox(width: 16),
+          RatingStars(
+            rating: _rating,
+            onChanged: (value) {
+              setState(() => _rating = value);
+              _markAsDirty();
+            },
+          ),
+        ],
       ),
       const SizedBox(height: 16),
+      // 焼成回
+      DropdownButtonFormField<String?>(
+        decoration: const InputDecoration(labelText: '焼成回'),
+        initialValue: _selectedFiringId,
+        isExpanded: true,
+        items: [
+          const DropdownMenuItem<String?>(value: null, child: Text('（なし）')),
+          for (final firing in _availableFirings)
+            DropdownMenuItem<String?>(
+              value: firing.id,
+              child: Text(firing.displayLabel),
+            ),
+          // 選択中の焼成回が選択肢にない (削除済み、または読み込み前) ときは
+          // 「不明な焼成回」を足す。初期値が選択肢にないとアサーションで落ちるため
+          if (_selectedFiringId != null &&
+              !_availableFirings.any((f) => f.id == _selectedFiringId))
+            DropdownMenuItem<String?>(
+              value: _selectedFiringId,
+              child: const Text('不明な焼成回'),
+            ),
+        ],
+        onChanged: (value) {
+          _markAsDirty();
+          setState(() => _selectedFiringId = value);
+        },
+      ),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton(
+          onPressed: _createFiring,
+          child: const Text('焼成回を新規作成'),
+        ),
+      ),
+      const SizedBox(height: 8),
+      if (_selectedFiringId != null) ...[
+        // 焼成回を選んでいるときは、焼成回の雰囲気とプロファイルを読み取り専用で出す
+        InfoTile(label: '焼成雰囲気', value: _firingAtmosphereLabel()),
+        InfoTile(label: '焼成プロファイル', value: _firingProfileLabel()),
+        const SizedBox(height: 16),
+      ] else ...[
+        // 焼成雰囲気
+        DropdownButtonFormField<String?>(
+          decoration: const InputDecoration(labelText: '焼成雰囲気'),
+          initialValue: _selectedFiringAtmosphereId,
+          hint: const Text('焼成雰囲気を選択 (任意)'),
+          isExpanded: true,
+          items: atmosphereItems(
+            _availableFiringAtmospheres,
+            _selectedFiringAtmosphereId,
+          ),
+          onChanged: (value) {
+            _markAsDirty();
+            setState(() => _selectedFiringAtmosphereId = value);
+          },
+          validator: null,
+        ),
+        const SizedBox(height: 16),
+        // 焼成プロファイル
+        DropdownButtonFormField<String?>(
+          decoration: const InputDecoration(labelText: '焼成プロファイル'),
+          initialValue: _selectedFiringProfileId,
+          hint: const Text('焼成プロファイルを選択 (任意)'),
+          isExpanded: true,
+          items: profileItems(
+            _availableFiringProfiles,
+            _selectedFiringProfileId,
+          ),
+          onChanged: (value) {
+            _markAsDirty();
+            setState(() => _selectedFiringProfileId = value);
+          },
+          validator: null,
+        ),
+        const SizedBox(height: 16),
+      ],
       // 備考
       TextFormField(
         controller: _noteController,
@@ -564,8 +651,9 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
       // 色編集セクション
       ..._buildColorSection(),
 
-      // グラフ表示エリア
-      if (selectedProfile?.curveData != null &&
+      // グラフ表示エリア (焼成回を選んでいるときは出さない)
+      if (_selectedFiringId == null &&
+          selectedProfile?.curveData != null &&
           selectedProfile!.curveData!.isNotEmpty) ...[
         const Divider(),
         const SizedBox(height: 8),
@@ -582,6 +670,45 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
         ),
       ],
     ];
+  }
+
+  /// 焼成回をその場で作り、作った焼成回を選ぶ
+  Future<void> _createFiring() async {
+    final id = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (context) => const FiringEditScreen()),
+    );
+    if (id == null || !mounted) return;
+    _markAsDirty();
+    setState(() => _selectedFiringId = id);
+  }
+
+  Firing? get _selectedFiring =>
+      _availableFirings.where((f) => f.id == _selectedFiringId).firstOrNull;
+
+  /// 選んだ焼成回の雰囲気名。現存すれば現在の名前、なければ焼成回の写し
+  String _firingAtmosphereLabel() {
+    final firing = _selectedFiring;
+    if (firing == null) return '不明';
+    final name =
+        _availableFiringAtmospheres
+            .where((a) => a.id == firing.firingAtmosphereId)
+            .firstOrNull
+            ?.name ??
+        firing.atmosphereName;
+    return name ?? '未設定';
+  }
+
+  /// 選んだ焼成回のプロファイル名。現存すれば現在の名前、なければ焼成回の写し
+  String _firingProfileLabel() {
+    final firing = _selectedFiring;
+    if (firing == null) return '不明';
+    final name =
+        _availableFiringProfiles
+            .where((p) => p.id == firing.firingProfileId)
+            .firstOrNull
+            ?.name ??
+        firing.profile?.name;
+    return name ?? '未設定';
   }
 
   /// 画像部分のウィジェットリストを生成

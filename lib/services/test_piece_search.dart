@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/clay.dart';
+import 'package:glaze_manager/models/firing.dart';
 import 'package:glaze_manager/models/lab_color.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
+import 'package:glaze_manager/utils/date_format.dart';
 import 'package:glaze_manager/utils/test_piece_display.dart';
 
 /// 検索クエリの語分割に使う正規表現。半角・全角スペースの連続を 1 区切りとして扱う。
@@ -25,7 +27,10 @@ enum TestPieceSortOrder {
 
   /// 選択色との色差 (ΔE) が小さい順。色検索時のみ意味を持ち、
   /// 色条件がない場合は [relevance] と同じ
-  colorDistance('色が近い順');
+  colorDistance('色が近い順'),
+
+  /// 評価の高い順。未評価は末尾
+  ratingDesc('評価が高い順');
 
   const TestPieceSortOrder(this.label);
 
@@ -43,12 +48,14 @@ enum TestPieceSortOrder {
 ///    除外される (写しがあれば写しの釉薬名・原料名で検索できる)
 ///  - 原料名のみにマッチしたものは、釉薬名等にマッチしたものより後ろに並ぶ
 ///  - タグは AND
+///  - [minRating] を指定すると、評価がそれ以上のものだけを残す (未評価は外れる)
 ///  - 色検索は ΔE 閾値以下を残す。[TestPieceSortOrder.colorDistance] 指定時は
 ///    ΔE の近い順にソート
 List<TestPiece> filterTestPieces({
   required List<TestPiece> pieces,
   required String query,
   required List<String> selectedTags,
+  int? minRating,
   Color? color,
   double deltaEThreshold = 30.0,
   TestPieceSortOrder sortOrder = TestPieceSortOrder.relevance,
@@ -56,6 +63,7 @@ List<TestPiece> filterTestPieces({
   required Map<String, Clay> clayMap,
   required Map<String, FiringAtmosphere> atmosphereMap,
   required Map<String, FiringProfile> profileMap,
+  required Map<String, Firing> firingMap,
   required Map<String, String> materialMap,
 }) {
   List<TestPiece> filtered = pieces;
@@ -81,8 +89,12 @@ List<TestPiece> filterTestPieces({
       // 釉薬が見つからず、写しもないものは外す
       if (glaze == null && snapshotGlaze == null) continue;
 
-      final atmosphere = atmosphereMap[tp.firingAtmosphereId];
-      final profile = profileMap[tp.firingProfileId];
+      final firing = resolveFiring(
+        tp,
+        firingMap: firingMap,
+        atmosphereMap: atmosphereMap,
+        profileMap: profileMap,
+      );
 
       // 検索対象の文字列を結合して検索しやすくする
       // (釉薬名・素地土名は現存すれば現在の名前、なければ写しの名前。
@@ -91,8 +103,11 @@ List<TestPiece> filterTestPieces({
         glazeDisplayName(tp, glazeMap, fallback: ''),
         ...?glaze?.tags,
         clayDisplayName(tp, clayMap, fallback: ''),
-        atmosphere?.name ?? '',
-        profile?.name ?? '',
+        firing.atmosphereName ?? '',
+        firing.profileName ?? '',
+        firing.kilnName ?? '',
+        if (firing.firedOn != null) formatDate(firing.firedOn!),
+        tp.label ?? '',
       ].join(' ').toLowerCase();
 
       // 原料名の検索対象 (写しがあれば写しの各行、なければ現在の調合)
@@ -144,7 +159,14 @@ List<TestPiece> filterTestPieces({
     }).toList();
   }
 
-  // 3. 色検索 & ソート
+  // 3. 評価
+  if (minRating != null) {
+    filtered = filtered
+        .where((tp) => tp.rating != null && tp.rating! >= minRating)
+        .toList();
+  }
+
+  // 4. 色検索 & ソート
   if (color != null) {
     final targetLabColor = LabColor.fromColor(color);
     final List<(TestPiece, double)> matchedPieces = [];
@@ -173,7 +195,7 @@ List<TestPiece> filterTestPieces({
     filtered = matchedPieces.map((e) => e.$1).toList();
   }
 
-  // 4. 並び替え
+  // 5. 並び替え
   switch (sortOrder) {
     case TestPieceSortOrder.relevance:
     case TestPieceSortOrder.colorDistance:
@@ -187,6 +209,15 @@ List<TestPiece> filterTestPieces({
     case TestPieceSortOrder.oldest:
       filtered = List.of(filtered)
         ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    case TestPieceSortOrder.ratingDesc:
+      // 未評価は 0 として末尾へ。同じ評価の中ではここまでの順序を保つ
+      // (List.sort は安定とは限らないので、元の位置で順位を決める)
+      final indexed = filtered.indexed.toList()
+        ..sort((a, b) {
+          final byRating = (b.$2.rating ?? 0).compareTo(a.$2.rating ?? 0);
+          return byRating != 0 ? byRating : a.$1.compareTo(b.$1);
+        });
+      filtered = indexed.map((e) => e.$2).toList();
   }
 
   return filtered;

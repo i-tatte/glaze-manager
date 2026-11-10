@@ -2,8 +2,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/clay.dart';
-import 'package:glaze_manager/models/firing_atmosphere.dart';
-import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as m;
 import 'package:glaze_manager/models/recipe_snapshot.dart';
@@ -11,6 +9,7 @@ import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/utils/test_piece_display.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/screens/color_pick_screen.dart';
+import 'package:glaze_manager/screens/firing_detail_screen.dart';
 import 'package:glaze_manager/screens/glaze_detail_screen.dart';
 import 'package:glaze_manager/screens/test_piece_edit_screen.dart';
 import 'package:glaze_manager/screens/test_piece_share_screen.dart';
@@ -20,6 +19,7 @@ import 'package:glaze_manager/screens/search_screen.dart';
 import 'package:glaze_manager/widgets/common/app_network_image.dart';
 import 'package:glaze_manager/widgets/common/color_swatch_row.dart';
 import 'package:glaze_manager/widgets/common/info_tile.dart';
+import 'package:glaze_manager/widgets/common/rating_stars.dart';
 import 'package:glaze_manager/widgets/common/recipe_table.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     show ConsumerStatefulWidget, ConsumerState, AsyncValueX;
@@ -59,6 +59,7 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
     final clayMap = ref.watch(clayMapProvider);
     final profileMap = ref.watch(firingProfileMapProvider);
     final atmosphereMap = ref.watch(firingAtmosphereMapProvider);
+    final firingMap = ref.watch(firingMapProvider);
     final materials = ref.watch(materialsProvider).valueOrNull ?? [];
 
     final testPieceAsync = ref.watch(
@@ -82,13 +83,12 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
 
         final Glaze? glaze = glazeMap[testPiece.glazeId];
         final Clay? clay = clayMap[testPiece.clayId];
-        final FiringProfile? firingProfile = testPiece.firingProfileId != null
-            ? profileMap[testPiece.firingProfileId]
-            : null;
-        final FiringAtmosphere? firingAtmosphere =
-            testPiece.firingAtmosphereId != null
-            ? atmosphereMap[testPiece.firingAtmosphereId]
-            : null;
+        final firing = resolveFiring(
+          testPiece,
+          firingMap: firingMap,
+          atmosphereMap: atmosphereMap,
+          profileMap: profileMap,
+        );
 
         return Scaffold(
           appBar: AppBar(
@@ -120,8 +120,7 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
                   testPiece,
                   glaze,
                   clay,
-                  firingProfile,
-                  firingAtmosphere,
+                  firing,
                   constraints,
                   glazeMap,
                   materials,
@@ -131,8 +130,7 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
                   testPiece,
                   glaze,
                   clay,
-                  firingProfile,
-                  firingAtmosphere,
+                  firing,
                   glazeMap,
                   materials,
                 );
@@ -148,8 +146,7 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
     TestPiece testPiece,
     Glaze? glaze,
     Clay? clay,
-    FiringProfile? firingProfile,
-    FiringAtmosphere? firingAtmosphere,
+    ResolvedFiring firing,
     BoxConstraints constraints,
     Map<String, Glaze> glazeMap,
     List<m.Material> materials,
@@ -173,8 +170,7 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
             testPiece,
             glaze,
             clay,
-            firingProfile,
-            firingAtmosphere,
+            firing,
             glazeMap,
             materials,
           ),
@@ -187,8 +183,7 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
     TestPiece testPiece,
     Glaze? glaze,
     Clay? clay,
-    FiringProfile? firingProfile,
-    FiringAtmosphere? firingAtmosphere,
+    ResolvedFiring firing,
     Map<String, Glaze> glazeMap,
     List<m.Material> materials,
   ) {
@@ -198,15 +193,7 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
           padding: const EdgeInsets.all(16.0),
           child: _buildImage(testPiece),
         ),
-        _buildInfoPanel(
-          testPiece,
-          glaze,
-          clay,
-          firingProfile,
-          firingAtmosphere,
-          glazeMap,
-          materials,
-        ),
+        _buildInfoPanel(testPiece, glaze, clay, firing, glazeMap, materials),
       ],
     );
   }
@@ -281,8 +268,7 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
     TestPiece testPiece,
     Glaze? glaze,
     Clay? clay,
-    FiringProfile? firingProfile,
-    FiringAtmosphere? firingAtmosphere,
+    ResolvedFiring firing,
     Map<String, Glaze> glazeMap,
     List<m.Material> materials,
   ) {
@@ -362,6 +348,14 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
             const Divider(height: 32),
           ],
 
+          if (testPiece.rating != null) ...[
+            Text('評価', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 4),
+            RatingStars(rating: testPiece.rating),
+            const SizedBox(height: 8),
+          ],
+          if (testPiece.label != null)
+            InfoTile(label: '番号', value: testPiece.label!),
           InfoTile(
             label: '釉薬名 (メイン)',
             value: glazeDisplayName(testPiece, glazeMap),
@@ -386,13 +380,27 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
             label: '素地土名',
             value: clay?.name ?? testPiece.snapshot?.clayName ?? '未設定',
           ),
+          if (testPiece.firingId != null)
+            InfoTile(
+              label: '焼成回',
+              value: firing.firing?.displayLabel ?? '不明',
+              // 焼成回が現存するときだけ詳細へ飛べる
+              onTap: firing.firing == null
+                  ? null
+                  : () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            FiringDetailScreen(firingId: testPiece.firingId!),
+                      ),
+                    ),
+            ),
           InfoTile(
             label: '焼成雰囲気',
-            value: firingAtmosphere?.name ?? '未設定',
+            value: firing.atmosphereLabel,
             tooltip: '焼成時の窯の雰囲気（酸化・還元など）です。',
           ),
           const Divider(height: 32),
-          if (firingProfile != null) ...[
+          if (firing.profileName != null) ...[
             Row(
               children: [
                 Text(
@@ -409,15 +417,19 @@ class _TestPieceDetailScreenState extends ConsumerState<TestPieceDetailScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              firingProfile.name,
+              firing.profileName!,
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 16),
-            if (firingProfile.curveData != null &&
-                firingProfile.curveData!.isNotEmpty)
-              FiringChart.fromProfile(firingProfile),
+            if (firing.curveData != null && firing.curveData!.isNotEmpty)
+              FiringChart(
+                curveData: firing.curveData!,
+                isReduction: firing.isReduction,
+                reductionStartTemp: firing.reductionStartTemp,
+                reductionEndTemp: firing.reductionEndTemp,
+              ),
           ] else
-            const InfoTile(label: '焼成プロファイル', value: '未設定'),
+            InfoTile(label: '焼成プロファイル', value: firing.profileLabel),
 
           if (testPiece.note != null && testPiece.note!.isNotEmpty) ...[
             const Divider(height: 32),

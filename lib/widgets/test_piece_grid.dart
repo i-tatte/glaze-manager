@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:glaze_manager/models/clay.dart';
+import 'package:glaze_manager/models/firing.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
@@ -13,6 +14,7 @@ class TestPieceGrid extends StatelessWidget {
   final Map<String, Clay> clayMap;
   final Map<String, FiringAtmosphere> firingAtmosphereMap;
   final Map<String, FiringProfile> firingProfileMap;
+  final Map<String, Firing> firingMap;
   final int crossAxisCount;
   final Future<void> Function()? onRefresh;
 
@@ -23,6 +25,7 @@ class TestPieceGrid extends StatelessWidget {
     required this.clayMap,
     required this.firingAtmosphereMap,
     required this.firingProfileMap,
+    required this.firingMap,
     required this.crossAxisCount,
     this.onRefresh,
   });
@@ -56,23 +59,24 @@ class TestPieceGrid extends StatelessWidget {
     required Map<String, Clay> clayMap,
     required Map<String, FiringAtmosphere> firingAtmosphereMap,
     required Map<String, FiringProfile> firingProfileMap,
+    required Map<String, Firing> firingMap,
   }) {
     final glazeName = glazeDisplayName(testPiece, glazeMap);
     final clayName = clayDisplayName(testPiece, clayMap);
-    final firingAtmosphere = firingAtmosphereMap[testPiece.firingAtmosphereId];
-    final firingAtmosphereName = firingAtmosphere?.name ?? '不明な雰囲気';
-    final firingAtmosphereType =
-        firingAtmosphere?.type ?? FiringAtmosphereType.other;
-    final firingProfileName =
-        firingProfileMap[testPiece.firingProfileId]?.name ?? '不明なプロファイル';
+    final resolved = resolveFiring(
+      testPiece,
+      firingMap: firingMap,
+      atmosphereMap: firingAtmosphereMap,
+      profileMap: firingProfileMap,
+    );
 
     return TestPieceCard(
       testPiece: testPiece,
       glazeName: glazeName,
       clayName: clayName,
-      firingAtmosphereName: firingAtmosphereName,
-      firingAtmosphereType: firingAtmosphereType,
-      firingProfileName: firingProfileName,
+      firingAtmosphereName: resolved.atmosphereLabel,
+      firingAtmosphereType: resolved.atmosphereType,
+      firingProfileName: resolved.profileLabel,
     );
   }
 
@@ -90,6 +94,7 @@ class TestPieceGrid extends StatelessWidget {
         clayMap: clayMap,
         firingAtmosphereMap: firingAtmosphereMap,
         firingProfileMap: firingProfileMap,
+        firingMap: firingMap,
       ),
     );
 

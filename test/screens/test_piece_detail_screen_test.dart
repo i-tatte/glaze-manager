@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/models/clay.dart';
+import 'package:glaze_manager/models/firing.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
@@ -25,6 +26,7 @@ class ManualMockFirestoreService implements FirestoreService {
   FiringProfile? firingProfileToReturn;
   FiringAtmosphere? firingAtmosphereToReturn;
   List<m.Material>? materialsToReturn;
+  List<Firing> firingsToReturn = [];
 
   @override
   Stream<TestPiece> getTestPieceStream(String id) => testPieceController.stream;
@@ -82,6 +84,9 @@ class ManualMockFirestoreService implements FirestoreService {
   Stream<List<FiringAtmosphere>> getFiringAtmospheres() => Stream.value([
     if (firingAtmosphereToReturn != null) firingAtmosphereToReturn!,
   ]);
+
+  @override
+  Stream<List<Firing>> getFirings() => Stream.value(firingsToReturn);
 
   @override
   Stream<List<String>> getTags() => Stream.value(<String>[]);
@@ -333,6 +338,86 @@ void main() {
         expect(find.text('不明な釉薬'), findsNWidgets(2));
         expect(find.text('調合'), findsNothing);
       });
+    });
+  });
+
+  group('評価・番号・焼成回の表示', () {
+    Future<void> pumpDetail(WidgetTester tester, TestPiece piece) async {
+      tester.view.physicalSize = const Size(1080, 1920);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      mockFirestoreService.glazeToReturn = Glaze(
+        id: 'g1',
+        name: 'Glaze 1',
+        recipe: {},
+        tags: [],
+        createdAt: Timestamp.now(),
+      );
+      await tester.pumpWidget(
+        createTestableWidget(TestPieceDetailScreen(testPiece: piece)),
+      );
+      mockFirestoreService.testPieceController.add(piece);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('評価と番号を表示する', (tester) async {
+      await pumpDetail(
+        tester,
+        TestPiece(
+          id: 'tp1',
+          glazeId: 'g1',
+          clayId: 'c1',
+          createdAt: Timestamp.now(),
+          rating: 3,
+          label: '1108-3',
+        ),
+      );
+      expect(find.text('番号'), findsOneWidget);
+      expect(find.text('1108-3'), findsOneWidget);
+      expect(find.byIcon(Icons.star), findsNWidgets(3));
+    });
+
+    testWidgets('焼成回を参照していれば、焼成回の写しから焼成の情報を出す', (tester) async {
+      mockFirestoreService.firingsToReturn = [
+        Firing(
+          id: 'f1',
+          firedOn: Firing.noonOf(DateTime(2026, 11, 8)),
+          kilnName: '電気窯',
+          firingAtmosphereId: 'a-deleted',
+          atmosphereName: '還元 (写し)',
+          firingProfileId: 'p-deleted',
+          profile: const FiringProfileSnapshot(name: '本焼き (写し)'),
+          createdAt: Timestamp.now(),
+        ),
+      ];
+      await pumpDetail(
+        tester,
+        TestPiece(
+          id: 'tp1',
+          glazeId: 'g1',
+          clayId: 'c1',
+          createdAt: Timestamp.now(),
+          firingId: 'f1',
+        ),
+      );
+      expect(find.text('2026/11/8 電気窯'), findsOneWidget);
+      expect(find.text('還元 (写し)'), findsOneWidget);
+      expect(find.text('本焼き (写し)'), findsOneWidget);
+    });
+
+    testWidgets('焼成回が見つからなければ「不明」と出す', (tester) async {
+      await pumpDetail(
+        tester,
+        TestPiece(
+          id: 'tp1',
+          glazeId: 'g1',
+          clayId: 'c1',
+          createdAt: Timestamp.now(),
+          firingId: 'f-deleted',
+        ),
+      );
+      // 焼成回、焼成雰囲気、焼成プロファイル
+      expect(find.text('不明'), findsNWidgets(3));
     });
   });
 }

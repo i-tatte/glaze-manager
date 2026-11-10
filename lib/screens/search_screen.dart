@@ -5,6 +5,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/models/clay.dart';
+import 'package:glaze_manager/models/firing.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
@@ -38,6 +39,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Color? _searchColor;
   double _deltaEThreshold = 30.0;
   final List<String> _selectedTags = [];
+
+  /// 評価の下限。null は指定なし
+  int? _minRating;
 
   List<TestPiece> _searchResults = [];
   bool _isGridView = true;
@@ -73,6 +77,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ref.read(firingAtmosphereMapProvider);
   Map<String, FiringProfile> get _profileMap =>
       ref.read(firingProfileMapProvider);
+  Map<String, Firing> get _firingMap => ref.read(firingMapProvider);
   Map<String, String> get _materialMap => ref.read(materialNameMapProvider);
   List<String> get _allTags => ref.read(tagsProvider).valueOrNull ?? [];
 
@@ -100,7 +105,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     if (_searchController.text.isEmpty &&
         _isSearching &&
         _searchColor == null &&
-        _selectedTags.isEmpty) {
+        _selectedTags.isEmpty &&
+        _minRating == null) {
       setState(() {
         _isSearching = false;
         _searchResults.clear();
@@ -120,6 +126,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       pieces: _allTestPieces,
       query: _searchQuery,
       selectedTags: _selectedTags,
+      minRating: _minRating,
       color: _searchColor,
       deltaEThreshold: _deltaEThreshold,
       sortOrder: _effectiveSortOrder,
@@ -127,6 +134,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       clayMap: _clayMap,
       atmosphereMap: _atmosphereMap,
       profileMap: _profileMap,
+      firingMap: _firingMap,
       materialMap: _materialMap,
     );
 
@@ -135,11 +143,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       _isLoading = false;
       if (_searchQuery.isEmpty &&
           _searchColor == null &&
-          _selectedTags.isEmpty) {
+          _selectedTags.isEmpty &&
+          _minRating == null) {
         _isSearching = false;
       }
     });
   }
+
+  ResolvedFiring _resolveFiring(TestPiece testPiece) => resolveFiring(
+    testPiece,
+    firingMap: _firingMap,
+    atmosphereMap: _atmosphereMap,
+    profileMap: _profileMap,
+  );
+
+  /// 評価の下限の表示名。「★3 以上」。★5 はそれ以上がないので「★5」
+  static String _minRatingLabel(int rating) =>
+      rating >= 5 ? '★$rating' : '★$rating 以上';
 
   void _performTextSearch(String query) {
     setState(() {
@@ -306,6 +326,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     ref.watch(claysProvider);
     ref.watch(firingAtmospheresProvider);
     ref.watch(firingProfilesProvider);
+    ref.watch(firingsProvider);
     ref.watch(materialsProvider);
     ref.watch(tagsProvider);
 
@@ -318,6 +339,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       } else if (_isSearching) {
         _applyFilters();
       }
+    });
+
+    // 焼成回を編集してもテストピースの文書は変わらないので、
+    // 窯の名前や焼成日での検索結果を追従させるために焼成回の変化でも検索し直す
+    ref.listen(firingsProvider, (previous, next) {
+      if (!next.hasValue) return;
+      if (_isSearching) _applyFilters();
     });
 
     // 詳細画面などから initialColor 付きで遷移してきたとき、testPiecesProvider が
@@ -341,7 +369,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             _buildSearchBar(),
             if (_selectedTags.isNotEmpty ||
                 _searchColor != null ||
-                _searchQuery.isNotEmpty)
+                _searchQuery.isNotEmpty ||
+                _minRating != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: SizedBox(
@@ -410,6 +439,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             _applyFilters();
                           },
                         ),
+                      if (_minRating != null)
+                        Chip(
+                          avatar: const Icon(Icons.star_outline, size: 18),
+                          label: Text(_minRatingLabel(_minRating!)),
+                          onDeleted: () {
+                            setState(() {
+                              _minRating = null;
+                            });
+                            _applyFilters();
+                          },
+                        ),
                       ..._selectedTags.map((tag) {
                         return TagChip(
                           label: tag,
@@ -423,7 +463,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       }),
                       if (_selectedTags.isNotEmpty ||
                           _searchColor != null ||
-                          _searchQuery.isNotEmpty)
+                          _searchQuery.isNotEmpty ||
+                          _minRating != null)
                         TextButton.icon(
                           onPressed: () {
                             setState(() {
@@ -431,6 +472,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               _searchQuery = '';
                               _searchColor = null;
                               _selectedTags.clear();
+                              _minRating = null;
                             });
                             _applyFilters();
                           },
@@ -547,6 +589,36 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       ),
                       onPressed: _openTagSelector,
                       tooltip: 'タグで検索',
+                    ),
+                    PopupMenuButton<int>(
+                      icon: Icon(
+                        _minRating == null ? Icons.star_outline : Icons.star,
+                        color: _minRating != null
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                      tooltip: '評価で絞り込み',
+                      onSelected: (value) {
+                        setState(() {
+                          _minRating = value == 0 ? null : value;
+                        });
+                        _applyFilters();
+                      },
+                      itemBuilder: (context) => [
+                        // PopupMenuButton は null の値を選択として扱わないので、
+                        // 「指定なし」は 0 で表す
+                        CheckedPopupMenuItem(
+                          value: 0,
+                          checked: _minRating == null,
+                          child: const Text('指定なし'),
+                        ),
+                        for (var rating = 1; rating <= 5; rating++)
+                          CheckedPopupMenuItem(
+                            value: rating,
+                            checked: _minRating == rating,
+                            child: Text(_minRatingLabel(rating)),
+                          ),
+                      ],
                     ),
                   ],
                 ),
@@ -690,16 +762,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               testPiece,
                               _clayMap,
                             );
-                            final firingAtmosphere =
-                                _atmosphereMap[testPiece.firingAtmosphereId];
-                            final firingAtmosphereName =
-                                firingAtmosphere?.name ?? '不明な雰囲気';
-                            final firingAtmosphereType =
-                                firingAtmosphere?.type ??
-                                FiringAtmosphereType.other;
-                            final firingProfileName =
-                                _profileMap[testPiece.firingProfileId]?.name ??
-                                '不明なプロファイル';
+                            final firing = _resolveFiring(testPiece);
 
                             return SizedBox(
                               width: 160, // カードの幅
@@ -712,9 +775,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                   testPiece: testPiece,
                                   glazeName: glazeName,
                                   clayName: clayName,
-                                  firingAtmosphereName: firingAtmosphereName,
-                                  firingAtmosphereType: firingAtmosphereType,
-                                  firingProfileName: firingProfileName,
+                                  firingAtmosphereName: firing.atmosphereLabel,
+                                  firingAtmosphereType: firing.atmosphereType,
+                                  firingProfileName: firing.profileLabel,
                                 ),
                               ),
                             );
@@ -809,6 +872,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   clayMap: _clayMap,
                   firingAtmosphereMap: _atmosphereMap,
                   firingProfileMap: _profileMap,
+                  firingMap: _firingMap,
                   crossAxisCount: crossAxisCount,
                 )
               : ListView.builder(
@@ -817,23 +881,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     final testPiece = _searchResults[index];
                     final glazeName = glazeDisplayName(testPiece, _glazeMap);
                     final clayName = clayDisplayName(testPiece, _clayMap);
-                    final firingAtmosphere =
-                        _atmosphereMap[testPiece.firingAtmosphereId];
-                    final firingAtmosphereName =
-                        firingAtmosphere?.name ?? '不明な雰囲気';
-                    final firingAtmosphereType =
-                        firingAtmosphere?.type ?? FiringAtmosphereType.other;
-                    final firingProfileName =
-                        _profileMap[testPiece.firingProfileId]?.name ??
-                        '不明なプロファイル';
+                    final firing = _resolveFiring(testPiece);
 
                     return TestPieceListTile(
                       testPiece: testPiece,
                       glazeName: glazeName,
                       clayName: clayName,
-                      firingAtmosphereName: firingAtmosphereName,
-                      firingAtmosphereType: firingAtmosphereType,
-                      firingProfileName: firingProfileName,
+                      firingAtmosphereName: firing.atmosphereLabel,
+                      firingAtmosphereType: firing.atmosphereType,
+                      firingProfileName: firing.profileLabel,
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(

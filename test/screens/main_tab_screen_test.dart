@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:glaze_manager/models/firing.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/models/clay.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
@@ -35,6 +36,10 @@ void main() {
   setUp(() {
     mockAuthService = MockAuthService();
     mockFirestoreService = MockFirestoreService();
+
+    when(
+      mockFirestoreService.getFirings(),
+    ).thenAnswer((_) => Stream.value(<Firing>[]));
     mockSettingsService = MockSettingsService();
 
     // モックのデフォルトの振る舞いを設定

@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:glaze_manager/models/clay.dart';
+import 'package:glaze_manager/models/firing.dart';
 import 'package:glaze_manager/models/firing_atmosphere.dart';
 import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/lab_color.dart';
@@ -10,12 +11,32 @@ import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/models/test_piece_group_key.dart';
 import 'package:glaze_manager/utils/test_piece_grouping.dart';
 
-TestPiece _piece(String id, {String clayId = 'c1', List<LabColor>? colorData}) {
+TestPiece _piece(
+  String id, {
+  String clayId = 'c1',
+  List<LabColor>? colorData,
+  int? rating,
+  String? firingId,
+  String? firingAtmosphereId,
+}) {
   return TestPiece(
     id: id,
     glazeId: 'g1',
     clayId: clayId,
     colorData: colorData,
+    createdAt: Timestamp.now(),
+    rating: rating,
+    firingId: firingId,
+    firingAtmosphereId: firingAtmosphereId,
+  );
+}
+
+Firing _firing(String id, DateTime firedOn, {String? kiln, String? atmo}) {
+  return Firing(
+    id: id,
+    firedOn: Timestamp.fromDate(firedOn),
+    kilnName: kiln,
+    atmosphereName: atmo,
     createdAt: Timestamp.now(),
   );
 }
@@ -35,13 +56,16 @@ List<TestPieceGroup> _group(
   List<TestPiece> pieces,
   TestPieceGroupKey key, {
   Map<String, Clay> clayMap = const {},
+  Map<String, FiringAtmosphere> atmosphereMap = const {},
+  Map<String, Firing> firingMap = const {},
 }) {
   return groupTestPieces(
     pieces: pieces,
     key: key,
     clayMap: clayMap,
-    atmosphereMap: const <String, FiringAtmosphere>{},
+    atmosphereMap: atmosphereMap,
     profileMap: const <String, FiringProfile>{},
+    firingMap: firingMap,
   );
 }
 
@@ -146,6 +170,84 @@ void main() {
       expect(groups[0].pieces, [red]);
       expect(groups[1].pieces, [blue]);
       expect(groups[2].pieces, [noData]);
+    });
+  });
+
+  group('評価のグループ', () {
+    test('★5〜★1、未評価の固定順。空のグループは返さない', () {
+      final p1 = _piece('p1', rating: 1);
+      final p5 = _piece('p5', rating: 5);
+      final pNone = _piece('pNone');
+      final p3a = _piece('p3a', rating: 3);
+      final p3b = _piece('p3b', rating: 3);
+
+      final groups = _group([
+        p1,
+        p3a,
+        pNone,
+        p5,
+        p3b,
+      ], TestPieceGroupKey.rating);
+
+      expect(groups.map((g) => g.label), ['★5', '★3', '★1', '未評価']);
+      expect(groups[1].pieces, [p3a, p3b]);
+    });
+  });
+
+  group('焼成回のグループ', () {
+    test('焼成日の降順、末尾に「焼成回なし」「不明」', () {
+      final older = _firing('f-old', DateTime(2026, 10, 1, 12), kiln: '電気窯');
+      final newer = _firing('f-new', DateTime(2026, 11, 8, 12), kiln: 'ガス窯');
+      final firingMap = {'f-old': older, 'f-new': newer};
+
+      final pOld = _piece('pOld', firingId: 'f-old');
+      final pNew = _piece('pNew', firingId: 'f-new');
+      final pNone = _piece('pNone');
+      final pMissing = _piece('pMissing', firingId: 'f-deleted');
+
+      final groups = _group(
+        [pNone, pOld, pMissing, pNew],
+        TestPieceGroupKey.firing,
+        firingMap: firingMap,
+      );
+
+      expect(groups.map((g) => g.label), [
+        '2026/11/8 ガス窯',
+        '2026/10/1 電気窯',
+        '焼成回なし',
+        '不明',
+      ]);
+      expect(groups.map((g) => g.firingId), ['f-new', 'f-old', null, null]);
+    });
+
+    test('同じ日・同じ窯でも焼成回が違えば別のグループ', () {
+      final a = _firing('a', DateTime(2026, 11, 8, 12), kiln: '電気窯');
+      final b = _firing('b', DateTime(2026, 11, 8, 12), kiln: '電気窯');
+      final groups = _group(
+        [_piece('pa', firingId: 'a'), _piece('pb', firingId: 'b')],
+        TestPieceGroupKey.firing,
+        firingMap: {'a': a, 'b': b},
+      );
+      expect(groups.length, 2);
+      expect(groups.map((g) => g.label).toSet(), {'2026/11/8 電気窯'});
+    });
+
+    test('焼成雰囲気のグループは焼成回から解決した名前で束ねる', () {
+      final firing = _firing('f1', DateTime(2026, 11, 8, 12), atmo: '還元');
+      final atmosphereMap = {'a1': FiringAtmosphere(id: 'a1', name: '還元')};
+      final viaFiring = _piece('viaFiring', firingId: 'f1');
+      final direct = _piece('direct', firingAtmosphereId: 'a1');
+      final missing = _piece('missing', firingId: 'f-deleted');
+
+      final groups = _group(
+        [viaFiring, direct, missing],
+        TestPieceGroupKey.firingAtmosphere,
+        atmosphereMap: atmosphereMap,
+        firingMap: {'f1': firing},
+      );
+
+      expect(groups.map((g) => g.label), ['還元', '不明']);
+      expect(groups.first.pieces, [viaFiring, direct]);
     });
   });
 }

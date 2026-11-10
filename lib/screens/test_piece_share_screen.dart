@@ -5,17 +5,18 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     show ConsumerStatefulWidget, ConsumerState, AsyncValueX;
-import 'package:glaze_manager/models/firing_profile.dart';
 import 'package:glaze_manager/models/glaze.dart';
 import 'package:glaze_manager/models/material.dart' as m;
 import 'package:glaze_manager/models/test_piece.dart';
 import 'package:glaze_manager/providers/data_providers.dart';
 import 'package:glaze_manager/theme/app_theme.dart';
+import 'package:glaze_manager/utils/date_format.dart';
 import 'package:glaze_manager/utils/png_exporter.dart';
 import 'package:glaze_manager/utils/test_piece_display.dart';
 import 'package:glaze_manager/widgets/common/app_network_image.dart';
 import 'package:glaze_manager/widgets/common/color_swatch_row.dart';
 import 'package:glaze_manager/widgets/common/info_tile.dart';
+import 'package:glaze_manager/widgets/common/rating_stars.dart';
 import 'package:glaze_manager/widgets/common/recipe_table.dart';
 import 'package:glaze_manager/widgets/firing_chart.dart';
 
@@ -118,6 +119,7 @@ class _TestPieceShareScreenState extends ConsumerState<TestPieceShareScreen> {
     final clayMap = ref.watch(clayMapProvider);
     final atmosphereMap = ref.watch(firingAtmosphereMapProvider);
     final profileMap = ref.watch(firingProfileMapProvider);
+    final firingMap = ref.watch(firingMapProvider);
     final materials = ref.watch(materialsProvider).valueOrNull ?? [];
 
     final glaze = glazeMap[testPiece.glazeId];
@@ -156,8 +158,12 @@ class _TestPieceShareScreenState extends ConsumerState<TestPieceShareScreen> {
                         glaze,
                         glazeName,
                         clayDisplayName(testPiece, clayMap, fallback: '未設定'),
-                        atmosphereMap[testPiece.firingAtmosphereId]?.name,
-                        profileMap[testPiece.firingProfileId],
+                        resolveFiring(
+                          testPiece,
+                          firingMap: firingMap,
+                          atmosphereMap: atmosphereMap,
+                          profileMap: profileMap,
+                        ),
                         materials,
                       ),
                     ),
@@ -183,13 +189,12 @@ class _TestPieceShareScreenState extends ConsumerState<TestPieceShareScreen> {
     Glaze? glaze,
     String glazeName,
     String? clayName,
-    String? atmosphereName,
-    FiringProfile? firingProfile,
+    ResolvedFiring firing,
     List<m.Material> materials,
   ) {
     final theme = AppTheme.light;
     final createdAt = testPiece.createdAt.toDate();
-    final dateText = '${createdAt.year}/${createdAt.month}/${createdAt.day}';
+    final dateText = formatDate(createdAt);
     final glazeMap = ref.read(glazeMapProvider);
     final additionalGlazeNames = [
       for (final id in testPiece.additionalGlazeIds)
@@ -224,6 +229,10 @@ class _TestPieceShareScreenState extends ConsumerState<TestPieceShareScreen> {
                   Text(dateText, style: theme.textTheme.bodySmall),
                 ],
               ),
+              if (testPiece.rating != null) ...[
+                const SizedBox(height: 8),
+                RatingStars(rating: testPiece.rating),
+              ],
               const SizedBox(height: 16),
               if (testPiece.imageUrl != null) ...[
                 AspectRatio(
@@ -256,23 +265,26 @@ class _TestPieceShareScreenState extends ConsumerState<TestPieceShareScreen> {
               if (additionalGlazeNames.isNotEmpty)
                 InfoTile(label: '追加の釉薬', value: additionalGlazeNames.join('、')),
               InfoTile(label: '素地土名', value: clayName ?? '未設定'),
-              InfoTile(label: '焼成雰囲気', value: atmosphereName ?? '未設定'),
-              if (firingProfile != null) ...[
+              InfoTile(label: '焼成雰囲気', value: firing.atmosphereLabel),
+              if (firing.profileName != null) ...[
                 const Divider(height: 32),
                 Text('焼成プロファイル', style: theme.textTheme.titleMedium),
                 const SizedBox(height: 8),
-                Text(firingProfile.name, style: theme.textTheme.bodyLarge),
-                if (firingProfile.curveData != null &&
-                    firingProfile.curveData!.isNotEmpty) ...[
+                Text(firing.profileName!, style: theme.textTheme.bodyLarge),
+                if (firing.curveData != null &&
+                    firing.curveData!.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  FiringChart.fromProfile(
-                    firingProfile,
+                  FiringChart(
+                    curveData: firing.curveData!,
+                    isReduction: firing.isReduction,
+                    reductionStartTemp: firing.reductionStartTemp,
+                    reductionEndTemp: firing.reductionEndTemp,
                     // キャプチャに補間アニメの中間フレームが写らないようにする
                     duration: Duration.zero,
                   ),
                 ],
               ] else
-                const InfoTile(label: '焼成プロファイル', value: '未設定'),
+                InfoTile(label: '焼成プロファイル', value: firing.profileLabel),
               if (testPiece.note != null && testPiece.note!.isNotEmpty) ...[
                 const Divider(height: 32),
                 Text('備考', style: theme.textTheme.titleMedium),

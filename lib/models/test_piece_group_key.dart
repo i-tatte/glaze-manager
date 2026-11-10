@@ -5,7 +5,9 @@ enum TestPieceGroupKey {
   clay('素地土'),
   firingAtmosphere('焼成雰囲気'),
   firingProfile('焼成プロファイル'),
-  colorHue('色味');
+  firing('焼成回'),
+  colorHue('色味'),
+  rating('評価');
 
   const TestPieceGroupKey(this.label);
 
