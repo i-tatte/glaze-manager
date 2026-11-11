@@ -21,58 +21,58 @@ class FiringAtmosphereListScreen extends ConsumerWidget {
           ref
               .watch(firingAtmospheresProvider)
               .when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => Center(child: Text('エラーが発生しました: $error')),
-            data: (atmospheres) {
-              if (atmospheres.isEmpty) {
-                return const EmptyListPlaceholder(
-                  message: '焼成雰囲気が登録されていません。\n右下のボタンから追加してください。',
-                );
-              }
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => Center(child: Text('エラーが発生しました: $error')),
+                data: (atmospheres) {
+                  if (atmospheres.isEmpty) {
+                    return const EmptyListPlaceholder(
+                      message: '焼成雰囲気が登録されていません。\n右下のボタンから追加してください。',
+                    );
+                  }
 
-              return ListView.builder(
-                itemCount: atmospheres.length,
-                itemBuilder: (context, index) {
-                  final atmosphere = atmospheres[index];
-                  return ListTile(
-                    title: Text(atmosphere.name),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined),
-                          tooltip: '編集',
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    FiringAtmosphereEditScreen(
-                                      atmosphere: atmosphere,
-                                    ),
+                  return ListView.builder(
+                    itemCount: atmospheres.length,
+                    itemBuilder: (context, index) {
+                      final atmosphere = atmospheres[index];
+                      return ListTile(
+                        title: Text(atmosphere.name),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined),
+                              tooltip: '編集',
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        FiringAtmosphereEditScreen(
+                                          atmosphere: atmosphere,
+                                        ),
+                                  ),
+                                );
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
                               ),
-                            );
-                          },
+                              tooltip: '削除',
+                              onPressed: () => _confirmDelete(
+                                context,
+                                ref,
+                                firestoreService,
+                                atmosphere,
+                              ),
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            color: Colors.red,
-                          ),
-                          tooltip: '削除',
-                          onPressed: () => _confirmDelete(
-                            context,
-                            ref,
-                            firestoreService,
-                            atmosphere,
-                          ),
-                        ),
-                      ],
-                    ),
+                      );
+                    },
                   );
                 },
-              );
-            },
-          ),
+              ),
           Positioned(
             bottom: 16.0,
             right: 16.0,

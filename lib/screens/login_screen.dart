@@ -260,9 +260,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (e is! GoogleSignInCanceled) {
         debugPrint("Sign-in failed: $e");
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('サインインに失敗しました: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('サインインに失敗しました: $e')));
         }
       }
     }

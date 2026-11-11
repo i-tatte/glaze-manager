@@ -21,56 +21,58 @@ class FiringProfileListScreen extends ConsumerWidget {
           ref
               .watch(firingProfilesProvider)
               .when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => Center(child: Text('エラーが発生しました: $error')),
-            data: (profiles) {
-              if (profiles.isEmpty) {
-                return const EmptyListPlaceholder(
-                  message: '焼成プロファイルが登録されていません。\n右下のボタンから追加してください。',
-                );
-              }
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => Center(child: Text('エラーが発生しました: $error')),
+                data: (profiles) {
+                  if (profiles.isEmpty) {
+                    return const EmptyListPlaceholder(
+                      message: '焼成プロファイルが登録されていません。\n右下のボタンから追加してください。',
+                    );
+                  }
 
-              return ListView.builder(
-                itemCount: profiles.length,
-                itemBuilder: (context, index) {
-                  final profile = profiles[index];
-                  return ListTile(
-                    title: Text(profile.name),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined),
-                          tooltip: '編集',
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    FiringProfileEditScreen(profile: profile),
+                  return ListView.builder(
+                    itemCount: profiles.length,
+                    itemBuilder: (context, index) {
+                      final profile = profiles[index];
+                      return ListTile(
+                        title: Text(profile.name),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined),
+                              tooltip: '編集',
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        FiringProfileEditScreen(
+                                          profile: profile,
+                                        ),
+                                  ),
+                                );
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
                               ),
-                            );
-                          },
+                              tooltip: '削除',
+                              onPressed: () => _confirmDelete(
+                                context,
+                                ref,
+                                firestoreService,
+                                profile,
+                              ),
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            color: Colors.red,
-                          ),
-                          tooltip: '削除',
-                          onPressed: () => _confirmDelete(
-                            context,
-                            ref,
-                            firestoreService,
-                            profile,
-                          ),
-                        ),
-                      ],
-                    ),
+                      );
+                    },
                   );
                 },
-              );
-            },
-          ),
+              ),
           Positioned(
             bottom: 16.0,
             right: 16.0,

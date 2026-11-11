@@ -69,10 +69,8 @@ class _MaterialDetailScreenState extends ConsumerState<MaterialDetailScreen> {
                   columnLabels: const ['成分名', '量 (%)'],
                   rows: material.components.entries
                       .map(
-                        (entry) => StripedDataRow([
-                          entry.key,
-                          entry.value.toString(),
-                        ]),
+                        (entry) =>
+                            StripedDataRow([entry.key, entry.value.toString()]),
                       )
                       .toList(),
                 ),

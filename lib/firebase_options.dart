@@ -6,7 +6,9 @@ import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
 class DefaultFirebaseOptions {
-  static const _androidApiKey = String.fromEnvironment('FIREBASE_ANDROID_API_KEY');
+  static const _androidApiKey = String.fromEnvironment(
+    'FIREBASE_ANDROID_API_KEY',
+  );
   static const _iosApiKey = String.fromEnvironment('FIREBASE_IOS_API_KEY');
   static const _webApiKey = String.fromEnvironment('FIREBASE_WEB_API_KEY');
 

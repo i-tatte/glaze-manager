@@ -12,35 +12,34 @@ class TagManagementWidget extends ConsumerWidget {
     final firestoreService = ref.read(firestoreServiceProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('タグ管理'),
-      ),
+      appBar: AppBar(title: const Text('タグ管理')),
       body: ref
           .watch(tagsProvider)
           .when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('エラーが発生しました: $error')),
-        data: (tags) {
-          if (tags.isEmpty) {
-            return const Center(child: Text('登録されているタグはありません'));
-          }
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, _) => Center(child: Text('エラーが発生しました: $error')),
+            data: (tags) {
+              if (tags.isEmpty) {
+                return const Center(child: Text('登録されているタグはありません'));
+              }
 
-          return ListView.separated(
-            itemCount: tags.length,
-            separatorBuilder: (context, index) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final tag = tags[index];
-              return ListTile(
-                title: Text(tag),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  onPressed: () => _confirmDelete(context, firestoreService, tag),
-                ),
+              return ListView.separated(
+                itemCount: tags.length,
+                separatorBuilder: (context, index) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final tag = tags[index];
+                  return ListTile(
+                    title: Text(tag),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                      onPressed: () =>
+                          _confirmDelete(context, firestoreService, tag),
+                    ),
+                  );
+                },
               );
             },
-          );
-        },
-      ),
+          ),
     );
   }
 
@@ -75,15 +74,15 @@ class TagManagementWidget extends ConsumerWidget {
       try {
         await firestoreService.deleteTag(tag);
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('タグ「$tag」を削除しました')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('タグ「$tag」を削除しました')));
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('削除に失敗しました: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
         }
       }
     }

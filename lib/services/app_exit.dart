@@ -32,13 +32,17 @@ final _user32 = DynamicLibrary.open('user32.dll');
 final _getForegroundWindow = _user32
     .lookupFunction<IntPtr Function(), int Function()>('GetForegroundWindow');
 
-final _getWindowThreadProcessId = _user32.lookupFunction<
-    Uint32 Function(IntPtr, Pointer<Uint32>),
-    int Function(int, Pointer<Uint32>)>('GetWindowThreadProcessId');
+final _getWindowThreadProcessId = _user32
+    .lookupFunction<
+      Uint32 Function(IntPtr, Pointer<Uint32>),
+      int Function(int, Pointer<Uint32>)
+    >('GetWindowThreadProcessId');
 
-final _postMessage = _user32.lookupFunction<
-    Int32 Function(IntPtr, Uint32, IntPtr, IntPtr),
-    int Function(int, int, int, int)>('PostMessageW');
+final _postMessage = _user32
+    .lookupFunction<
+      Int32 Function(IntPtr, Uint32, IntPtr, IntPtr),
+      int Function(int, int, int, int)
+    >('PostMessageW');
 
 /// フォアグラウンドウィンドウが自プロセスのものであれば WM_CLOSE を送る。
 /// 送れなかった場合は false を返す (呼び出し側で exit にフォールバック)。

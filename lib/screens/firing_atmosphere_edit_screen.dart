@@ -90,10 +90,7 @@ class _FiringAtmosphereEditScreenState
         appBar: AppBar(
           title: Text(widget.atmosphere == null ? '雰囲気の新規作成' : '雰囲気の編集'),
           actions: [
-            CommonAppBarActions(
-              onDelete: null,
-              onSave: _saveAtmosphere,
-            ),
+            CommonAppBarActions(onDelete: null, onSave: _saveAtmosphere),
           ],
         ),
         body: Form(

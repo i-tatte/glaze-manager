@@ -114,22 +114,14 @@ class _FiringProfileEditScreenState
 
   @override
   Widget build(BuildContext context) {
-    return UnsavedChangesPopScope(
-      isDirty: _isDirty,
-      child: _buildScaffold(),
-    );
+    return UnsavedChangesPopScope(isDirty: _isDirty, child: _buildScaffold());
   }
 
   Widget _buildScaffold() {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.profile == null ? 'プロファイルの新規作成' : 'プロファイルの編集'),
-        actions: [
-          CommonAppBarActions(
-            onDelete: null,
-            onSave: _saveProfile,
-          ),
-        ],
+        actions: [CommonAppBarActions(onDelete: null, onSave: _saveProfile)],
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {

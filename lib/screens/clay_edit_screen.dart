@@ -87,12 +87,7 @@ class _ClayEditScreenState extends ConsumerState<ClayEditScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(widget.clay == null ? '素地土の新規作成' : '素地土の編集'),
-          actions: [
-            CommonAppBarActions(
-              onDelete: null,
-              onSave: _saveClay,
-            ),
-          ],
+          actions: [CommonAppBarActions(onDelete: null, onSave: _saveClay)],
         ),
         body: Form(
           key: _formKey,

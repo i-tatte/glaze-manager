@@ -13,7 +13,8 @@ class EmailPasswordLoginScreen extends ConsumerStatefulWidget {
       _EmailPasswordLoginScreenState();
 }
 
-class _EmailPasswordLoginScreenState extends ConsumerState<EmailPasswordLoginScreen> {
+class _EmailPasswordLoginScreenState
+    extends ConsumerState<EmailPasswordLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();

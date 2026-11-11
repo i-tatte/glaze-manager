@@ -40,7 +40,10 @@ class ImagePixelSampler {
     return ImagePixelSampler._(
       image.width,
       image.height,
-      byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes),
+      byteData.buffer.asUint8List(
+        byteData.offsetInBytes,
+        byteData.lengthInBytes,
+      ),
     );
   }
 
@@ -102,11 +105,7 @@ Offset? scenePointToPixel(
 }
 
 /// [scenePointToPixel] の逆変換。マーカー描画位置の算出に使う。
-Offset pixelToScenePoint(
-  Offset pixel,
-  Size childSize,
-  int imageWidth,
-) {
+Offset pixelToScenePoint(Offset pixel, Size childSize, int imageWidth) {
   final scale = childSize.width / imageWidth;
   return Offset(pixel.dx * scale, pixel.dy * scale);
 }

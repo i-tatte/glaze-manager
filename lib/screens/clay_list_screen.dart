@@ -26,64 +26,67 @@ class _ClayListScreenState extends ConsumerState<ClayListScreen> {
           ref
               .watch(claysProvider)
               .when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => Center(child: Text('エラーが発生しました: $error')),
-            data: (data) {
-              if (data.isEmpty) {
-                return const EmptyListPlaceholder(
-                  message: '素地土名が登録されていません。\n右下のボタンから追加してください。',
-                );
-              }
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => Center(child: Text('エラーが発生しました: $error')),
+                data: (data) {
+                  if (data.isEmpty) {
+                    return const EmptyListPlaceholder(
+                      message: '素地土名が登録されていません。\n右下のボタンから追加してください。',
+                    );
+                  }
 
-              // 並べ替え操作でリストを直接変更するためコピーを使う
-              final clays = [...data];
+                  // 並べ替え操作でリストを直接変更するためコピーを使う
+                  final clays = [...data];
 
-              return ReorderableListView.builder(
-                itemCount: clays.length,
-                itemBuilder: (context, index) {
-                  final clay = clays[index];
-                  return ListTile(
-                    key: ValueKey(clay.id),
-                    title: Text(clay.name),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit),
-                          tooltip: '編集',
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    ClayEditScreen(clay: clay),
+                  return ReorderableListView.builder(
+                    itemCount: clays.length,
+                    itemBuilder: (context, index) {
+                      final clay = clays[index];
+                      return ListTile(
+                        key: ValueKey(clay.id),
+                        title: Text(clay.name),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit),
+                              tooltip: '編集',
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        ClayEditScreen(clay: clay),
+                                  ),
+                                );
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
                               ),
-                            );
-                          },
+                              tooltip: '削除',
+                              onPressed: () => _confirmDelete(
+                                context,
+                                firestoreService,
+                                clay,
+                              ),
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            color: Colors.red,
-                          ),
-                          tooltip: '削除',
-                          onPressed: () =>
-                              _confirmDelete(context, firestoreService, clay),
-                        ),
-                      ],
-                    ),
+                      );
+                    },
+                    onReorder: (oldIndex, newIndex) {
+                      if (oldIndex < newIndex) {
+                        newIndex -= 1;
+                      }
+                      final item = clays.removeAt(oldIndex);
+                      clays.insert(newIndex, item);
+                      firestoreService.updateClayOrder(clays);
+                    },
                   );
                 },
-                onReorder: (oldIndex, newIndex) {
-                  if (oldIndex < newIndex) {
-                    newIndex -= 1;
-                  }
-                  final item = clays.removeAt(oldIndex);
-                  clays.insert(newIndex, item);
-                  firestoreService.updateClayOrder(clays);
-                },
-              );
-            },
-          ),
+              ),
           Positioned(
             bottom: 16.0,
             right: 16.0,

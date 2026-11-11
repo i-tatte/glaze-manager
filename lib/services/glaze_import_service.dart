@@ -77,11 +77,12 @@ class GlazeImporter {
   ///   1列目=釉薬名, 2列目=登録名, 3列目〜=原料…,
   ///   末尾から3列目=「顔料」, 末尾列=「備考」
   /// 形式が異なる場合は [FormatException] (日本語メッセージ) を投げる。
-  static ({List<ParsedGlazeRow> rows, List<String> skipped, List<String> materialNames})
-  parseExcelBytes(
-    List<int> bytes, {
-    required Set<String> existingGlazeNames,
-  }) {
+  static ({
+    List<ParsedGlazeRow> rows,
+    List<String> skipped,
+    List<String> materialNames,
+  })
+  parseExcelBytes(List<int> bytes, {required Set<String> existingGlazeNames}) {
     final excel = Excel.decodeBytes(bytes);
 
     if (excel.tables.keys.isEmpty) {
@@ -95,8 +96,7 @@ class GlazeImporter {
 
     // --- ヘッダー検証 ---
     final headerRow = sheet.row(0);
-    String headerText(int index) =>
-        (index >= 0 && index < headerRow.length)
+    String headerText(int index) => (index >= 0 && index < headerRow.length)
         ? (headerRow[index]?.value?.toString().trim() ?? '')
         : '';
 

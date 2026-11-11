@@ -31,34 +31,35 @@ void main() {
   });
 
   group('MaterialRepository', () {
-    test('findOrCreate creates only missing materials and returns their names',
-        () async {
-      await repository.add(
-        Material(
-          name: '長石',
-          order: 0,
-          components: {},
-          category: MaterialCategory.base,
-        ),
-      );
+    test(
+      'findOrCreate creates only missing materials and returns their names',
+      () async {
+        await repository.add(
+          Material(
+            name: '長石',
+            order: 0,
+            components: {},
+            category: MaterialCategory.base,
+          ),
+        );
 
-      final created = await repository.findOrCreate(
-        ['長石', '珪石', '珪石', ''],
-        category: MaterialCategory.base,
-      );
+        final created = await repository.findOrCreate([
+          '長石',
+          '珪石',
+          '珪石',
+          '',
+        ], category: MaterialCategory.base);
 
-      // 既存(長石)・重複・空文字は除外され、珪石だけが新規作成される
-      expect(created, ['珪石']);
+        // 既存(長石)・重複・空文字は除外され、珪石だけが新規作成される
+        expect(created, ['珪石']);
 
-      final all = await repository.getAll();
-      expect(all.map((m) => m.name).toSet(), {'長石', '珪石'});
-    });
+        final all = await repository.getAll();
+        expect(all.map((m) => m.name).toSet(), {'長石', '珪石'});
+      },
+    );
 
     test('findOrCreate assigns the given category', () async {
-      await repository.findOrCreate(
-        ['弁柄'],
-        category: MaterialCategory.pigment,
-      );
+      await repository.findOrCreate(['弁柄'], category: MaterialCategory.pigment);
 
       final all = await repository.getAll();
       expect(all.single.category, MaterialCategory.pigment);
@@ -84,8 +85,7 @@ void main() {
       );
     });
 
-    test('getIdByName resolves id and returns null for unknown name',
-        () async {
+    test('getIdByName resolves id and returns null for unknown name', () async {
       await repository.add(
         Material(
           name: '長石',

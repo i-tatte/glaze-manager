@@ -188,7 +188,8 @@ class AuthService {
 
     Map<String, dynamic>? body;
     try {
-      body = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      body =
+          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     } catch (_) {
       body = null;
     }
@@ -223,11 +224,9 @@ class AuthService {
   /// 引き継ぎコードでサインインする (新端末で実行)。
   /// コードが無効・使用済みの場合は [TransferCodeException] をスローする。
   Future<User?> signInWithTransferCode(String code) async {
-    final result = await _callFunction(
-      'redeem_transfer_code',
-      {'code': code},
-      requireAuth: false,
-    );
+    final result = await _callFunction('redeem_transfer_code', {
+      'code': code,
+    }, requireAuth: false);
     final userCredential = await _auth.signInWithCustomToken(
       result['token'] as String,
     );

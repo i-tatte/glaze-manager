@@ -11,7 +11,12 @@ class TagChip extends StatelessWidget {
   final VoidCallback? onDeleted;
   final VoidCallback? onPressed;
 
-  const TagChip({super.key, required this.label, this.onDeleted, this.onPressed});
+  const TagChip({
+    super.key,
+    required this.label,
+    this.onDeleted,
+    this.onPressed,
+  });
 
   @override
   Widget build(BuildContext context) {

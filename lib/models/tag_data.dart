@@ -4,12 +4,11 @@ class TagData {
   final String id; // Tag name is the ID
   final Timestamp createdAt;
 
-  TagData({
-    required this.id,
-    required this.createdAt,
-  });
+  TagData({required this.id, required this.createdAt});
 
-  factory TagData.fromFirestore(DocumentSnapshot<Map<String, dynamic>> snapshot) {
+  factory TagData.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) {
     final data = snapshot.data()!;
     return TagData(
       id: snapshot.id,
@@ -18,8 +17,6 @@ class TagData {
   }
 
   Map<String, dynamic> toFirestore() {
-    return {
-      'createdAt': createdAt,
-    };
+    return {'createdAt': createdAt};
   }
 }

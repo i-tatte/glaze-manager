@@ -281,10 +281,7 @@ class _ColorPickScreenState extends State<ColorPickScreen> {
         title: const Text('スポイトで色を選択'),
         actions: [
           if (widget.mode == ColorPickMode.multi)
-            TextButton(
-              onPressed: _finishMulti,
-              child: const Text('完了'),
-            ),
+            TextButton(onPressed: _finishMulti, child: const Text('完了')),
         ],
       ),
       body: _buildBody(),
@@ -390,7 +387,10 @@ class _ColorPickScreenState extends State<ColorPickScreen> {
     return ClipRect(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final viewportSize = Size(constraints.maxWidth, constraints.maxHeight);
+          final viewportSize = Size(
+            constraints.maxWidth,
+            constraints.maxHeight,
+          );
           _viewportSize = viewportSize;
           // 画像と同じアスペクト比で contain フィットするチャイルドサイズを決める。
           // チャイルド全面 = 画像全面 なので、シーン座標→ピクセル座標が単純な比例になる。
@@ -590,10 +590,26 @@ class _MarkerPainter extends CustomPainter {
 
     for (final paint in [outline, line]) {
       canvas.drawCircle(p, r, paint);
-      canvas.drawLine(p + const Offset(0, -r - arm), p + const Offset(0, -r), paint);
-      canvas.drawLine(p + const Offset(0, r), p + const Offset(0, r + arm), paint);
-      canvas.drawLine(p + const Offset(-r - arm, 0), p + const Offset(-r, 0), paint);
-      canvas.drawLine(p + const Offset(r, 0), p + const Offset(r + arm, 0), paint);
+      canvas.drawLine(
+        p + const Offset(0, -r - arm),
+        p + const Offset(0, -r),
+        paint,
+      );
+      canvas.drawLine(
+        p + const Offset(0, r),
+        p + const Offset(0, r + arm),
+        paint,
+      );
+      canvas.drawLine(
+        p + const Offset(-r - arm, 0),
+        p + const Offset(-r, 0),
+        paint,
+      );
+      canvas.drawLine(
+        p + const Offset(r, 0),
+        p + const Offset(r + arm, 0),
+        paint,
+      );
     }
   }
 
@@ -678,6 +694,5 @@ class _LoupePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_LoupePainter oldDelegate) =>
-      oldDelegate.centerPixel != centerPixel ||
-      oldDelegate.sampler != sampler;
+      oldDelegate.centerPixel != centerPixel || oldDelegate.sampler != sampler;
 }

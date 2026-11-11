@@ -13,8 +13,7 @@ class MaterialEditScreen extends ConsumerStatefulWidget {
   const MaterialEditScreen({super.key, this.material});
 
   @override
-  ConsumerState<MaterialEditScreen> createState() =>
-      _MaterialEditScreenState();
+  ConsumerState<MaterialEditScreen> createState() => _MaterialEditScreenState();
 }
 
 class _MaterialEditScreenState extends ConsumerState<MaterialEditScreen> {

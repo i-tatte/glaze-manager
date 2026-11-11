@@ -53,10 +53,7 @@ void main() {
     });
 
     test('チャイルドサイズが不正なら null', () {
-      expect(
-        scenePointToPixel(Offset.zero, Size.zero, 1000, 500),
-        isNull,
-      );
+      expect(scenePointToPixel(Offset.zero, Size.zero, 1000, 500), isNull);
     });
   });
 
@@ -66,10 +63,7 @@ void main() {
       const pixel = Offset(500, 250);
       final scene = pixelToScenePoint(pixel, childSize, 1000);
       expect(scene, const Offset(100, 50));
-      expect(
-        scenePointToPixel(scene, childSize, 1000, 500),
-        pixel,
-      );
+      expect(scenePointToPixel(scene, childSize, 1000, 500), pixel);
     });
   });
 }

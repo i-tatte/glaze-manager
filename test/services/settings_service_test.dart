@@ -55,15 +55,18 @@ void main() {
       expect(prefs.getString('testPieceGroupKey'), 'colorHue');
     });
 
-    test('testPieceGroupKey falls back to none for unknown saved value', () async {
-      SharedPreferences.setMockInitialValues({
-        'testPieceGroupKey': 'obsoleteValue',
-      });
-      final settings = SettingsService();
-      await Future.delayed(Duration(milliseconds: 50));
+    test(
+      'testPieceGroupKey falls back to none for unknown saved value',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'testPieceGroupKey': 'obsoleteValue',
+        });
+        final settings = SettingsService();
+        await Future.delayed(Duration(milliseconds: 50));
 
-      expect(settings.testPieceGroupKey, TestPieceGroupKey.none);
-    });
+        expect(settings.testPieceGroupKey, TestPieceGroupKey.none);
+      },
+    );
 
     test('clamps values', () async {
       SharedPreferences.setMockInitialValues({});
