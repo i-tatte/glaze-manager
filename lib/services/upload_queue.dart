@@ -77,7 +77,10 @@ class UploadQueue extends ChangeNotifier {
     required Future<UploadDocState> Function(PendingUpload job) checkDocument,
     required Future<void> Function(PendingUpload job, Uint8List bytes) upload,
     void Function(String message)? onFailure,
-    Duration retryDelay = const Duration(seconds: 20),
+    // 文書の同期待ちは、サーバーに届く状態でしか起きないので長くは続かない。
+    // 短い間隔で試し直す (起動直後は、前回の書き込みが届く前に最初の試行が
+    // 走るので、ここが長いと写真の送信がその分だけ遅れる)
+    Duration retryDelay = const Duration(seconds: 3),
     Duration offlineRetryDelay = const Duration(seconds: 60),
   }) : _store = store,
        _currentUid = currentUid,

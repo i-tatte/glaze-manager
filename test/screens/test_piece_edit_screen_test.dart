@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -430,6 +432,74 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(fakeQueue.enqueued, isEmpty);
+      // 送るものがないので、書き込みが完了しても送信は呼ばない
+      expect(fakeQueue.processAllCount, 0);
+    });
+
+    testWidgets('文書の書き込みが完了したら、待たせていた写真をすぐに送り始める', (tester) async {
+      // enqueue の直後の試行は、文書がまだ未送信のうちに走る。書き込みの完了で
+      // 送信を呼ばないと、写真は数秒後の再試行まで送られない
+      final written = Completer<void>();
+      when(
+        mockFirestoreService.updateTestPieceFields(any, any),
+      ).thenAnswer((_) => written.future);
+      await open(
+        tester,
+        TestPieceEditScreen(
+          testPiece: TestPiece(
+            id: 'tp1',
+            glazeId: 'g1',
+            clayId: 'c1',
+            createdAt: Timestamp.now(),
+          ),
+          initialNewImage: (
+            fileName: 'new.jpg',
+            bytes: Uint8List.fromList(_onePixelPng),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('保存'));
+      await tester.pumpAndSettle();
+      // 画面は書き込みの完了を待たずに閉じている
+      expect(find.text('テストピースの編集'), findsNothing);
+      expect(fakeQueue.enqueued, hasLength(1));
+      expect(fakeQueue.processAllCount, 0);
+
+      written.complete();
+      await tester.pumpAndSettle();
+      expect(fakeQueue.processAllCount, 1);
+    });
+
+    testWidgets('文書の書き込みが失敗したら、失敗を知らせ、送信は呼ばない', (tester) async {
+      final written = Completer<void>();
+      when(
+        mockFirestoreService.updateTestPieceFields(any, any),
+      ).thenAnswer((_) => written.future);
+      await open(
+        tester,
+        TestPieceEditScreen(
+          testPiece: TestPiece(
+            id: 'tp1',
+            glazeId: 'g1',
+            clayId: 'c1',
+            createdAt: Timestamp.now(),
+          ),
+          initialNewImage: (
+            fileName: 'new.jpg',
+            bytes: Uint8List.fromList(_onePixelPng),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('保存'));
+      await tester.pumpAndSettle();
+
+      written.completeError(Exception('permission-denied'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.textContaining('保存に失敗しました'), findsOneWidget);
+      expect(fakeQueue.processAllCount, 0);
     });
 
     testWidgets('削除するとアップロード待ちも消す', (tester) async {

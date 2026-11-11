@@ -322,6 +322,7 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
     try {
       final firestoreService = ref.read(firestoreServiceProvider);
       final storageService = ref.read(storageServiceProvider);
+      final uploadQueue = ref.read(uploadQueueProvider);
 
       final hasNewImage = _newImageFileName != null && _newImageBytes != null;
 
@@ -393,14 +394,12 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
       //    (端末内の書き込みなので待ってよい。送信はキューが、文書の書き込みが
       //    サーバーに届いたことを確かめてから行う)
       if (hasNewImage) {
-        await ref
-            .read(uploadQueueProvider)
-            .enqueue(
-              testPieceId: docId,
-              fileName: _newImageFileName!,
-              storagePath: imagePath!,
-              bytes: _newImageBytes!,
-            );
+        await uploadQueue.enqueue(
+          testPieceId: docId,
+          fileName: _newImageFileName!,
+          storagePath: imagePath!,
+          bytes: _newImageBytes!,
+        );
       }
 
       // 2. Firestore への書き込みを発火する (待たない)
@@ -415,11 +414,19 @@ class _TestPieceEditScreenState extends ConsumerState<TestPieceEditScreen> {
               ),
             );
 
-      writeFuture.catchError((Object e) {
-        scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text('保存に失敗しました: $e')),
-        );
-      });
+      writeFuture.then(
+        (_) {
+          // 文書がサーバーに届いた。待たせていた写真をすぐに送る。
+          // enqueue の直後の試行は、ほぼ必ず文書がまだ未送信のうちに走るので、
+          // これがないと送信は数秒後の再試行まで始まらない
+          if (hasNewImage) uploadQueue.processAll();
+        },
+        onError: (Object e) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(content: Text('保存に失敗しました: $e')),
+          );
+        },
+      );
 
       // 3. 画面を閉じる。連続登録なら、条件を引き継いだ次の画面に置き換える
       _isDirty = false;
