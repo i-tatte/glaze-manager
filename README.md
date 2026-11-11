@@ -64,6 +64,25 @@ firebase deploy --only functions
 firebase emulators:exec --only firestore,storage --project demo-glaze-manager "npm --prefix rules_test test"
 ```
 
+### 実アプリの結合テスト（Windows、要 Firebase Emulator + Java）
+
+実アプリを Firebase エミュレータ（デモ用のプロジェクト）に繋いで、登録・写真の送信・書き戻し・オフライン保存と再起動後の送信などを通しで確かめる。実プロジェクトには繋がらない。
+
+```powershell
+# 1. エミュレータを起動する（別のターミナルで。Ctrl+C で止める）
+tool\emulator\start_emulators.ps1
+
+# 2. Cloud Functions の確認（20 項目）
+functions\venv\Scripts\python.exe tool\emulator\functions_emulator_check.py
+
+# 3. 実アプリの通しの確認
+tool\emulator\run_it.ps1 -Test app_flow_test.dart -Mode online
+tool\emulator\run_it.ps1 -Test app_flow_test.dart -Mode offline_save -Define GM_FIRESTORE_PORT=8599,GM_STORAGE_PORT=8598
+tool\emulator\run_it.ps1 -Test app_flow_test.dart -Mode after_restart
+```
+
+ログと測った値は `build\it\` に出る。`offline_save` には、誰も待ち受けていないポートを渡す。
+
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yaml`) で以下を自動実行:

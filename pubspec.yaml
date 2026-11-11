@@ -69,6 +69,10 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # 実機 (Windows) で Firebase エミュレータに繋いで動かす確認用
+  # (integration_test/ を参照)
+  integration_test:
+    sdk: flutter
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
